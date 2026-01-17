@@ -8,6 +8,7 @@ import DiscoverPage from "./pages/DiscoverPage"
 import FeedsPage from "./pages/FeedsPage"
 import CollectionsPage from "./pages/CollectionsPage"
 import SettingsPage from "./pages/SettingsPage"
+import ApiKeysPage from "./pages/ApiKeysPage"
 import PricingPage from "./pages/PricingPage"
 import TermsPage from "./pages/TermsPage"
 import PrivacyPage from "./pages/PrivacyPage"
@@ -52,6 +53,7 @@ function App() {
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/api-keys" element={<ApiKeysPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

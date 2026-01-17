@@ -98,7 +98,7 @@ export const PRICING_PLANS = {
       exportRSS: true,
       keyboardShortcuts: true,
       prioritySupport: false,
-      apiAccess: false,
+      apiAccess: true, // ✅ API access enabled for Premium
     },
   },
 } as const

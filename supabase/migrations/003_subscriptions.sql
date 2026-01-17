@@ -22,17 +22,20 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id ON subscript
 -- Enable RLS
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
+-- RLS Policies (drop if exists to avoid conflicts)
+DROP POLICY IF EXISTS "Users can view their own subscription" ON subscriptions;
 CREATE POLICY "Users can view their own subscription"
   ON subscriptions
   FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own subscription" ON subscriptions;
 CREATE POLICY "Users can insert their own subscription"
   ON subscriptions
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own subscription" ON subscriptions;
 CREATE POLICY "Users can update their own subscription"
   ON subscriptions
   FOR UPDATE
@@ -48,6 +51,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to automatically update updated_at
+DROP TRIGGER IF EXISTS update_subscriptions_updated_at ON subscriptions;
 CREATE TRIGGER update_subscriptions_updated_at
   BEFORE UPDATE ON subscriptions
   FOR EACH ROW
@@ -71,6 +75,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger to create subscription when user signs up
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW

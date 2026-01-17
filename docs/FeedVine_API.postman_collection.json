@@ -1,0 +1,217 @@
+{
+  "info": {
+    "name": "FeedVine API",
+    "description": "Complete API collection for testing FeedVine endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://your-project.supabase.co/functions/v1"
+    },
+    {
+      "key": "api_key",
+      "value": "sk_live_your_api_key_here"
+    }
+  ],
+  "item": [
+    {
+      "name": "Feeds",
+      "item": [
+        {
+          "name": "List Feeds",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{api_key}}"}],
+            "url": "{{base_url}}/api-v1-feeds?page=1&limit=10"
+          }
+        },
+        {
+          "name": "Get Single Feed",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{api_key}}"}],
+            "url": "{{base_url}}/api-v1-feeds/FEED_ID_HERE"
+          }
+        },
+        {
+          "name": "Create Feed",
+                                   "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{api_key}}"},
+              {"key": "Content-Type", "value":   pplication/json"}
+                           "body": {
+              "mode": "raw",
+              "raw": "{\"url     ht    //blog.example.com/feed.xml\",\"title\":\"Example Blog\"}"
+            },
+                ": "{{ba                ": "{"
+          }
+        },
+        {
+          "name": "Delete Feed",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{api_key}}"}],
+            "url": "{{base_url}}/api-v1-feeds/FEED_ID_HERE"
+                    }
+      ]
+    },
+    {
+      "name": "Arti      "name": "Arti  [
+      "name": "Arti      "n "List All Articles",
+          "request": {
+            "method": "GET",
+                                                                   ap          ,
+            "url": "{            "url": "{          e=            "url": "{            "url": "{                       "url": "ad Articles",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{api_key}}"}],
+            "url": "{{base_url}}            "url": "{{base_e&limit=20"
+          }
+        },
+        {
+          "name": "List Saved Articles",
+          "request": {
+            "method": "GET",
+            "header": [{          thorization", "value":             "header": [{            "url": "{{base_url}}/api-v1-articles?saved=true&limi            "header": [{          thorization", "value":             "header":        "request": {
+            "method": "GET",
+            "            "       uthorizati     "value":            "            "       uthorizl": "{{base_url}}/api-v1-articles?search=javascript&limit=20"
+          }
+          }
+"            "     "name": "Get Single Article",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{api_key}}"}],
+            "url": "{{base_url}}/api-v1-articles/ARTICLE_ID_HERE"
+          }
+        },
+        {
+          "name": "Mark Article as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Authorization", "va          re         ey}}"},
+              {"key": "Content-Type", "value"              {"key":
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"is_read\":true}"
+            },
+            "url": "{{base_url}}/api-v1-articles/ARTICLE_ID_HERE/read"
+          }
+        },
+        {
+          "name": "Mark Article as Unread",
+                                   "method": "PATCH",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{api_key}}"},
+              {"key": "Content-Type", "va          li          n"              {"key": "Content-Type", "va                      {"key":            "raw": "{\"is_read\":false}"
+            },
+            "url": "{{base_url}}/api-v1-articles/ARTICLE            "url": "{{base_url}}/api-v1-articles/ARTICLE        : "Save Articl                   est": {
+            "method": "PATCH",
+            "header": [
+                                 ion", "value": "Bearer {{api_key}}"},
+              {"key": "Content-Type", "value": "application              {"key": "Content-Type", "value": "application  ode": "raw",
+              "raw": "{\"is_saved\":true}"
+            },
+                                         rticles/ARTICLE_ID_HERE/save"
+          }
+        },
+        {
+          "name": "Unsave Article",
+          "r         {          "r         {          "r          "header": [
+              {"key": "Authorization", "value": "Bearer {{api_key}}"},
+              {"key": "Content-Type", "value": "application/json"}              {"key": "Content-Type", "value": "application/json"}              {"key": "Content-Type", "value": "application/json"}              {"key": "Content-Type", "val/ARTICLE_ID_HERE/save"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{api_key}}"}],
+            "url": "{{base_url}}/api-v1-categories"
+          }
+        },
+        {
+          "name": "Get Single Category",
+          "request":           "request":           "request":            "reke          "request":           "request":           "request":       l"          url}}/api-v1-        es/CATEGORY_ID_HERE"
+          }
+        },
+        {
+          "name": "Create Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{api_key}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Technology\",\"color\":\"#3B82F6\"}"
+            },
+            "url": "{{base_url}}/api-v1-categories"
+          }
+        },
+        {
+          "name": "Update Category",
+                                                                  "header": [
+              {"key": "Authorization", "value": "Bearer {{a              {"key": "Authorization", "value": "B"value": "appl         so                ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Tech News\",\"color\":\"#10B981\"}"
+            },
+            "url": "{{base_url}}/api-v1-categories/CATEGORY_ID_HERE"
+          }
+        },
+                    "name": "        ategory",
+          "request": {
+                 od": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{api_key}}"}],
+            "url": "{{base_url}}/api-v1-c            "url": "{{base_url}}/api-v1-c            "url": "{{ba    {
+      "name": "Collections",
+      "item": [
+        {
+          "name": "List Collections",
+          "request": {
+            "meth            "           "header": [{"key": "Authorization", "value": "Bearer {{         "}               "url": "{{base_url}}/api-v1-collections"
+          }
+        },
+        {
+          "name": "Get Single Collection",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{api_key}}"}],
+            "            "       api-v1-collections/COLLECTION_ID_HERE"
+          }
+        },
+        {
+          "name": "Create Collection",
+          "request": {
+            "method": "POST",
+            "header": [
+                  y": "Authorization", "value": "Bearer {{api_key}}"},
+              {"key              {"key           pplication/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"My Tech Collection\",\"slug\":\"my-tech-collection\",\"description\":\"A coll              "raw": "{\"na_public\":true,\"output_format\":\"rss\",\"feed_ids\":[]}"
+            },
+            "url": "{{base_url}}/api-v1-collections"
+          }
+        },
+        {
+          "name": "Delete Collection",
+          "request": {
+            "method": "DELETE"              "header":     ey": "Authorization", "value": "Bearer {{api_key}}"}],
+            "url            "url           lections/COLLECTION_ID_HERE"
+          }
+        }
+      ]
+    }
+  ]
+}
