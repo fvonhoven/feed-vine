@@ -78,7 +78,7 @@ export default function PricingPage() {
           >
             Annual
             <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-full">
-              Save up to 27%
+              Save up to 21%
             </span>
           </button>
         </div>
@@ -94,7 +94,7 @@ export default function PricingPage() {
           return (
             <div
               key={key}
-              className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 relative ${
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 relative flex flex-col ${
                 isPopular ? "border-primary-500 ring-4 ring-primary-100 dark:ring-primary-900/30" : "border-gray-200 dark:border-gray-700"
               }`}
             >
@@ -275,21 +275,23 @@ export default function PricingPage() {
                 )}
               </ul>
 
-              <button
-                onClick={() => handleSubscribe(key.toLowerCase(), billingInterval)}
-                disabled={loading === key.toLowerCase()}
-                className={`w-full px-6 py-3 rounded-lg font-semibold transition-colors ${
-                  isPopular
-                    ? "bg-primary-600 hover:bg-primary-700 text-white"
-                    : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {loading === key.toLowerCase()
-                  ? "Loading..."
-                  : key === "FREE"
-                  ? "Current Plan"
-                  : `Get ${plan.name} ${billingInterval === "annual" ? "Annual" : "Monthly"}`}
-              </button>
+              <div className="mt-auto">
+                <button
+                  onClick={() => handleSubscribe(key.toLowerCase(), billingInterval)}
+                  disabled={loading === key.toLowerCase()}
+                  className={`w-full px-6 py-3 rounded-lg font-semibold transition-colors ${
+                    isPopular
+                      ? "bg-primary-600 hover:bg-primary-700 text-white"
+                      : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {loading === key.toLowerCase()
+                    ? "Loading..."
+                    : key === "FREE"
+                    ? "Current Plan"
+                    : `Get ${plan.name} ${billingInterval === "annual" ? "Annual" : "Monthly"}`}
+                </button>
+              </div>
             </div>
           )
         })}

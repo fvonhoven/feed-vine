@@ -93,13 +93,13 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">Simple, Transparent Pricing</h2>
           <p className="text-center text-gray-600 dark:text-gray-400 mb-4">Start free, upgrade when you need more</p>
-          <p className="text-center text-sm text-green-600 dark:text-green-400 mb-12">💰 Save up to 27% with annual billing</p>
+          <p className="text-center text-sm text-green-600 dark:text-green-400 mb-12">💰 Save up to 21% with annual billing</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
             {pricingTiers.map((tier, index) => (
               <div
                 key={index}
-                className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 ${
+                className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 flex flex-col ${
                   tier.popular ? "border-primary-500 ring-4 ring-primary-100 dark:ring-primary-900/30" : "border-gray-200 dark:border-gray-700"
                 }`}
               >
@@ -126,16 +126,18 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  to="/auth"
-                  className={`block text-center px-6 py-3 rounded-lg font-semibold transition-colors ${
-                    tier.popular
-                      ? "bg-primary-600 hover:bg-primary-700 text-white"
-                      : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
-                  }`}
-                >
-                  {tier.cta}
-                </Link>
+                <div className="mt-auto">
+                  <Link
+                    to="/auth"
+                    className={`block text-center px-6 py-3 rounded-lg font-semibold transition-colors ${
+                      tier.popular
+                        ? "bg-primary-600 hover:bg-primary-700 text-white"
+                        : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
+                    }`}
+                  >
+                    {tier.cta}
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
