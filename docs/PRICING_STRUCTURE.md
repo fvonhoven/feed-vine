@@ -23,11 +23,12 @@ FeedVine offers 4 pricing tiers with both **monthly** and **annual** billing opt
 
 ### ⭐ Pro Plan
 
-**Monthly:** $6/month  
+**Monthly:** $6/month
 **Annual:** $5/month ($60/year) - **Save 17%**
 
 **Features:**
 
+- **Everything in Free, plus:**
 - 5 RSS feeds
 - 3 categories
 - Save articles
@@ -40,17 +41,17 @@ FeedVine offers 4 pricing tiers with both **monthly** and **annual** billing opt
 
 ### 🔥 Plus Plan (MOST POPULAR)
 
-**Monthly:** $12/month  
+**Monthly:** $12/month
 **Annual:** $10/month ($120/year) - **Save 17%**
 
 **Features:**
 
+- **Everything in Pro, plus:**
 - 15 RSS feeds
 - 10 categories
 - 5 feed collections
 - Advanced filters
 - Keyboard shortcuts
-- Everything in Pro
 
 **Perfect for:** Heavy users, professional content managers
 
@@ -63,14 +64,15 @@ FeedVine offers 4 pricing tiers with both **monthly** and **annual** billing opt
 
 **Features:**
 
+- **Everything in Plus, plus:**
 - 25 RSS feeds
 - 25 categories
 - 25 feed collections
-- Advanced filters
-- Keyboard shortcuts
-- Everything in Plus
+- **🔑 API Access (2,000 requests/hour)**
+- Programmatic access to all your data
+- Build custom integrations
 
-**Perfect for:** Power users managing many feeds and categories
+**Perfect for:** Developers and power users who need API access
 
 ---
 

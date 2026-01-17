@@ -25,6 +25,7 @@ export default function TermsPage() {
             <li>Content filtering and search</li>
             <li>Article bookmarking and saving</li>
             <li>RSS feed export functionality</li>
+            <li>API access for programmatic integration (Premium plan only)</li>
           </ul>
         </section>
 
@@ -52,13 +53,16 @@ export default function TermsPage() {
               <strong>Free Plan:</strong> Limited to 1 RSS feed and 1 category with basic read/unread tracking
             </li>
             <li>
-              <strong>Pro Plan:</strong> Up to 5 feeds, 3 categories, 1 feed collection, save articles, and export to RSS ($5/month)
+              <strong>Pro Plan:</strong> Everything in Free, plus up to 5 feeds, 3 categories, 1 feed collection, save articles, and export to RSS
+              ($6/month or $5/month annual)
             </li>
             <li>
-              <strong>Plus Plan:</strong> Up to 15 feeds, 10 categories, 5 feed collections, advanced filters, and keyboard shortcuts ($10/month)
+              <strong>Plus Plan:</strong> Everything in Pro, plus up to 15 feeds, 10 categories, 5 feed collections, advanced filters, and keyboard
+              shortcuts ($12/month or $10/month annual)
             </li>
             <li>
-              <strong>Premium Plan:</strong> Up to 25 feeds, 25 categories, unlimited collections, API access, and priority support ($15/month)
+              <strong>Premium Plan:</strong> Everything in Plus, plus up to 25 feeds, 25 categories, 25 collections, and API access with 2,000
+              requests/hour ($19/month or $15/month annual)
             </li>
           </ul>
           <p className="text-gray-700 dark:text-gray-300 mb-4">

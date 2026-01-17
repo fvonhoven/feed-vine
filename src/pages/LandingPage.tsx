@@ -120,7 +120,9 @@ export default function LandingPage() {
                       <svg className="w-5 h-5 text-primary-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      <span className="text-gray-600 dark:text-gray-400">{feature}</span>
+                      <span className={`text-gray-600 dark:text-gray-400 ${feature.includes("Everything in") ? "font-semibold" : ""}`}>
+                        {feature}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -257,7 +259,7 @@ const pricingTiers = [
     price: 6,
     annualPrice: 5,
     popular: false,
-    features: ["5 RSS feeds", "3 categories", "Save articles", "1 feed collection", "Export to RSS"],
+    features: ["Everything in Free, plus:", "5 RSS feeds", "3 categories", "Save articles", "1 feed collection", "Export to RSS"],
     cta: "Go Pro",
   },
   {
@@ -265,7 +267,7 @@ const pricingTiers = [
     price: 12,
     annualPrice: 10,
     popular: true,
-    features: ["15 RSS feeds", "10 categories", "5 feed collections", "Advanced filters", "Keyboard shortcuts"],
+    features: ["Everything in Pro, plus:", "15 RSS feeds", "10 categories", "5 feed collections", "Advanced filters", "Keyboard shortcuts"],
     cta: "Go Plus",
   },
   {
@@ -273,7 +275,7 @@ const pricingTiers = [
     price: 19,
     annualPrice: 15,
     popular: false,
-    features: ["25 RSS feeds", "25 categories", "25 collections", "Advanced filters", "Keyboard shortcuts"],
+    features: ["Everything in Plus, plus:", "25 RSS feeds", "25 categories", "25 collections", "API Access (2000 req/hr)"],
     cta: "Go Premium",
   },
 ]

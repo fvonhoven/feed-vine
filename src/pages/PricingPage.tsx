@@ -124,6 +124,32 @@ export default function PricingPage() {
               </div>
 
               <ul className="space-y-4 mb-8">
+                {/* Show "Everything in X" for higher tiers */}
+                {key === "PRO" && (
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-gray-600 dark:text-gray-400 font-semibold">Everything in Free, plus:</span>
+                  </li>
+                )}
+                {key === "PLUS" && (
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-gray-600 dark:text-gray-400 font-semibold">Everything in Pro, plus:</span>
+                  </li>
+                )}
+                {key === "PREMIUM" && (
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-gray-600 dark:text-gray-400 font-semibold">Everything in Plus, plus:</span>
+                  </li>
+                )}
+
                 <li className="flex items-start">
                   <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -142,26 +168,20 @@ export default function PricingPage() {
                   </svg>
                   <span className="text-gray-600 dark:text-gray-400">{plan.features.maxCollections} collections</span>
                 </li>
-                <li className="flex items-start">
-                  <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-600 dark:text-gray-400">Read/unread tracking</span>
-                </li>
+                {key === "FREE" && (
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-gray-600 dark:text-gray-400">Read/unread tracking</span>
+                  </li>
+                )}
                 {plan.features.savedArticles && (
                   <li className="flex items-start">
                     <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span className="text-gray-600 dark:text-gray-400">Save articles</span>
-                  </li>
-                )}
-                {plan.features.advancedFilters && (
-                  <li className="flex items-start">
-                    <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-600 dark:text-gray-400">Advanced filters</span>
                   </li>
                 )}
                 {plan.features.exportRSS && (
@@ -172,12 +192,28 @@ export default function PricingPage() {
                     <span className="text-gray-600 dark:text-gray-400">Export to RSS</span>
                   </li>
                 )}
+                {plan.features.advancedFilters && (
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-gray-600 dark:text-gray-400">Advanced filters</span>
+                  </li>
+                )}
                 {plan.features.keyboardShortcuts && (
                   <li className="flex items-start">
                     <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span className="text-gray-600 dark:text-gray-400">Keyboard shortcuts</span>
+                  </li>
+                )}
+                {plan.features.apiAccess && (
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-gray-600 dark:text-gray-400 font-semibold">API Access</span>
                   </li>
                 )}
               </ul>

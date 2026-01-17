@@ -35,7 +35,7 @@ This guide will walk you through setting up Stripe payments for your RSS Aggrega
    **Premium Plan:**
 
    - Name: "FeedVine Premium"
-   - Description: "25 RSS feeds, 25 categories, 25 collections, advanced filters, keyboard shortcuts"
+   - Description: "25 RSS feeds, 25 categories, 25 collections, API access (2000 req/hr)"
    - Create TWO prices:
      - Monthly: $19/month (recurring monthly) → Copy **Price ID**
      - Annual: $15/month ($180/year billed annually) → Copy **Price ID**
