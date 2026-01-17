@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>FeedVine Favicon Generator</title>
+  <style>
+    body { font-family: system-ui; padding: 20px; }
+    canvas { border: 1px solid #ccc; margin: 10px; }
+    .container { display: flex; flex-wrap: wrap; gap: 20px; }
+    .icon-set { text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>FeedVine Favicon Generator</h1>
+  <p>Right-click each canvas and "Save image as..." with the filename shown below it.</p>
+  
+  <div class="container">
+    <div class="icon-set">
+      <canvas id="favicon16" width="16" height="16"></canvas>
+      <p>favicon-16x16.png</p>
+    </div>
+    <div class="icon-set">
+      <canvas id="favicon32" width="32" height="32"></canvas>
+      <p>favicon-32x32.png</p>
+    </div>
+    <div class="icon-set">
+      <canvas id="apple180" width="180" height="180"></canvas>
+      <p>apple-touch-icon.png</p>
+    </div>
+    <div class="icon-set">
+      <canvas id="og1200" width="1200" height="630"></canvas>
+      <p>og-image.png</p>
+    </div>
+  </div>
+
+  <script>
+    function drawLogo(ctx, size, withText = false) {
+      const scale = size / 40;
+      ctx.scale(scale, scale);
+      
+      // Set color
+      ctx.strokeStyle = '#10b981';
+      ctx.fillStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      // Top layer (filled)
+      ctx.beginPath();
+      ctx.moveTo(20, 4);
+      ctx.lineTo(4, 12);
+      ctx.lineTo(20, 20);
+      ctx.lineTo(36, 12);
+      ctx.closePath();
+      ctx.globalAlpha = 0.3;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.stroke();
+      
+      // Middle layer
+      ctx.beginPath();
+      ctx.moveTo(4, 20);
+      ctx.lineTo(20, 28);
+      ctx.lineTo(36, 20);
+      ctx.stroke();
+      
+      // Bottom layer
+      ctx.beginPath();
+      ctx.moveTo(4, 28);
+      ctx.lineTo(20, 36);
+      ctx.lineTo(36, 28);
+      ctx.stroke();
+    }
+
+    function drawOGImage(ctx) {
+      // Background gradient
+      const gradient = ctx.createLinearGradient(0, 0, 1200, 630);
+      gradient.addColorStop(0, '#f0fdf4');
+      gradient.addColorStop(1, '#d1fae5');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1200, 630);
+      
+      // Draw large logo
+      ctx.save();
+      ctx.translate(300, 165);
+      drawLogo(ctx, 300);
+      ctx.restore();
+      
+      // Draw text
+      ctx.fillStyle = '#065f46';
+      ctx.font = 'bold 80px system-ui';
+      ctx.fillText('FeedVine', 650, 280);
+      
+      ctx.fillStyle = '#047857';
+      ctx.font = '32px system-ui';
+      ctx.fillText('Your Smart RSS Feed Aggregator', 650, 340);
+      
+      ctx.font = '24px system-ui';
+      ctx.fillStyle = '#059669';
+      ctx.fillText('Aggregate • Organize • Automate', 650, 390);
+    }
+
+    // Generate 16x16
+    const ctx16 = document.getElementById('favicon16').getContext('2d');
+    drawLogo(ctx16, 16);
+
+    // Generate 32x32
+    const ctx32 = document.getElementById('favicon32').getContext('2d');
+    drawLogo(ctx32, 32);
+
+    // Generate 180x180
+    const ctx180 = document.getElementById('apple180').getContext('2d');
+    // Add rounded background for iOS
+    ctx180.fillStyle = '#ffffff';
+    ctx180.fillRect(0, 0, 180, 180);
+    ctx180.save();
+    ctx180.translate(25, 25);
+    drawLogo(ctx180, 130);
+    ctx180.restore();
+
+    // Generate OG image
+    const ctxOG = document.getElementById('og1200').getContext('2d');
+    drawOGImage(ctxOG);
+  </script>
+</body>
+</html>
+
