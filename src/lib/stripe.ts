@@ -20,8 +20,10 @@ export const PRICING_PLANS = {
   FREE: {
     id: "free",
     name: "Free",
-    price: 0,
-    priceId: null,
+    monthlyPrice: 0,
+    annualPrice: 0,
+    monthlyPriceId: null,
+    annualPriceId: null,
     features: {
       maxFeeds: 1,
       maxCategories: 1,
@@ -39,8 +41,10 @@ export const PRICING_PLANS = {
   PRO: {
     id: "pro",
     name: "Pro",
-    price: 5,
-    priceId: import.meta.env.VITE_STRIPE_PRO_PRICE_ID,
+    monthlyPrice: 6, // Increased from $5 (20% increase)
+    annualPrice: 5, // Original price as annual discount
+    monthlyPriceId: import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID,
+    annualPriceId: import.meta.env.VITE_STRIPE_PRO_ANNUAL_PRICE_ID,
     features: {
       maxFeeds: 5,
       maxCategories: 3,
@@ -58,8 +62,10 @@ export const PRICING_PLANS = {
   PLUS: {
     id: "plus",
     name: "Plus",
-    price: 10,
-    priceId: import.meta.env.VITE_STRIPE_PLUS_PRICE_ID,
+    monthlyPrice: 12, // Increased from $10 (20% increase)
+    annualPrice: 10, // Original price as annual discount
+    monthlyPriceId: import.meta.env.VITE_STRIPE_PLUS_MONTHLY_PRICE_ID,
+    annualPriceId: import.meta.env.VITE_STRIPE_PLUS_ANNUAL_PRICE_ID,
     features: {
       maxFeeds: 15,
       maxCategories: 10,
@@ -77,26 +83,29 @@ export const PRICING_PLANS = {
   PREMIUM: {
     id: "premium",
     name: "Premium",
-    price: 15,
-    priceId: import.meta.env.VITE_STRIPE_PREMIUM_PRICE_ID,
+    monthlyPrice: 19, // Increased from $15 (~27% increase)
+    annualPrice: 15, // Original price as annual discount
+    monthlyPriceId: import.meta.env.VITE_STRIPE_PREMIUM_MONTHLY_PRICE_ID,
+    annualPriceId: import.meta.env.VITE_STRIPE_PREMIUM_ANNUAL_PRICE_ID,
     features: {
       maxFeeds: 25,
       maxCategories: 25,
-      maxCollections: -1,
+      maxCollections: 25,
       readTracking: true,
       basicFilters: true,
       savedArticles: true,
       advancedFilters: true,
       exportRSS: true,
       keyboardShortcuts: true,
-      prioritySupport: true,
-      apiAccess: true,
+      prioritySupport: false,
+      apiAccess: false,
     },
   },
 } as const
 
 export type PlanId = keyof typeof PRICING_PLANS
 export type PlanFeatures = (typeof PRICING_PLANS)[PlanId]["features"]
+export type BillingInterval = "monthly" | "annual"
 
 // Helper to check if user has access to a feature
 export function hasFeatureAccess(userPlan: PlanId, feature: keyof PlanFeatures): boolean {
@@ -106,4 +115,23 @@ export function hasFeatureAccess(userPlan: PlanId, feature: keyof PlanFeatures):
 // Helper to get plan limits
 export function getPlanLimit(userPlan: PlanId, limit: "maxFeeds" | "maxCategories" | "maxCollections"): number {
   return PRICING_PLANS[userPlan].features[limit]
+}
+
+// Helper to get price based on billing interval
+export function getPlanPrice(planId: PlanId, interval: BillingInterval): number {
+  return interval === "monthly" ? PRICING_PLANS[planId].monthlyPrice : PRICING_PLANS[planId].annualPrice
+}
+
+// Helper to get price ID based on billing interval
+export function getPlanPriceId(planId: PlanId, interval: BillingInterval): string | null {
+  return interval === "monthly" ? PRICING_PLANS[planId].monthlyPriceId : PRICING_PLANS[planId].annualPriceId
+}
+
+// Helper to calculate annual savings percentage
+export function getAnnualSavings(planId: PlanId): number {
+  const plan = PRICING_PLANS[planId]
+  if (plan.monthlyPrice === 0) return 0
+  const monthlyCost = plan.monthlyPrice * 12
+  const annualCost = plan.annualPrice * 12
+  return Math.round(((monthlyCost - annualCost) / monthlyCost) * 100)
 }

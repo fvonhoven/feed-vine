@@ -13,21 +13,42 @@ This guide will walk you through setting up Stripe payments for your RSS Aggrega
 1. **Log in to Stripe Dashboard** (https://dashboard.stripe.com)
 
 2. **Create Products:**
-   - Go to **Products** → **Add Product**
-   
-   **Pro Plan:**
-   - Name: "RSS Aggregator Pro"
-   - Description: "Unlimited feeds and advanced features"
-   - Pricing: $5/month (recurring)
-   - Copy the **Price ID** (starts with `price_`)
-   
-   **Team Plan:**
-   - Name: "RSS Aggregator Team"
-   - Description: "Everything in Pro plus team features"
-   - Pricing: $15/month (recurring)
-   - Copy the **Price ID** (starts with `price_`)
 
-3. **Save your Price IDs** - you'll need these for environment variables
+   - Go to **Products** → **Add Product**
+
+   **Pro Plan:**
+
+   - Name: "FeedVine Pro"
+   - Description: "5 RSS feeds, 3 categories, save articles, 1 feed collection"
+   - Create TWO prices:
+     - Monthly: $6/month (recurring monthly) → Copy **Price ID**
+     - Annual: $5/month ($60/year billed annually) → Copy **Price ID**
+
+   **Plus Plan:**
+
+   - Name: "FeedVine Plus"
+   - Description: "15 RSS feeds, 10 categories, 5 feed collections, advanced filters"
+   - Create TWO prices:
+     - Monthly: $12/month (recurring monthly) → Copy **Price ID**
+     - Annual: $10/month ($120/year billed annually) → Copy **Price ID**
+
+   **Premium Plan:**
+
+   - Name: "FeedVine Premium"
+   - Description: "25 RSS feeds, 25 categories, 25 collections, advanced filters, keyboard shortcuts"
+   - Create TWO prices:
+     - Monthly: $19/month (recurring monthly) → Copy **Price ID**
+     - Annual: $15/month ($180/year billed annually) → Copy **Price ID**
+
+3. **Save your Price IDs** - you'll need 6 total price IDs (2 per plan)
+
+**Note:** The Free plan doesn't need a Stripe product since it's free and doesn't require payment.
+
+**Annual Savings:**
+
+- Pro: Save 17% ($12/year)
+- Plus: Save 17% ($24/year)
+- Premium: Save 21% ($48/year)
 
 ## Step 2: Get Stripe API Keys
 
@@ -38,14 +59,22 @@ This guide will walk you through setting up Stripe payments for your RSS Aggrega
 
 ## Step 3: Configure Environment Variables
 
-### Frontend (.env.local)
+### Frontend (.env)
 
-Create or update `.env.local` in your project root:
+Create or update `.env` in your project root:
 
 ```env
 VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_publishable_key_here
-VITE_STRIPE_PRO_PRICE_ID=price_your_pro_price_id_here
-VITE_STRIPE_TEAM_PRICE_ID=price_your_team_price_id_here
+
+# Monthly Price IDs
+VITE_STRIPE_PRO_MONTHLY_PRICE_ID=price_your_pro_monthly_price_id
+VITE_STRIPE_PLUS_MONTHLY_PRICE_ID=price_your_plus_monthly_price_id
+VITE_STRIPE_PREMIUM_MONTHLY_PRICE_ID=price_your_premium_monthly_price_id
+
+# Annual Price IDs
+VITE_STRIPE_PRO_ANNUAL_PRICE_ID=price_your_pro_annual_price_id
+VITE_STRIPE_PLUS_ANNUAL_PRICE_ID=price_your_plus_annual_price_id
+VITE_STRIPE_PREMIUM_ANNUAL_PRICE_ID=price_your_premium_annual_price_id
 ```
 
 ### Backend (Supabase Edge Functions)
@@ -61,26 +90,31 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 ## Step 4: Deploy Supabase Edge Functions
 
 1. **Install Supabase CLI** (if not already installed):
+
 ```bash
 npm install -g supabase
 ```
 
 2. **Login to Supabase:**
+
 ```bash
 supabase login
 ```
 
 3. **Link your project:**
+
 ```bash
 supabase link --project-ref your-project-ref
 ```
 
 4. **Deploy the checkout session function:**
+
 ```bash
 supabase functions deploy create-checkout-session
 ```
 
 5. **Deploy the webhook function:**
+
 ```bash
 supabase functions deploy stripe-webhook
 ```
@@ -88,9 +122,11 @@ supabase functions deploy stripe-webhook
 ## Step 5: Set Up Stripe Webhook
 
 1. **Get your webhook endpoint URL:**
+
    - Format: `https://your-project-ref.supabase.co/functions/v1/stripe-webhook`
 
 2. **In Stripe Dashboard:**
+
    - Go to **Developers** → **Webhooks**
    - Click **Add endpoint**
    - Enter your webhook URL
@@ -126,14 +162,16 @@ supabase db push
 ### Test Mode
 
 1. **Use Stripe test cards:**
+
    - Success: `4242 4242 4242 4242`
    - Decline: `4000 0000 0000 0002`
    - Any future expiry date and any 3-digit CVC
 
 2. **Test the flow:**
+
    - Sign in to your app
    - Go to Pricing page
-   - Click "Subscribe to Pro"
+   - Click "Go Pro", "Go Plus", or "Go Premium"
    - Complete checkout with test card
    - Verify subscription in Supabase `subscriptions` table
    - Check Stripe Dashboard for the subscription
@@ -158,6 +196,7 @@ supabase db push
 Enable Stripe Customer Portal for users to manage their subscriptions:
 
 1. **In Stripe Dashboard:**
+
    - Go to **Settings** → **Billing** → **Customer portal**
    - Click **Activate test link** (or **Activate** for production)
    - Configure portal settings:
@@ -172,17 +211,20 @@ Enable Stripe Customer Portal for users to manage their subscriptions:
 ## Troubleshooting
 
 ### Checkout not working
+
 - Verify `VITE_STRIPE_PUBLISHABLE_KEY` is set correctly
 - Check browser console for errors
 - Ensure Edge Function is deployed and accessible
 
 ### Webhook not receiving events
+
 - Verify webhook URL is correct
 - Check webhook signing secret matches
 - Use Stripe CLI to test locally
 - Check Supabase Edge Function logs
 
 ### Subscription not updating in database
+
 - Check Edge Function logs in Supabase Dashboard
 - Verify `STRIPE_SECRET_KEY` is set in Edge Functions secrets
 - Ensure database migration ran successfully
@@ -215,7 +257,7 @@ Enable Stripe Customer Portal for users to manage their subscriptions:
 ## Support
 
 For issues with:
+
 - **Stripe:** https://support.stripe.com
 - **Supabase:** https://supabase.com/docs/guides/functions
 - **This integration:** Check Edge Function logs in Supabase Dashboard
-

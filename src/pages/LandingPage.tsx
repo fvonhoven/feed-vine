@@ -92,7 +92,8 @@ export default function LandingPage() {
       <div className="bg-gray-50 dark:bg-gray-800/50 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">Simple, Transparent Pricing</h2>
-          <p className="text-center text-gray-600 dark:text-gray-400 mb-12">Start free, upgrade when you need more</p>
+          <p className="text-center text-gray-600 dark:text-gray-400 mb-4">Start free, upgrade when you need more</p>
+          <p className="text-center text-sm text-green-600 dark:text-green-400 mb-12">💰 Save up to 27% with annual billing</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
             {pricingTiers.map((tier, index) => (
@@ -105,8 +106,13 @@ export default function LandingPage() {
                 {tier.popular && <span className="bg-primary-500 text-white text-xs font-semibold px-3 py-1 rounded-full">POPULAR</span>}
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-4">{tier.name}</h3>
                 <div className="mt-4 mb-6">
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">${tier.price}</span>
-                  <span className="text-gray-600 dark:text-gray-400">/month</span>
+                  <div className="flex items-baseline justify-center gap-1">
+                    <span className="text-4xl font-bold text-gray-900 dark:text-white">${tier.annualPrice}</span>
+                    <span className="text-gray-600 dark:text-gray-400">/mo</span>
+                  </div>
+                  {tier.price > 0 && tier.price !== tier.annualPrice && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">${tier.price}/mo billed monthly</p>
+                  )}
                 </div>
                 <ul className="space-y-3 mb-8">
                   {tier.features.map((feature, idx) => (
@@ -241,29 +247,33 @@ const pricingTiers = [
   {
     name: "Free",
     price: 0,
+    annualPrice: 0,
     popular: false,
     features: ["1 RSS feed", "1 category", "Read/unread tracking", "Basic filters"],
     cta: "Start Free",
   },
   {
     name: "Pro",
-    price: 5,
+    price: 6,
+    annualPrice: 5,
     popular: false,
     features: ["5 RSS feeds", "3 categories", "Save articles", "1 feed collection", "Export to RSS"],
     cta: "Go Pro",
   },
   {
     name: "Plus",
-    price: 10,
+    price: 12,
+    annualPrice: 10,
     popular: true,
     features: ["15 RSS feeds", "10 categories", "5 feed collections", "Advanced filters", "Keyboard shortcuts"],
     cta: "Go Plus",
   },
   {
     name: "Premium",
-    price: 15,
+    price: 19,
+    annualPrice: 15,
     popular: false,
-    features: ["25 RSS feeds", "25 categories", "Unlimited collections", "API access", "Priority support"],
+    features: ["25 RSS feeds", "25 categories", "25 collections", "Advanced filters", "Keyboard shortcuts"],
     cta: "Go Premium",
   },
 ]
