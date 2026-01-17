@@ -259,7 +259,7 @@ const pricingTiers = [
     price: 6,
     annualPrice: 5,
     popular: false,
-    features: ["Everything in Free, plus:", "5 RSS feeds", "3 categories", "Save articles", "1 feed collection", "Export to RSS"],
+    features: ["Everything in Free, plus:", "5 feeds & 3 categories", "Save articles", "1 collection", "Export to RSS"],
     cta: "Go Pro",
   },
   {
@@ -267,7 +267,7 @@ const pricingTiers = [
     price: 12,
     annualPrice: 10,
     popular: true,
-    features: ["Everything in Pro, plus:", "15 RSS feeds", "10 categories", "5 feed collections", "Advanced filters", "Keyboard shortcuts"],
+    features: ["Everything in Pro, plus:", "15 feeds & 10 categories", "5 collections", "Advanced filters", "Keyboard shortcuts"],
     cta: "Go Plus",
   },
   {
@@ -275,7 +275,7 @@ const pricingTiers = [
     price: 19,
     annualPrice: 15,
     popular: false,
-    features: ["Everything in Plus, plus:", "25 RSS feeds", "25 categories", "25 collections", "API Access (2000 req/hr)"],
+    features: ["Everything in Plus, plus:", "25 feeds & categories", "25 collections", "API Access"],
     cta: "Go Premium",
   },
 ]
