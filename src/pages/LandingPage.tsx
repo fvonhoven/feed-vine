@@ -30,7 +30,7 @@ export default function LandingPage() {
               Learn More
             </button>
           </div>
-          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">✨ Try demo mode - no signup required</p>
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">No credit card required</p>
         </div>
 
         {/* Screenshot/Demo */}
