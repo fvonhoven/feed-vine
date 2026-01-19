@@ -93,14 +93,16 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">Simple, Transparent Pricing</h2>
           <p className="text-center text-gray-600 dark:text-gray-400 mb-4">Start free, upgrade when you need more</p>
-          <p className="text-center text-sm text-green-600 dark:text-green-400 mb-12">💰 Save up to 21% with annual billing</p>
+          <p className="text-center text-sm text-green-600 dark:text-green-400 mb-12">💰 Save up to 25% with annual billing</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
             {pricingTiers.map((tier, index) => (
               <div
                 key={index}
-                className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 flex flex-col ${
-                  tier.popular ? "border-primary-500 ring-4 ring-primary-100 dark:ring-primary-900/30" : "border-gray-200 dark:border-gray-700"
+                className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 flex flex-col transition-all hover:shadow-2xl hover:scale-105 ${
+                  tier.popular
+                    ? "border-primary-500 ring-4 ring-primary-100 dark:ring-primary-900/30"
+                    : "border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700"
                 }`}
               >
                 {tier.popular && <span className="bg-primary-500 text-white text-xs font-semibold px-3 py-1 rounded-full">POPULAR</span>}
@@ -111,7 +113,15 @@ export default function LandingPage() {
                     <span className="text-gray-600 dark:text-gray-400">/mo</span>
                   </div>
                   {tier.price > 0 && tier.price !== tier.annualPrice && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">${tier.price}/mo billed monthly</p>
+                    <div className="mt-2">
+                      <span className="text-sm text-gray-500 dark:text-gray-400 line-through">${tier.price}/mo</span>
+                      <span className="ml-2 text-sm font-semibold text-green-600 dark:text-green-400">
+                        Save {Math.round(((tier.price - tier.annualPrice) / tier.price) * 100)}%
+                      </span>
+                    </div>
+                  )}
+                  {tier.annualPrice > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${(tier.annualPrice * 12).toFixed(2)}/year</p>
                   )}
                 </div>
                 <ul className="space-y-3 mb-8">
@@ -267,14 +277,14 @@ const pricingTiers = [
   {
     name: "Plus",
     price: 12,
-    annualPrice: 10,
+    annualPrice: 9,
     popular: true,
     features: ["Everything in Pro, plus:", "15 feeds & 10 categories", "5 collections", "Advanced filters", "Keyboard shortcuts"],
     cta: "Go Plus",
   },
   {
     name: "Premium",
-    price: 19,
+    price: 20,
     annualPrice: 15,
     popular: false,
     features: ["Everything in Plus, plus:", "25 feeds & categories", "25 collections", "API Access"],

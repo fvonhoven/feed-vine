@@ -122,7 +122,7 @@ export default function DiscoverPage() {
         {filteredFeeds.map(feed => (
           <div
             key={feed.url}
-            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow flex flex-col"
           >
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
@@ -133,13 +133,15 @@ export default function DiscoverPage() {
               </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">{feed.description}</p>
-            <button
-              onClick={() => addFeedMutation.mutate(feed.url)}
-              disabled={addFeedMutation.isPending}
-              className="w-full px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              {addFeedMutation.isPending ? "Adding..." : "Add Feed"}
-            </button>
+            <div className="mt-auto">
+              <button
+                onClick={() => addFeedMutation.mutate(feed.url)}
+                disabled={addFeedMutation.isPending}
+                className="w-full px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {addFeedMutation.isPending ? "Adding..." : "Add Feed"}
+              </button>
+            </div>
           </div>
         ))}
       </div>

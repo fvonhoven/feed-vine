@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useAuth } from "../hooks/useAuth"
+import { useSubscription } from "../hooks/useSubscription"
 import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getAnnualSavings, type BillingInterval } from "../lib/stripe"
 import { supabase } from "../lib/supabase"
 import toast from "react-hot-toast"
@@ -7,6 +8,7 @@ import { Link } from "react-router-dom"
 
 export default function PricingPage() {
   const { user } = useAuth()
+  const { planId: currentPlanId } = useSubscription()
   const [loading, setLoading] = useState<string | null>(null)
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("annual")
 
@@ -78,7 +80,7 @@ export default function PricingPage() {
           >
             Annual
             <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-full">
-              Save up to 21%
+              Save up to 25%
             </span>
           </button>
         </div>
@@ -90,19 +92,28 @@ export default function PricingPage() {
           const planId = key as keyof typeof PRICING_PLANS
           const price = getPlanPrice(planId, billingInterval)
           const savings = getAnnualSavings(planId)
+          const isCurrentPlan = currentPlanId === planId
 
           return (
             <div
               key={key}
-              className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 relative flex flex-col ${
-                isPopular ? "border-primary-500 ring-4 ring-primary-100 dark:ring-primary-900/30" : "border-gray-200 dark:border-gray-700"
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 relative flex flex-col transition-all hover:shadow-2xl hover:scale-105 ${
+                isCurrentPlan
+                  ? "border-green-500 ring-4 ring-green-100 dark:ring-green-900/30"
+                  : isPopular
+                  ? "border-primary-500 ring-4 ring-primary-100 dark:ring-primary-900/30"
+                  : "border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700"
               }`}
             >
-              {isPopular && (
+              {isCurrentPlan ? (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <span className="bg-green-500 text-white text-xs font-semibold px-4 py-1 rounded-full">CURRENT PLAN</span>
+                </div>
+              ) : isPopular ? (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                   <span className="bg-primary-500 text-white text-xs font-semibold px-4 py-1 rounded-full">MOST POPULAR</span>
                 </div>
-              )}
+              ) : null}
 
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{plan.name}</h3>
@@ -278,16 +289,18 @@ export default function PricingPage() {
               <div className="mt-auto">
                 <button
                   onClick={() => handleSubscribe(key.toLowerCase(), billingInterval)}
-                  disabled={loading === key.toLowerCase()}
+                  disabled={loading === key.toLowerCase() || isCurrentPlan}
                   className={`w-full px-6 py-3 rounded-lg font-semibold transition-colors ${
-                    isPopular
+                    isCurrentPlan
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 cursor-not-allowed"
+                      : isPopular
                       ? "bg-primary-600 hover:bg-primary-700 text-white"
                       : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {loading === key.toLowerCase()
                     ? "Loading..."
-                    : key === "FREE"
+                    : isCurrentPlan
                     ? "Current Plan"
                     : `Get ${plan.name} ${billingInterval === "annual" ? "Annual" : "Monthly"}`}
                 </button>

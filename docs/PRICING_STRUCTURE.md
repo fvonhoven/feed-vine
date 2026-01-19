@@ -2,7 +2,7 @@
 
 ## Overview
 
-FeedVine offers 4 pricing tiers with both **monthly** and **annual** billing options. Annual billing provides significant savings (17-21% off).
+FeedVine offers 4 pricing tiers with both **monthly** and **annual** billing options. Annual billing provides significant savings (17-25% off).
 
 ## Pricing Tiers
 
@@ -40,7 +40,7 @@ FeedVine offers 4 pricing tiers with both **monthly** and **annual** billing opt
 ### 🔥 Plus Plan (MOST POPULAR)
 
 **Monthly:** $12/month
-**Annual:** $10/month ($120/year) - **Save 17%**
+**Annual:** $9/month ($108/year) - **Save 25%**
 
 **Everything in Pro, plus:**
 
@@ -55,8 +55,8 @@ FeedVine offers 4 pricing tiers with both **monthly** and **annual** billing opt
 
 ### 💎 Premium Plan
 
-**Monthly:** $19/month
-**Annual:** $15/month ($180/year) - **Save 21%**
+**Monthly:** $20/month
+**Annual:** $15/month ($180/year) - **Save 25%**
 
 **Everything in Plus, plus:**
 
@@ -73,8 +73,8 @@ FeedVine offers 4 pricing tiers with both **monthly** and **annual** billing opt
 | Plan    | Monthly Cost | Annual Cost | Annual Savings | % Saved |
 | ------- | ------------ | ----------- | -------------- | ------- |
 | Pro     | $72/year     | $60/year    | $12/year       | 17%     |
-| Plus    | $144/year    | $120/year   | $24/year       | 17%     |
-| Premium | $228/year    | $180/year   | $48/year       | 21%     |
+| Plus    | $144/year    | $108/year   | $36/year       | 25%     |
+| Premium | $240/year    | $180/year   | $60/year       | 25%     |
 
 ## Stripe Product Setup
 
@@ -116,7 +116,7 @@ When setting up Stripe products, you'll need to create **6 price IDs total** (2 
 
 - **Free:** Perfect for getting started
 - **Pro:** Best for individual users ($5/mo annual = less than a coffee!)
-- **Plus:** Most popular - everything you need ($10/mo annual)
+- **Plus:** Most popular - everything you need ($9/mo annual)
 - **Premium:** For developers and power users who need API access ($15/mo annual)
 
 ## Conversion Strategy

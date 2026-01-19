@@ -62,8 +62,8 @@ export const PRICING_PLANS = {
   PLUS: {
     id: "plus",
     name: "Plus",
-    monthlyPrice: 12, // Increased from $10 (20% increase)
-    annualPrice: 10, // Original price as annual discount
+    monthlyPrice: 12,
+    annualPrice: 9, // 25% savings: $12 * 12 = $144/year, $9 * 12 = $108/year
     monthlyPriceId: import.meta.env.VITE_STRIPE_PLUS_MONTHLY_PRICE_ID,
     annualPriceId: import.meta.env.VITE_STRIPE_PLUS_ANNUAL_PRICE_ID,
     features: {
@@ -83,8 +83,8 @@ export const PRICING_PLANS = {
   PREMIUM: {
     id: "premium",
     name: "Premium",
-    monthlyPrice: 19, // Increased from $15 (~27% increase)
-    annualPrice: 15, // Original price as annual discount
+    monthlyPrice: 20,
+    annualPrice: 15, // 25% savings: $20 * 12 = $240/year, $15 * 12 = $180/year
     monthlyPriceId: import.meta.env.VITE_STRIPE_PREMIUM_MONTHLY_PRICE_ID,
     annualPriceId: import.meta.env.VITE_STRIPE_PREMIUM_ANNUAL_PRICE_ID,
     features: {
