@@ -101,8 +101,8 @@ export default function PricingPage() {
                 isCurrentPlan
                   ? "border-green-500 ring-4 ring-green-100 dark:ring-green-900/30"
                   : isPopular
-                  ? "border-primary-500 ring-4 ring-primary-100 dark:ring-primary-900/30"
-                  : "border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700"
+                    ? "border-primary-500 ring-4 ring-primary-100 dark:ring-primary-900/30"
+                    : "border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700"
               }`}
             >
               {isCurrentPlan ? (
@@ -294,15 +294,15 @@ export default function PricingPage() {
                     isCurrentPlan
                       ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 cursor-not-allowed"
                       : isPopular
-                      ? "bg-primary-600 hover:bg-primary-700 text-white"
-                      : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
+                        ? "bg-primary-600 hover:bg-primary-700 text-white"
+                        : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {loading === key.toLowerCase()
                     ? "Loading..."
                     : isCurrentPlan
-                    ? "Current Plan"
-                    : `Get ${plan.name} ${billingInterval === "annual" ? "Annual" : "Monthly"}`}
+                      ? "Current Plan"
+                      : `Get ${plan.name} ${billingInterval === "annual" ? "Annual" : "Monthly"}`}
                 </button>
               </div>
             </div>
@@ -321,7 +321,7 @@ export default function PricingPage() {
             Privacy Policy
           </Link>
         </p>
-        <p className="text-xs text-gray-500 dark:text-gray-500">All plans include a 14-day money-back guarantee. Cancel anytime.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-500">Cancel anytime.</p>
       </div>
     </div>
   )

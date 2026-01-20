@@ -37,7 +37,7 @@ export default function Layout({ children }: LayoutProps) {
                     <path
                       d="M20 4L4 12L20 20L36 12L20 4Z"
                       fill="currentColor"
-                      fillOpacity="0.2"
+                      fillOpacity="0.3"
                       stroke="currentColor"
                       strokeWidth="2"
                       strokeLinejoin="round"

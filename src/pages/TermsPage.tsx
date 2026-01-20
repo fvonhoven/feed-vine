@@ -8,16 +8,16 @@ export default function TermsPage() {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">1. Acceptance of Terms</h2>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            By accessing and using RSS Feed Aggregator ("the Service"), you accept and agree to be bound by the terms and provision of this agreement.
-            If you do not agree to these Terms of Service, please do not use the Service.
+            By accessing and using FeedVine ("the Service"), you accept and agree to be bound by the terms and provision of this agreement. If you do
+            not agree to these Terms of Service, please do not use the Service.
           </p>
         </section>
 
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">2. Description of Service</h2>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            RSS Feed Aggregator is a web-based application that allows users to aggregate, organize, and read content from multiple RSS feeds. The
-            Service includes features such as:
+            FeedVine is a web-based application that allows users to aggregate, organize, and read content from multiple RSS feeds. The Service
+            includes features such as:
           </p>
           <ul className="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-4 space-y-2">
             <li>RSS feed management and aggregation</li>
@@ -58,11 +58,11 @@ export default function TermsPage() {
             </li>
             <li>
               <strong>Plus Plan:</strong> Everything in Pro, plus up to 15 feeds, 10 categories, 5 feed collections, advanced filters, and keyboard
-              shortcuts ($12/month or $10/month annual)
+              shortcuts ($12/month or $9/month annual)
             </li>
             <li>
               <strong>Premium Plan:</strong> Everything in Plus, plus up to 25 feeds, 25 categories, 25 collections, and API access with 2,000
-              requests/hour ($19/month or $15/month annual)
+              requests/hour ($20/month or $15/month annual)
             </li>
           </ul>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
@@ -82,9 +82,6 @@ export default function TermsPage() {
             <li>Pay all charges at the prices in effect when incurred</li>
             <li>Update your payment information promptly if it changes</li>
           </ul>
-          <p className="text-gray-700 dark:text-gray-300 mb-4">
-            We offer a 14-day money-back guarantee for new subscriptions. To request a refund, contact us within 14 days of your initial purchase.
-          </p>
         </section>
 
         <section className="mb-8">
@@ -116,8 +113,8 @@ export default function TermsPage() {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">8. Intellectual Property</h2>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            The Service and its original content, features, and functionality are owned by RSS Feed Aggregator and are protected by international
-            copyright, trademark, and other intellectual property laws.
+            The Service and its original content, features, and functionality are owned by FeedVine and are protected by international copyright,
+            trademark, and other intellectual property laws.
           </p>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
             RSS feeds and articles accessed through the Service remain the property of their respective owners. We do not claim ownership of any
@@ -126,16 +123,51 @@ export default function TermsPage() {
         </section>
 
         <section className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">9. Limitation of Liability</h2>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">9. Disclaimer of Warranties</h2>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            To the maximum extent permitted by law, RSS Feed Aggregator shall not be liable for any indirect, incidental, special, consequential, or
-            punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly, or any loss of data, use, goodwill, or
-            other intangible losses.
+            THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+            IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+          </p>
+          <p className="text-gray-700 dark:text-gray-300 mb-4">FeedVine does not warrant that:</p>
+          <ul className="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-4 space-y-2">
+            <li>The Service will be uninterrupted, secure, or error-free</li>
+            <li>Any content from RSS feeds will be accurate, complete, or reliable</li>
+            <li>The Service will meet your specific requirements</li>
+            <li>Any errors in the Service will be corrected</li>
+            <li>RSS feeds will remain available or accessible</li>
+          </ul>
+          <p className="text-gray-700 dark:text-gray-300 mb-4">
+            You acknowledge that RSS feeds are provided by third parties and FeedVine has no control over their content, availability, or accuracy.
           </p>
         </section>
 
         <section className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">10. Changes to Terms</h2>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">10. Limitation of Liability</h2>
+          <p className="text-gray-700 dark:text-gray-300 mb-4">
+            TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL FEEDVINE, ITS OFFICERS, DIRECTORS, EMPLOYEES, AGENTS, SUPPLIERS, OR AFFILIATES
+            BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS OR REVENUES, WHETHER INCURRED
+            DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM:
+          </p>
+          <ul className="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-4 space-y-2">
+            <li>Your access to or use of or inability to access or use the Service</li>
+            <li>Any conduct or content of any third party on the Service, including RSS feeds</li>
+            <li>Any content obtained from the Service or RSS feeds</li>
+            <li>Unauthorized access, use, or alteration of your transmissions or content</li>
+            <li>Any interruption or cessation of the Service</li>
+            <li>Any bugs, viruses, or other harmful code that may be transmitted through the Service</li>
+          </ul>
+          <p className="text-gray-700 dark:text-gray-300 mb-4">
+            IN NO EVENT SHALL FEEDVINE'S TOTAL LIABILITY TO YOU FOR ALL CLAIMS EXCEED THE GREATER OF (A) THE AMOUNT YOU PAID FEEDVINE IN THE TWELVE
+            (12) MONTHS PRIOR TO THE ACTION GIVING RISE TO LIABILITY, OR (B) ONE HUNDRED DOLLARS ($100).
+          </p>
+          <p className="text-gray-700 dark:text-gray-300 mb-4">
+            Some jurisdictions do not allow the exclusion or limitation of certain warranties or liabilities. In such jurisdictions, the above
+            limitations may not apply to you to the extent prohibited by law.
+          </p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">11. Changes to Terms</h2>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
             We reserve the right to modify these terms at any time. We will notify users of any material changes via email or through the Service.
             Your continued use of the Service after such modifications constitutes your acceptance of the updated terms.
@@ -143,13 +175,9 @@ export default function TermsPage() {
         </section>
 
         <section className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">11. Contact Information</h2>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">12. Contact Information</h2>
           <p className="text-gray-700 dark:text-gray-300 mb-4">If you have any questions about these Terms of Service, please contact us at:</p>
-          <p className="text-gray-700 dark:text-gray-300">
-            Email: support@rssaggregator.com
-            <br />
-            Address: [Your Business Address]
-          </p>
+          <p className="text-gray-700 dark:text-gray-300">Email: support@feedvine.app</p>
         </section>
       </div>
     </div>
