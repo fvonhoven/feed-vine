@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback } from "react"
 import { Link } from "react-router-dom"
 import { supabase } from "../lib/supabase"
 import toast from "react-hot-toast"
