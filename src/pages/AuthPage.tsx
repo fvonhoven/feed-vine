@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { supabase } from "../lib/supabase"
 import toast from "react-hot-toast"
+import { HCaptcha } from "../components/HCaptcha"
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -9,6 +10,10 @@ export default function AuthPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+
+  // hCaptcha site key - get from https://dashboard.hcaptcha.com/
+  const HCAPTCHA_SITE_KEY = import.meta.env.VITE_HCAPTCHA_SITE_KEY || "10000000-ffff-ffff-ffff-000000000001"
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -19,6 +24,12 @@ export default function AuthPage() {
       return
     }
 
+    // Check CAPTCHA for signup
+    if (isSignUp && !captchaToken) {
+      toast.error("Please complete the CAPTCHA verification")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -26,6 +37,11 @@ export default function AuthPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              captcha_token: captchaToken,
+            },
+          },
         })
         if (error) throw error
         toast.success("Account created! Please check your email to verify.")
@@ -42,6 +58,20 @@ export default function AuthPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCaptchaVerify = (token: string) => {
+    setCaptchaToken(token)
+  }
+
+  const handleCaptchaError = () => {
+    setCaptchaToken(null)
+    toast.error("CAPTCHA verification failed. Please try again.")
+  }
+
+  const handleCaptchaExpire = () => {
+    setCaptchaToken(null)
+    toast.error("CAPTCHA expired. Please verify again.")
   }
 
   return (
@@ -106,37 +136,50 @@ export default function AuthPage() {
           </div>
 
           {isSignUp && (
-            <div className="flex items-start">
-              <div className="flex items-center h-5">
-                <input
-                  id="terms"
-                  name="terms"
-                  type="checkbox"
-                  checked={agreedToTerms}
-                  onChange={e => setAgreedToTerms(e.target.checked)}
-                  className="h-4 w-4 rounded cursor-pointer accent-primary-600"
-                  style={{ colorScheme: "light" }}
+            <>
+              <div className="flex items-start">
+                <div className="flex items-center h-5">
+                  <input
+                    id="terms"
+                    name="terms"
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={e => setAgreedToTerms(e.target.checked)}
+                    className="h-4 w-4 rounded cursor-pointer accent-primary-600"
+                    style={{ colorScheme: "light" }}
+                  />
+                </div>
+                <div className="ml-3 text-sm">
+                  <label htmlFor="terms" className="text-gray-700 dark:text-gray-300 cursor-pointer">
+                    I agree to the{" "}
+                    <Link to="/terms" target="_blank" className="text-primary-600 hover:text-primary-500 underline">
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link to="/privacy" target="_blank" className="text-primary-600 hover:text-primary-500 underline">
+                      Privacy Policy
+                    </Link>
+                  </label>
+                </div>
+              </div>
+
+              {/* hCaptcha */}
+              <div className="flex justify-center">
+                <HCaptcha
+                  siteKey={HCAPTCHA_SITE_KEY}
+                  onVerify={handleCaptchaVerify}
+                  onError={handleCaptchaError}
+                  onExpire={handleCaptchaExpire}
+                  theme="light"
                 />
               </div>
-              <div className="ml-3 text-sm">
-                <label htmlFor="terms" className="text-gray-700 dark:text-gray-300 cursor-pointer">
-                  I agree to the{" "}
-                  <Link to="/terms" target="_blank" className="text-primary-600 hover:text-primary-500 underline">
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link to="/privacy" target="_blank" className="text-primary-600 hover:text-primary-500 underline">
-                    Privacy Policy
-                  </Link>
-                </label>
-              </div>
-            </div>
+            </>
           )}
 
           <div>
             <button
               type="submit"
-              disabled={loading || (isSignUp && !agreedToTerms)}
+              disabled={loading || (isSignUp && (!agreedToTerms || !captchaToken))}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Loading..." : isSignUp ? "Sign up" : "Sign in"}

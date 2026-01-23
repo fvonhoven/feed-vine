@@ -282,7 +282,7 @@ export default function LandingPage() {
               <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Support</h4>
               <ul className="space-y-2">
                 <li>
-                  <a href="mailto:support@rssaggregator.com" className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-600">
+                  <a href="mailto:support@feedvine.app" className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-600">
                     Contact Us
                   </a>
                 </li>
@@ -290,7 +290,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-center text-sm text-gray-500 dark:text-gray-400">© 2026 RSS Aggregator. All rights reserved.</p>
+            <p className="text-center text-sm text-gray-500 dark:text-gray-400">© 2026 Nexus Development, LLC. All rights reserved.</p>
           </div>
         </div>
       </footer>
