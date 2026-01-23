@@ -39,7 +39,21 @@ export default function AuthPage() {
           password,
         })
         if (error) throw error
-        toast.success("Account created! Please check your email to verify.")
+
+        // Clear form and show success message
+        setEmail("")
+        setPassword("")
+        setAgreedToTerms(false)
+        setCaptchaToken(null)
+
+        toast.success("Account created! Please check your email to verify.", {
+          duration: 6000,
+        })
+
+        // Switch to login tab after a brief delay
+        setTimeout(() => {
+          setIsSignUp(false)
+        }, 2000)
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
