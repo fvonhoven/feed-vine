@@ -37,11 +37,6 @@ export default function AuthPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            data: {
-              captcha_token: captchaToken,
-            },
-          },
         })
         if (error) throw error
         toast.success("Account created! Please check your email to verify.")
