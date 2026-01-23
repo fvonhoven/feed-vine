@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, memo } from "react"
 
 interface HCaptchaProps {
   siteKey: string
@@ -23,7 +23,7 @@ declare global {
 // Global flag to prevent multiple renders
 let isHCaptchaRendering = false
 
-export function HCaptcha({ siteKey, onVerify, onError, onExpire, theme = "light" }: HCaptchaProps) {
+function HCaptchaComponent({ siteKey, onVerify, onError, onExpire, theme = "light" }: HCaptchaProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const widgetIdRef = useRef<string | null>(null)
   const [containerId] = useState(() => `hcaptcha-${Math.random().toString(36).substring(7)}`)
@@ -120,3 +120,6 @@ export function HCaptcha({ siteKey, onVerify, onError, onExpire, theme = "light"
 
   return <div ref={containerRef} id={containerId} className="h-captcha" />
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const HCaptcha = memo(HCaptchaComponent)

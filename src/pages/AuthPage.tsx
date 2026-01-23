@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Link } from "react-router-dom"
 import { supabase } from "../lib/supabase"
 import toast from "react-hot-toast"
@@ -60,19 +60,20 @@ export default function AuthPage() {
     }
   }
 
-  const handleCaptchaVerify = (token: string) => {
+  // Memoize callbacks to prevent re-rendering hCaptcha
+  const handleCaptchaVerify = useCallback((token: string) => {
     setCaptchaToken(token)
-  }
+  }, [])
 
-  const handleCaptchaError = () => {
+  const handleCaptchaError = useCallback(() => {
     setCaptchaToken(null)
     toast.error("CAPTCHA verification failed. Please try again.")
-  }
+  }, [])
 
-  const handleCaptchaExpire = () => {
+  const handleCaptchaExpire = useCallback(() => {
     setCaptchaToken(null)
     toast.error("CAPTCHA expired. Please verify again.")
-  }
+  }, [])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
