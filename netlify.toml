@@ -32,11 +32,11 @@
     # Content Security Policy - prevent XSS attacks
     Content-Security-Policy = """
       default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.clarity.ms https://scripts.clarity.ms https://js.hcaptcha.com https://*.hcaptcha.com;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.clarity.ms https://scripts.clarity.ms https://static.cloudflareinsights.com https://js.hcaptcha.com https://*.hcaptcha.com;
       style-src 'self' 'unsafe-inline' https://*.hcaptcha.com;
       img-src 'self' data: https: blob:;
       font-src 'self' data:;
-      connect-src 'self' https://*.supabase.co https://api.stripe.com https://www.clarity.ms https://cronnarc.com https://*.hcaptcha.com;
+      connect-src 'self' https://*.supabase.co https://api.stripe.com https://www.clarity.ms https://y.clarity.ms https://cronnarc.com https://*.hcaptcha.com;
       frame-src https://js.stripe.com https://*.hcaptcha.com;
       object-src 'none';
       base-uri 'self';

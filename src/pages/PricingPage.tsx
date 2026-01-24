@@ -34,7 +34,7 @@ export default function PricingPage() {
     try {
       // Call Supabase Edge Function to create checkout session
       const { data, error } = await supabase.functions.invoke("create-checkout-session", {
-        body: { priceId, userId: user.id },
+        body: { priceId },
       })
 
       if (error) throw error

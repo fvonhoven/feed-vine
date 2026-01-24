@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import Stripe from "https://esm.sh/stripe@14.14.0?target=deno"
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
@@ -19,36 +20,61 @@ serve(async req => {
   }
 
   try {
-    const { priceId, userId } = await req.json()
-
-    if (!priceId || !userId) {
-      throw new Error("Missing required parameters")
+    // Get the authorization header
+    const authHeader = req.headers.get("Authorization")
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      })
     }
 
-    // Get or create Stripe customer
-    const supabaseClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")
+    // Create Supabase client with user's JWT
+    const supabaseClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+      global: { headers: { Authorization: authHeader } },
+    })
+
+    // Verify the user is authenticated
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser()
+
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      })
+    }
+
+    const { priceId } = await req.json()
+
+    if (!priceId) {
+      throw new Error("Missing required parameter: priceId")
+    }
+
+    // Use service role client for database operations
+    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")
 
     // Check if user already has a Stripe customer ID
-    const { data: subscription } = await supabaseClient.from("subscriptions").select("stripe_customer_id").eq("user_id", userId).single()
+    const { data: subscription } = await supabaseAdmin.from("subscriptions").select("stripe_customer_id").eq("user_id", user.id).single()
 
     let customerId = subscription?.stripe_customer_id
 
     // Create new customer if doesn't exist
     if (!customerId) {
-      const { data: user } = await supabaseClient.auth.admin.getUserById(userId)
-
       const customer = await stripe.customers.create({
-        email: user.user?.email,
+        email: user.email,
         metadata: {
-          supabase_user_id: userId,
+          supabase_user_id: user.id,
         },
       })
 
       customerId = customer.id
 
       // Save customer ID to database
-      await supabaseClient.from("subscriptions").upsert({
-        user_id: userId,
+      await supabaseAdmin.from("subscriptions").upsert({
+        user_id: user.id,
         stripe_customer_id: customerId,
         plan_id: "free",
         status: "active",
@@ -68,7 +94,7 @@ serve(async req => {
       success_url: `${req.headers.get("origin")}/settings?success=true`,
       cancel_url: `${req.headers.get("origin")}/pricing?canceled=true`,
       metadata: {
-        user_id: userId,
+        user_id: user.id,
       },
     })
 
@@ -83,52 +109,3 @@ serve(async req => {
     })
   }
 })
-
-// Helper to create Supabase client
-function createClient(supabaseUrl: string, supabaseKey: string) {
-  return {
-    from: (table: string) => ({
-      select: (columns: string) => ({
-        eq: (column: string, value: string) => ({
-          single: async () => {
-            const response = await fetch(`${supabaseUrl}/rest/v1/${table}?${column}=eq.${value}&select=${columns}`, {
-              headers: {
-                apikey: supabaseKey,
-                Authorization: `Bearer ${supabaseKey}`,
-              },
-            })
-            const data = await response.json()
-            return { data: data[0] || null }
-          },
-        }),
-      }),
-      upsert: async (data: any) => {
-        await fetch(`${supabaseUrl}/rest/v1/${table}`, {
-          method: "POST",
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-            "Content-Type": "application/json",
-            Prefer: "resolution=merge-duplicates",
-          },
-          body: JSON.stringify(data),
-        })
-        return { data: null, error: null }
-      },
-    }),
-    auth: {
-      admin: {
-        getUserById: async (id: string) => {
-          const response = await fetch(`${supabaseUrl}/auth/v1/admin/users/${id}`, {
-            headers: {
-              apikey: supabaseKey,
-              Authorization: `Bearer ${supabaseKey}`,
-            },
-          })
-          const user = await response.json()
-          return { data: { user } }
-        },
-      },
-    },
-  }
-}
