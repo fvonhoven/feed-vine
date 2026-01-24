@@ -9,6 +9,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
 serve(async req => {
@@ -25,17 +26,10 @@ serve(async req => {
     }
 
     // Get or create Stripe customer
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    )
+    const supabaseClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")
 
     // Check if user already has a Stripe customer ID
-    const { data: subscription } = await supabaseClient
-      .from("subscriptions")
-      .select("stripe_customer_id")
-      .eq("user_id", userId)
-      .single()
+    const { data: subscription } = await supabaseClient.from("subscriptions").select("stripe_customer_id").eq("user_id", userId).single()
 
     let customerId = subscription?.stripe_customer_id
 
@@ -138,4 +132,3 @@ function createClient(supabaseUrl: string, supabaseKey: string) {
     },
   }
 }
-
