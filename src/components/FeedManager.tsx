@@ -400,7 +400,7 @@ Example Feed,https://feeds.feedburner.com/example`
               value={newFeedUrl}
               onChange={e => setNewFeedUrl(e.target.value)}
               placeholder="https://example.com or https://example.com/feed.xml"
-              className="flex-1 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               required
               disabled={isAtLimit}
             />
