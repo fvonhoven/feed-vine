@@ -1,14 +1,14 @@
-url,title
-https://example.com/feed.xml,Example Feed 1
-https://example.com/rss,Example Feed 2
-https://example.com/blog/feed,Example Feed 3
-https://example.com/news/rss,Example Feed 4
-https://example.com/articles/feed.xml,Example Feed 5
-https://example.com/updates/rss,Example Feed 6
-https://example.com/posts/feed,Example Feed 7
-https://example.com/content/rss,Example Feed 8
-https://example.com/stories/feed.xml,Example Feed 9
-https://example.com/insights/rss,Example Feed 10
-https://example.com/latest/feed,Example Feed 11
-https://example.com/trending/rss,Example Feed 12
+title,url
+Example Feed 1,https://example.com/feed.xml
+Example Feed 2,https://example.com/rss
+Example Feed 3,https://example.com/blog/feed
+Example Feed 4,https://example.com/news/rss
+Example Feed 5,https://example.com/articles/feed.xml
+Example Feed 6,https://example.com/updates/rss
+Example Feed 7,https://example.com/posts/feed
+Example Feed 8,https://example.com/content/rss
+Example Feed 9,https://example.com/stories/feed.xml
+Example Feed 10,https://example.com/insights/rss
+Example Feed 11,https://example.com/latest/feed
+Example Feed 12,https://example.com/trending/rss
 

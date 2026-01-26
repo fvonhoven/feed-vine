@@ -192,13 +192,13 @@ export default function FeedManager() {
         throw new Error("CSV file is empty")
       }
 
-      // Parse CSV (simple parser - assumes URL in first column, optional title in second)
+      // Parse CSV (simple parser - assumes title in first column, URL in second column)
       const feedsToImport: { url: string; title?: string }[] = []
       let hasHeader = false
 
       // Check if first line is a header
       const firstLine = lines[0].toLowerCase()
-      if (firstLine.includes("url") || firstLine.includes("feed") || firstLine.includes("link")) {
+      if (firstLine.includes("title") || firstLine.includes("name") || firstLine.includes("url") || firstLine.includes("feed")) {
         hasHeader = true
       }
 
@@ -209,7 +209,8 @@ export default function FeedManager() {
 
       for (const line of dataLines) {
         const columns = line.split(",").map(col => col.trim().replace(/^["']|["']$/g, ""))
-        const url = columns[0]
+        const title = columns[0]
+        const url = columns[1] || columns[0] // Fallback to first column if only one column
 
         if (!url) continue
 
@@ -230,7 +231,7 @@ export default function FeedManager() {
             // Assume it's a direct RSS feed URL
             feedsToImport.push({
               url,
-              title: columns[1] || new URL(url).hostname,
+              title: title || new URL(url).hostname,
             })
           } else {
             // Try to auto-discover RSS feed from website URL
@@ -242,14 +243,14 @@ export default function FeedManager() {
                 const feed = discoveredFeeds[0]
                 feedsToImport.push({
                   url: feed.url,
-                  title: columns[1] || feed.title || new URL(url).hostname,
+                  title: title || feed.title || new URL(url).hostname,
                 })
                 console.log(`Auto-discovered feed: ${feed.url} from ${url}`)
               } else {
                 // No feed found, try the URL as-is (might still be a valid feed)
                 feedsToImport.push({
                   url,
-                  title: columns[1] || new URL(url).hostname,
+                  title: title || new URL(url).hostname,
                 })
                 console.warn(`No RSS feed discovered for ${url}, using URL as-is`)
               }
@@ -258,7 +259,7 @@ export default function FeedManager() {
               console.warn(`RSS discovery failed for ${url}, using URL as-is:`, discoveryError)
               feedsToImport.push({
                 url,
-                title: columns[1] || new URL(url).hostname,
+                title: title || new URL(url).hostname,
               })
             }
           }
@@ -343,11 +344,11 @@ export default function FeedManager() {
   }
 
   const downloadSampleCSV = () => {
-    const sampleCSV = `url,title
-https://techcrunch.com,TechCrunch (auto-discovers RSS feed)
-https://www.theverge.com/rss/index.xml,The Verge (direct RSS feed URL)
-https://arstechnica.com,Ars Technica (auto-discovers RSS feed)
-https://feeds.feedburner.com/example,Example Feed (direct RSS feed URL)`
+    const sampleCSV = `title,url
+TechCrunch,https://techcrunch.com
+The Verge,https://www.theverge.com/rss/index.xml
+Ars Technica,https://arstechnica.com
+Example Feed,https://feeds.feedburner.com/example`
 
     const blob = new Blob([sampleCSV], { type: "text/csv" })
     const url = URL.createObjectURL(blob)
@@ -416,8 +417,8 @@ https://feeds.feedburner.com/example,Example Feed (direct RSS feed URL)`
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
               <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">CSV Format</h3>
               <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
-                Upload a CSV file with URLs (website or direct RSS feed). The file should have a header row and at least a URL column. Optionally
-                include a title column.
+                Upload a CSV file with <strong>title</strong> in the first column and <strong>URL</strong> in the second column. The file should have
+                a header row.
               </p>
               <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
                 <strong>✨ Auto-Discovery:</strong> You can provide website URLs (e.g., https://techcrunch.com) and we'll automatically find the RSS
