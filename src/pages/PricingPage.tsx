@@ -32,21 +32,35 @@ export default function PricingPage() {
     setLoading(planId)
 
     try {
+      // Check if user has a valid session
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      console.log("User session:", session)
+      console.log("Access token present:", !!session?.access_token)
+
       // Call Supabase Edge Function to create checkout session
       const { data, error } = await supabase.functions.invoke("create-checkout-session", {
         body: { priceId },
       })
 
-      if (error) throw error
+      console.log("Function response data:", data)
+      console.log("Function response error:", error)
+
+      if (error) {
+        console.error("Function invocation error:", error)
+        throw error
+      }
 
       if (data?.url) {
         window.location.href = data.url
       } else {
         throw new Error("No checkout URL returned")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Subscription error:", error)
-      toast.error("Failed to start checkout. Please try again.")
+      console.error("Error details:", error.message, error.details)
+      toast.error(error.message || "Failed to start checkout. Please try again.")
     } finally {
       setLoading(null)
     }

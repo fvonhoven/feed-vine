@@ -22,7 +22,10 @@ serve(async req => {
   try {
     // Get the authorization header
     const authHeader = req.headers.get("Authorization")
+    console.log("Authorization header present:", !!authHeader)
+
     if (!authHeader) {
+      console.error("Missing authorization header")
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
@@ -40,11 +43,21 @@ serve(async req => {
       error: authError,
     } = await supabaseClient.auth.getUser()
 
+    console.log("Auth error:", authError)
+    console.log("User authenticated:", !!user)
+
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      })
+      console.error("Authentication failed:", authError?.message || "No user found")
+      return new Response(
+        JSON.stringify({
+          error: "Unauthorized",
+          details: authError?.message || "No user found",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        },
+      )
     }
 
     const { priceId } = await req.json()
