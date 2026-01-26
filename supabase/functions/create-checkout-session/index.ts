@@ -1,12 +1,77 @@
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+
 import { createClient } from "jsr:@supabase/supabase-js@2"
-import Stripe from "https://esm.sh/stripe@14.14.0?target=deno"
 
-const serve = Deno.serve
+const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") || ""
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-  apiVersion: "2023-10-16",
-  httpClient: Stripe.createFetchHttpClient(),
-})
+// Helper function to call Stripe API directly
+async function createStripeCheckoutSession(params: {
+  customer?: string
+  line_items: Array<{ price: string; quantity: number }>
+  mode: string
+  success_url: string
+  cancel_url: string
+  metadata?: Record<string, string>
+}) {
+  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      ...(params.customer && { customer: params.customer }),
+      "line_items[0][price]": params.line_items[0].price,
+      "line_items[0][quantity]": params.line_items[0].quantity.toString(),
+      mode: params.mode,
+      success_url: params.success_url,
+      cancel_url: params.cancel_url,
+      ...(params.metadata &&
+        Object.entries(params.metadata).reduce(
+          (acc, [key, value]) => ({
+            ...acc,
+            [`metadata[${key}]`]: value,
+          }),
+          {},
+        )),
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Stripe API error: ${error}`)
+  }
+
+  return await response.json()
+}
+
+async function createStripeCustomer(params: { email?: string; metadata?: Record<string, string> }) {
+  const response = await fetch("https://api.stripe.com/v1/customers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      ...(params.email && { email: params.email }),
+      ...(params.metadata &&
+        Object.entries(params.metadata).reduce(
+          (acc, [key, value]) => ({
+            ...acc,
+            [`metadata[${key}]`]: value,
+          }),
+          {},
+        )),
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Stripe API error: ${error}`)
+  }
+
+  return await response.json()
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +79,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
-serve(async req => {
+Deno.serve(async req => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
@@ -77,7 +142,7 @@ serve(async req => {
 
     // Create new customer if doesn't exist
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await createStripeCustomer({
         email: user.email,
         metadata: {
           supabase_user_id: user.id,
@@ -96,7 +161,7 @@ serve(async req => {
     }
 
     // Create Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    const session = await createStripeCheckoutSession({
       customer: customerId,
       line_items: [
         {
