@@ -5,7 +5,7 @@ import type { Feed } from "../types/database"
 import toast from "react-hot-toast"
 import { formatDistanceToNow } from "date-fns"
 import { mockFeeds } from "../lib/mockData"
-import { fetchAndSaveArticles } from "../lib/rssFetcher"
+import { fetchAndSaveArticles, discoverRSSFeeds } from "../lib/rssFetcher"
 import { useSubscription } from "../hooks/useSubscription"
 import { Link } from "react-router-dom"
 
@@ -58,12 +58,45 @@ export default function FeedManager() {
         throw new Error("Invalid URL format")
       }
 
+      let feedUrl = url
+      let feedTitle = new URL(url).hostname
+
+      // Check if URL looks like a direct RSS feed or a website
+      const isLikelyRSSFeed =
+        url.includes("/feed") ||
+        url.includes("/rss") ||
+        url.includes(".xml") ||
+        url.includes("/atom") ||
+        url.endsWith("/feed/") ||
+        url.endsWith("/rss/")
+
+      // If it doesn't look like an RSS feed, try auto-discovery
+      if (!isLikelyRSSFeed) {
+        try {
+          toast.loading("Discovering RSS feed...")
+          const discoveredFeeds = await discoverRSSFeeds(url)
+          toast.dismiss()
+
+          if (discoveredFeeds.length > 0) {
+            feedUrl = discoveredFeeds[0].url
+            feedTitle = discoveredFeeds[0].title || feedTitle
+            toast.success(`Found RSS feed: ${feedUrl}`)
+          } else {
+            toast("No RSS feed found, trying URL as-is...", { icon: "⚠️" })
+          }
+        } catch (discoveryError) {
+          toast.dismiss()
+          console.warn("RSS discovery failed, using URL as-is:", discoveryError)
+          toast("RSS discovery failed, trying URL as-is...", { icon: "⚠️" })
+        }
+      }
+
       const { data, error } = await supabase
         .from("feeds")
         .insert({
           user_id: user.id,
-          url,
-          title: new URL(url).hostname,
+          url: feedUrl,
+          title: feedTitle,
           status: "active" as const,
         })
         .select()
@@ -171,6 +204,9 @@ export default function FeedManager() {
 
       const dataLines = hasHeader ? lines.slice(1) : lines
 
+      // Process each line and auto-discover RSS feeds
+      toast.loading("Processing URLs and discovering RSS feeds...")
+
       for (const line of dataLines) {
         const columns = line.split(",").map(col => col.trim().replace(/^["']|["']$/g, ""))
         const url = columns[0]
@@ -180,14 +216,58 @@ export default function FeedManager() {
         // Validate URL format
         try {
           new URL(url)
-          feedsToImport.push({
-            url,
-            title: columns[1] || new URL(url).hostname,
-          })
+
+          // Check if URL looks like a direct RSS feed or a website
+          const isLikelyRSSFeed =
+            url.includes("/feed") ||
+            url.includes("/rss") ||
+            url.includes(".xml") ||
+            url.includes("/atom") ||
+            url.endsWith("/feed/") ||
+            url.endsWith("/rss/")
+
+          if (isLikelyRSSFeed) {
+            // Assume it's a direct RSS feed URL
+            feedsToImport.push({
+              url,
+              title: columns[1] || new URL(url).hostname,
+            })
+          } else {
+            // Try to auto-discover RSS feed from website URL
+            try {
+              const discoveredFeeds = await discoverRSSFeeds(url)
+
+              if (discoveredFeeds.length > 0) {
+                // Use the first discovered feed
+                const feed = discoveredFeeds[0]
+                feedsToImport.push({
+                  url: feed.url,
+                  title: columns[1] || feed.title || new URL(url).hostname,
+                })
+                console.log(`Auto-discovered feed: ${feed.url} from ${url}`)
+              } else {
+                // No feed found, try the URL as-is (might still be a valid feed)
+                feedsToImport.push({
+                  url,
+                  title: columns[1] || new URL(url).hostname,
+                })
+                console.warn(`No RSS feed discovered for ${url}, using URL as-is`)
+              }
+            } catch (discoveryError) {
+              // Discovery failed, use URL as-is
+              console.warn(`RSS discovery failed for ${url}, using URL as-is:`, discoveryError)
+              feedsToImport.push({
+                url,
+                title: columns[1] || new URL(url).hostname,
+              })
+            }
+          }
         } catch {
           console.warn(`Skipping invalid URL: ${url}`)
         }
       }
+
+      toast.dismiss()
 
       if (feedsToImport.length === 0) {
         throw new Error("No valid feed URLs found in CSV")
@@ -264,9 +344,10 @@ export default function FeedManager() {
 
   const downloadSampleCSV = () => {
     const sampleCSV = `url,title
-https://example.com/feed.xml,Example Feed
-https://blog.example.com/rss,Example Blog
-https://news.example.com/feed,Example News`
+https://techcrunch.com,TechCrunch (auto-discovers RSS feed)
+https://www.theverge.com/rss/index.xml,The Verge (direct RSS feed URL)
+https://arstechnica.com,Ars Technica (auto-discovers RSS feed)
+https://feeds.feedburner.com/example,Example Feed (direct RSS feed URL)`
 
     const blob = new Blob([sampleCSV], { type: "text/csv" })
     const url = URL.createObjectURL(blob)
@@ -317,7 +398,7 @@ https://news.example.com/feed,Example News`
               type="url"
               value={newFeedUrl}
               onChange={e => setNewFeedUrl(e.target.value)}
-              placeholder="https://example.com/feed.xml"
+              placeholder="https://example.com or https://example.com/feed.xml"
               className="flex-1 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               required
               disabled={isAtLimit}
@@ -335,7 +416,12 @@ https://news.example.com/feed,Example News`
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
               <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">CSV Format</h3>
               <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
-                Upload a CSV file with feed URLs. The file should have a header row and at least a URL column. Optionally include a title column.
+                Upload a CSV file with URLs (website or direct RSS feed). The file should have a header row and at least a URL column. Optionally
+                include a title column.
+              </p>
+              <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                <strong>✨ Auto-Discovery:</strong> You can provide website URLs (e.g., https://techcrunch.com) and we'll automatically find the RSS
+                feed!
               </p>
               <button
                 type="button"

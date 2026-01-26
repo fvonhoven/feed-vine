@@ -10,6 +10,119 @@ interface RSSItem {
   guid?: string
 }
 
+interface DiscoveredFeed {
+  url: string
+  title?: string
+  type: string
+}
+
+/**
+ * Auto-discover RSS/Atom feeds from a website URL
+ * Looks for <link> tags with rel="alternate" and type="application/rss+xml" or "application/atom+xml"
+ */
+export async function discoverRSSFeeds(websiteUrl: string): Promise<DiscoveredFeed[]> {
+  try {
+    console.log(`Discovering RSS feeds from: ${websiteUrl}`)
+
+    // Ensure URL is valid
+    const url = new URL(websiteUrl)
+
+    // Try fetching the HTML page
+    let htmlText: string
+
+    try {
+      // Try direct fetch first
+      const directResponse = await fetch(websiteUrl, {
+        headers: {
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "User-Agent": "Mozilla/5.0 (compatible; FeedVine/1.0; +https://feedvine.app)",
+        },
+      })
+
+      if (directResponse.ok) {
+        htmlText = await directResponse.text()
+      } else {
+        throw new Error("Direct fetch failed, trying proxy...")
+      }
+    } catch (directError) {
+      // Use CORS proxy
+      console.log("Direct fetch failed, using CORS proxy...")
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(websiteUrl)}`
+      const response = await fetch(proxyUrl)
+
+      if (!response.ok) {
+        throw new Error(`Proxy HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      htmlText = data.contents
+    }
+
+    // Parse HTML to find RSS feed links
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(htmlText, "text/html")
+
+    const feeds: DiscoveredFeed[] = []
+
+    // Look for RSS/Atom feed links in <link> tags
+    const linkTags = doc.querySelectorAll('link[rel="alternate"]')
+
+    linkTags.forEach(link => {
+      const type = link.getAttribute("type")
+      const href = link.getAttribute("href")
+      const title = link.getAttribute("title")
+
+      if (href && (type === "application/rss+xml" || type === "application/atom+xml" || type === "application/xml")) {
+        // Resolve relative URLs
+        const feedUrl = new URL(href, url.origin).href
+
+        feeds.push({
+          url: feedUrl,
+          title: title || undefined,
+          type: type,
+        })
+      }
+    })
+
+    // If no feeds found in <link> tags, try common RSS feed paths
+    if (feeds.length === 0) {
+      console.log("No feeds found in <link> tags, trying common paths...")
+      const commonPaths = ["/feed", "/rss", "/feed.xml", "/rss.xml", "/atom.xml", "/index.xml", "/blog/feed", "/blog/rss"]
+
+      for (const path of commonPaths) {
+        const testUrl = new URL(path, url.origin).href
+        try {
+          // Test if the URL returns valid RSS/Atom
+          const testResponse = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(testUrl)}`)
+          if (testResponse.ok) {
+            const testData = await testResponse.json()
+            const testDoc = parser.parseFromString(testData.contents, "text/xml")
+
+            // Check if it's valid RSS/Atom
+            if (testDoc.querySelector("rss, feed, rdf\\:RDF")) {
+              feeds.push({
+                url: testUrl,
+                title: undefined,
+                type: "application/rss+xml",
+              })
+              break // Found one, stop searching
+            }
+          }
+        } catch (error) {
+          // Continue to next path
+          continue
+        }
+      }
+    }
+
+    console.log(`Found ${feeds.length} RSS feed(s)`)
+    return feeds
+  } catch (error) {
+    console.error("Error discovering RSS feeds:", error)
+    throw error
+  }
+}
+
 /**
  * Fetch and parse RSS feed using a CORS proxy
  * Note: In production, this should be done server-side
