@@ -90,11 +90,23 @@ serve(async req => {
 })
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabaseUrl: string, supabaseKey: string) {
+  console.log(
+    "Checkout session received:",
+    JSON.stringify({
+      id: session.id,
+      customer: session.customer,
+      subscription: session.subscription,
+      metadata: session.metadata,
+    }),
+  )
+
   const userId = session.metadata?.user_id
   const subscriptionId = session.subscription as string
 
   if (!userId || !subscriptionId) {
     console.error("Missing userId or subscriptionId in checkout session")
+    console.error("userId:", userId, "subscriptionId:", subscriptionId)
+    console.error("Full metadata:", JSON.stringify(session.metadata))
     return
   }
 
@@ -129,6 +141,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   const dbStatus = mapStripeStatusToDb(subscription.status)
   console.log("Stripe status:", subscription.status, "-> DB status:", dbStatus)
 
+  // Safely convert timestamps
+  const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : null
+  const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null
+
   // Update subscription in database
   const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions`, {
     method: "POST",
@@ -144,8 +160,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
       stripe_subscription_id: subscriptionId,
       plan_id: planId,
       status: dbStatus,
-      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      current_period_start: periodStart,
+      current_period_end: periodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end,
     }),
   })
@@ -196,6 +212,12 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
   const dbStatus = mapStripeStatusToDb(subscription.status)
   console.log("Stripe status:", subscription.status, "-> DB status:", dbStatus)
 
+  // Safely convert timestamps
+  const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : null
+  const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null
+
+  console.log("Period start:", periodStart, "Period end:", periodEnd)
+
   // Create or update subscription in database
   const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions`, {
     method: "POST",
@@ -211,8 +233,8 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
       stripe_subscription_id: subscription.id,
       plan_id: planId,
       status: dbStatus,
-      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      current_period_start: periodStart,
+      current_period_end: periodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end,
     }),
   })
@@ -255,6 +277,10 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
 
   const dbStatus = mapStripeStatusToDb(subscription.status)
 
+  // Safely convert timestamps
+  const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : null
+  const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null
+
   // Update subscription
   await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
     method: "PATCH",
@@ -266,8 +292,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
     body: JSON.stringify({
       plan_id: planId,
       status: dbStatus,
-      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      current_period_start: periodStart,
+      current_period_end: periodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end,
     }),
   })
