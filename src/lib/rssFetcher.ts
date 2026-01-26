@@ -27,36 +27,17 @@ export async function discoverRSSFeeds(websiteUrl: string): Promise<DiscoveredFe
     // Ensure URL is valid
     const url = new URL(websiteUrl)
 
-    // Try fetching the HTML page
-    let htmlText: string
+    // Always use CORS proxy to avoid CSP violations
+    console.log("Using CORS proxy to fetch HTML...")
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(websiteUrl)}`
+    const response = await fetch(proxyUrl)
 
-    try {
-      // Try direct fetch first
-      const directResponse = await fetch(websiteUrl, {
-        headers: {
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "User-Agent": "Mozilla/5.0 (compatible; FeedVine/1.0; +https://feedvine.app)",
-        },
-      })
-
-      if (directResponse.ok) {
-        htmlText = await directResponse.text()
-      } else {
-        throw new Error("Direct fetch failed, trying proxy...")
-      }
-    } catch (directError) {
-      // Use CORS proxy
-      console.log("Direct fetch failed, using CORS proxy...")
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(websiteUrl)}`
-      const response = await fetch(proxyUrl)
-
-      if (!response.ok) {
-        throw new Error(`Proxy HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-      htmlText = data.contents
+    if (!response.ok) {
+      throw new Error(`Proxy HTTP error! status: ${response.status}`)
     }
+
+    const data = await response.json()
+    const htmlText = data.contents
 
     // Parse HTML to find RSS feed links
     const parser = new DOMParser()
@@ -131,42 +112,24 @@ export async function fetchRSSFeed(feedUrl: string): Promise<RSSItem[]> {
   try {
     console.log(`Fetching RSS feed: ${feedUrl}`)
 
-    // Try fetching directly first (some feeds allow CORS)
-    let xmlText: string
+    // Always use CORS proxy to avoid CSP violations
+    // Direct fetch would be blocked by Content Security Policy
+    console.log("Using CORS proxy...")
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(feedUrl)}`
 
-    try {
-      console.log("Attempting direct fetch...")
-      const directResponse = await fetch(feedUrl, {
-        headers: {
-          Accept: "application/rss+xml, application/xml, text/xml, */*",
-        },
-      })
+    const response = await fetch(proxyUrl)
 
-      if (directResponse.ok) {
-        xmlText = await directResponse.text()
-        console.log("Direct fetch successful!")
-      } else {
-        throw new Error("Direct fetch failed, trying proxy...")
-      }
-    } catch (directError) {
-      // Direct fetch failed, try CORS proxy
-      console.log("Direct fetch failed, using CORS proxy...")
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(feedUrl)}`
-
-      const response = await fetch(proxyUrl)
-
-      if (!response.ok) {
-        throw new Error(`Proxy HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (!data.contents) {
-        throw new Error("Failed to fetch feed - no content returned from proxy")
-      }
-
-      xmlText = data.contents
+    if (!response.ok) {
+      throw new Error(`Proxy HTTP error! status: ${response.status}`)
     }
+
+    const data = await response.json()
+
+    if (!data.contents) {
+      throw new Error("Failed to fetch feed - no content returned from proxy")
+    }
+
+    const xmlText = data.contents
 
     console.log(`Received ${xmlText.length} bytes of content`)
 
