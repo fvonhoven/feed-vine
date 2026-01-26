@@ -18,6 +18,7 @@ async function createStripeCheckoutSession(params: {
     headers: {
       Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
       "Content-Type": "application/x-www-form-urlencoded",
+      "Stripe-Version": "2024-11-20.acacia", // Pin API version for consistency
     },
     body: new URLSearchParams({
       ...(params.customer && { customer: params.customer }),
@@ -38,11 +39,21 @@ async function createStripeCheckoutSession(params: {
   })
 
   if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Stripe API error: ${error}`)
+    const errorText = await response.text()
+    console.error("Stripe API error:", response.status, errorText)
+    // Don't expose internal Stripe errors to client
+    throw new Error(`Payment processing failed. Please try again.`)
   }
 
-  return await response.json()
+  const data = await response.json()
+
+  // Validate response has expected fields
+  if (!data.id || !data.url) {
+    console.error("Invalid Stripe response:", data)
+    throw new Error("Invalid payment session response")
+  }
+
+  return data
 }
 
 async function createStripeCustomer(params: { email?: string; metadata?: Record<string, string> }) {
@@ -51,6 +62,7 @@ async function createStripeCustomer(params: { email?: string; metadata?: Record<
     headers: {
       Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
       "Content-Type": "application/x-www-form-urlencoded",
+      "Stripe-Version": "2024-11-20.acacia", // Pin API version for consistency
     },
     body: new URLSearchParams({
       ...(params.email && { email: params.email }),
@@ -66,11 +78,21 @@ async function createStripeCustomer(params: { email?: string; metadata?: Record<
   })
 
   if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Stripe API error: ${error}`)
+    const errorText = await response.text()
+    console.error("Stripe customer creation error:", response.status, errorText)
+    // Don't expose internal Stripe errors to client
+    throw new Error(`Customer creation failed. Please try again.`)
   }
 
-  return await response.json()
+  const data = await response.json()
+
+  // Validate response has expected fields
+  if (!data.id) {
+    console.error("Invalid Stripe customer response:", data)
+    throw new Error("Invalid customer response")
+  }
+
+  return data
 }
 
 const corsHeaders = {
@@ -132,6 +154,18 @@ Deno.serve(async req => {
       throw new Error("Missing required parameter: priceId")
     }
 
+    // Validate priceId format (Stripe price IDs start with "price_")
+    if (typeof priceId !== "string" || !priceId.startsWith("price_")) {
+      console.error("Invalid priceId format:", priceId)
+      throw new Error("Invalid price ID format")
+    }
+
+    // Additional length check to prevent excessively long inputs
+    if (priceId.length > 100) {
+      console.error("PriceId too long:", priceId.length)
+      throw new Error("Invalid price ID")
+    }
+
     // Use service role client for database operations
     const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")
 
@@ -160,6 +194,20 @@ Deno.serve(async req => {
       })
     }
 
+    // Validate origin header to prevent open redirect
+    const origin = req.headers.get("origin")
+    const allowedOrigins = [
+      "https://feedvine.app",
+      "https://www.feedvine.app",
+      "http://localhost:5173", // Local development
+      "http://localhost:4173", // Local preview
+    ]
+
+    if (!origin || !allowedOrigins.includes(origin)) {
+      console.error("Invalid origin:", origin)
+      throw new Error("Invalid request origin")
+    }
+
     // Create Checkout Session
     const session = await createStripeCheckoutSession({
       customer: customerId,
@@ -170,8 +218,8 @@ Deno.serve(async req => {
         },
       ],
       mode: "subscription",
-      success_url: `${req.headers.get("origin")}/settings?success=true`,
-      cancel_url: `${req.headers.get("origin")}/pricing?canceled=true`,
+      success_url: `${origin}/settings?success=true`,
+      cancel_url: `${origin}/pricing?canceled=true`,
       metadata: {
         user_id: user.id,
       },
