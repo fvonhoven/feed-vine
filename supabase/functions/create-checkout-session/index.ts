@@ -1,10 +1,52 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import Stripe from "https://esm.sh/stripe@14.14.0?target=deno"
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-  apiVersion: "2023-10-16",
-  httpClient: Stripe.createFetchHttpClient(),
-})
+const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") || ""
+
+// Direct Stripe API calls to avoid SDK compatibility issues
+async function createStripeCustomer(email: string, userId: string) {
+  const response = await fetch("https://api.stripe.com/v1/customers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      email,
+      "metadata[supabase_user_id]": userId,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Stripe customer creation failed: ${response.status}`)
+  }
+
+  return await response.json()
+}
+
+async function createStripeCheckoutSession(customerId: string, priceId: string, userId: string, successUrl: string, cancelUrl: string) {
+  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      customer: customerId,
+      "line_items[0][price]": priceId,
+      "line_items[0][quantity]": "1",
+      mode: "subscription",
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      "metadata[user_id]": userId,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Stripe checkout session creation failed: ${response.status}`)
+  }
+
+  return await response.json()
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,13 +117,7 @@ serve(async req => {
 
     // Create new customer if doesn't exist
     if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: userEmail,
-        metadata: {
-          supabase_user_id: userId,
-        },
-      })
-
+      const customer = await createStripeCustomer(userEmail, userId)
       customerId = customer.id
 
       // Save customer ID to database
@@ -94,21 +130,14 @@ serve(async req => {
     }
 
     // Create Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      mode: "subscription",
-      success_url: `${req.headers.get("origin")}/settings?success=true`,
-      cancel_url: `${req.headers.get("origin")}/pricing?canceled=true`,
-      metadata: {
-        user_id: userId,
-      },
-    })
+    const origin = req.headers.get("origin") || "https://feedvine.app"
+    const session = await createStripeCheckoutSession(
+      customerId,
+      priceId,
+      userId,
+      `${origin}/settings?success=true`,
+      `${origin}/pricing?canceled=true`,
+    )
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
