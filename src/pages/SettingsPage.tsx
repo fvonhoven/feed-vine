@@ -7,7 +7,7 @@ import type { ArticleWithFeed } from "../types/database"
 import toast from "react-hot-toast"
 import { useState, useEffect } from "react"
 import { useSubscription } from "../hooks/useSubscription"
-import { PRICING_PLANS, getPlanPrice, getPlanPriceId, type BillingInterval } from "../lib/stripe"
+import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getPlanFeaturesArray, type BillingInterval, type PlanId } from "../lib/stripe"
 import { useNavigate, useSearchParams } from "react-router-dom"
 
 export default function SettingsPage() {
@@ -116,7 +116,10 @@ export default function SettingsPage() {
     }
   }
 
-  const currentPlan = PRICING_PLANS[currentPlanId]
+  // Convert lowercase plan ID to uppercase for PRICING_PLANS lookup
+  const planIdUpper = currentPlanId.toUpperCase() as PlanId
+  const currentPlan = PRICING_PLANS[planIdUpper]
+  const currentPlanFeatures = getPlanFeaturesArray(planIdUpper)
 
   return (
     <div className="px-4 sm:px-0">
@@ -156,9 +159,9 @@ export default function SettingsPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {currentPlanId === "free" ? "Free Forever" : `$${getPlanPrice(currentPlanId.toUpperCase() as any, "monthly")}/mo`}
+                    {planIdUpper === "FREE" ? "Free Forever" : `$${getPlanPrice(planIdUpper, "monthly")}/mo`}
                   </p>
-                  {subscription?.current_period_end && currentPlanId !== "free" && (
+                  {subscription?.current_period_end && planIdUpper !== "FREE" && (
                     <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                       Renews {new Date(subscription.current_period_end).toLocaleDateString()}
                     </p>
@@ -171,7 +174,7 @@ export default function SettingsPage() {
             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Your Plan Includes:</p>
               <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                {currentPlan.features.map((feature, idx) => (
+                {currentPlanFeatures.map((feature, idx) => (
                   <li key={idx} className="flex items-start">
                     <svg className="w-4 h-4 text-primary-600 dark:text-primary-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                       <path
@@ -187,12 +190,12 @@ export default function SettingsPage() {
             </div>
 
             {/* Change Plan */}
-            {currentPlanId !== "premium" && (
+            {planIdUpper !== "PREMIUM" && (
               <div>
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Upgrade Your Plan</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {Object.entries(PRICING_PLANS)
-                    .filter(([id]) => id !== "FREE" && id !== currentPlanId.toUpperCase())
+                    .filter(([id]) => id !== "FREE" && id !== planIdUpper)
                     .map(([id, plan]) => (
                       <button
                         key={id}
@@ -201,7 +204,7 @@ export default function SettingsPage() {
                         className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <p className="font-semibold text-gray-900 dark:text-white">{plan.name}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">${getPlanPrice(id as any, "monthly")}/month</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">${getPlanPrice(id as PlanId, "monthly")}/month</p>
                         <p className="text-xs text-primary-600 dark:text-primary-400 mt-2">
                           {id === "PRO" && "Perfect for individuals"}
                           {id === "PLUS" && "Great for power users"}
@@ -214,7 +217,7 @@ export default function SettingsPage() {
             )}
 
             {/* Manage Subscription Link */}
-            {currentPlanId !== "free" && subscription?.stripe_customer_id && (
+            {planIdUpper !== "FREE" && subscription?.stripe_customer_id && (
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Need to update payment method or cancel?{" "}

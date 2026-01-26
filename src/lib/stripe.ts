@@ -135,3 +135,45 @@ export function getAnnualSavings(planId: PlanId): number {
   const annualCost = plan.annualPrice * 12
   return Math.round(((monthlyCost - annualCost) / monthlyCost) * 100)
 }
+
+// Helper to get features as a readable array
+export function getPlanFeaturesArray(planId: PlanId): string[] {
+  const features = PRICING_PLANS[planId].features
+  const featureList: string[] = []
+
+  if (features.maxFeeds > 0) {
+    featureList.push(`Up to ${features.maxFeeds} feed${features.maxFeeds > 1 ? "s" : ""}`)
+  }
+  if (features.maxCategories > 0) {
+    featureList.push(`Up to ${features.maxCategories} categor${features.maxCategories > 1 ? "ies" : "y"}`)
+  }
+  if (features.maxCollections > 0) {
+    featureList.push(`Up to ${features.maxCollections} collection${features.maxCollections > 1 ? "s" : ""}`)
+  }
+  if (features.readTracking) {
+    featureList.push("Read tracking")
+  }
+  if (features.basicFilters) {
+    featureList.push("Basic filters")
+  }
+  if (features.savedArticles) {
+    featureList.push("Save articles")
+  }
+  if (features.advancedFilters) {
+    featureList.push("Advanced filters")
+  }
+  if (features.exportRSS) {
+    featureList.push("Export RSS feed")
+  }
+  if (features.keyboardShortcuts) {
+    featureList.push("Keyboard shortcuts")
+  }
+  if (features.prioritySupport) {
+    featureList.push("Priority support")
+  }
+  if (features.apiAccess) {
+    featureList.push("API access")
+  }
+
+  return featureList
+}
