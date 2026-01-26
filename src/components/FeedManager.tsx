@@ -12,6 +12,8 @@ import { Link } from "react-router-dom"
 export default function FeedManager() {
   const [newFeedUrl, setNewFeedUrl] = useState("")
   const [refreshingFeedId, setRefreshingFeedId] = useState<string | null>(null)
+  const [showBulkImport, setShowBulkImport] = useState(false)
+  const [bulkImportFile, setBulkImportFile] = useState<File | null>(null)
   const queryClient = useQueryClient()
   const { getLimit } = useSubscription()
 
@@ -138,6 +140,143 @@ export default function FeedManager() {
     },
   })
 
+  const bulkImportMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (isDemoMode) {
+        throw new Error("Demo mode: Connect Supabase to import feeds")
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+
+      // Read CSV file
+      const text = await file.text()
+      const lines = text.split("\n").filter(line => line.trim())
+
+      if (lines.length === 0) {
+        throw new Error("CSV file is empty")
+      }
+
+      // Parse CSV (simple parser - assumes URL in first column, optional title in second)
+      const feedsToImport: { url: string; title?: string }[] = []
+      let hasHeader = false
+
+      // Check if first line is a header
+      const firstLine = lines[0].toLowerCase()
+      if (firstLine.includes("url") || firstLine.includes("feed") || firstLine.includes("link")) {
+        hasHeader = true
+      }
+
+      const dataLines = hasHeader ? lines.slice(1) : lines
+
+      for (const line of dataLines) {
+        const columns = line.split(",").map(col => col.trim().replace(/^["']|["']$/g, ""))
+        const url = columns[0]
+
+        if (!url) continue
+
+        // Validate URL format
+        try {
+          new URL(url)
+          feedsToImport.push({
+            url,
+            title: columns[1] || new URL(url).hostname,
+          })
+        } catch {
+          console.warn(`Skipping invalid URL: ${url}`)
+        }
+      }
+
+      if (feedsToImport.length === 0) {
+        throw new Error("No valid feed URLs found in CSV")
+      }
+
+      // Check plan limits
+      const currentFeedCount = feeds?.length || 0
+      const maxFeeds = getLimit("maxFeeds")
+      const availableSlots = maxFeeds - currentFeedCount
+
+      if (feedsToImport.length > availableSlots) {
+        throw new Error(
+          `Cannot import ${feedsToImport.length} feeds. You have ${availableSlots} slot${availableSlots === 1 ? "" : "s"} available. Upgrade your plan to add more!`,
+        )
+      }
+
+      // Insert feeds in batch
+      const { data, error } = await supabase
+        .from("feeds")
+        .insert(
+          feedsToImport.map(feed => ({
+            user_id: user.id,
+            url: feed.url,
+            title: feed.title || new URL(feed.url).hostname,
+            status: "active" as const,
+          })),
+        )
+        .select()
+
+      if (error) {
+        // Check for duplicate URLs
+        if (error.code === "23505") {
+          throw new Error("Some feed URLs already exist in your account")
+        }
+        throw error
+      }
+
+      return { feeds: data, count: data.length }
+    },
+    onSuccess: async result => {
+      queryClient.invalidateQueries({ queryKey: ["feeds"] })
+      setBulkImportFile(null)
+      setShowBulkImport(false)
+      toast.success(`Successfully imported ${result.count} feed${result.count === 1 ? "" : "s"}!`)
+
+      // Optionally fetch articles for all imported feeds
+      toast.loading("Fetching articles from imported feeds...")
+      let totalArticles = 0
+
+      for (const feed of result.feeds) {
+        try {
+          const count = await fetchAndSaveArticles(feed.id, feed.url)
+          totalArticles += count
+        } catch (error) {
+          console.error(`Failed to fetch articles for ${feed.url}:`, error)
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["articles"] })
+      toast.dismiss()
+      toast.success(`Fetched ${totalArticles} articles from ${result.count} feed${result.count === 1 ? "" : "s"}!`)
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to import feeds")
+    },
+  })
+
+  const handleBulkImport = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (bulkImportFile) {
+      bulkImportMutation.mutate(bulkImportFile)
+    }
+  }
+
+  const downloadSampleCSV = () => {
+    const sampleCSV = `url,title
+https://example.com/feed.xml,Example Feed
+https://blog.example.com/rss,Example Blog
+https://news.example.com/feed,Example News`
+
+    const blob = new Blob([sampleCSV], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "sample-feeds.csv"
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const currentFeedCount = feeds?.length || 0
   const maxFeeds = getLimit("maxFeeds")
   const isAtLimit = currentFeedCount >= maxFeeds
@@ -148,9 +287,18 @@ export default function FeedManager() {
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Add New Feed</h2>
-          <span className={`text-sm ${isAtLimit ? "text-red-600 dark:text-red-400 font-semibold" : "text-gray-500 dark:text-gray-400"}`}>
-            {currentFeedCount} / {maxFeeds} feeds
-          </span>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setShowBulkImport(!showBulkImport)}
+              className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
+            >
+              {showBulkImport ? "Single Import" : "Bulk Import CSV"}
+            </button>
+            <span className={`text-sm ${isAtLimit ? "text-red-600 dark:text-red-400 font-semibold" : "text-gray-500 dark:text-gray-400"}`}>
+              {currentFeedCount} / {maxFeeds} feeds
+            </span>
+          </div>
         </div>
         {isAtLimit && (
           <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
@@ -162,24 +310,78 @@ export default function FeedManager() {
             </p>
           </div>
         )}
-        <form onSubmit={handleAddFeed} className="flex gap-3">
-          <input
-            type="url"
-            value={newFeedUrl}
-            onChange={e => setNewFeedUrl(e.target.value)}
-            placeholder="https://example.com/feed.xml"
-            className="flex-1 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            required
-            disabled={isAtLimit}
-          />
-          <button
-            type="submit"
-            disabled={addFeedMutation.isPending || isAtLimit}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {addFeedMutation.isPending ? "Adding..." : "Add Feed"}
-          </button>
-        </form>
+
+        {!showBulkImport ? (
+          <form onSubmit={handleAddFeed} className="flex gap-3">
+            <input
+              type="url"
+              value={newFeedUrl}
+              onChange={e => setNewFeedUrl(e.target.value)}
+              placeholder="https://example.com/feed.xml"
+              className="flex-1 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              required
+              disabled={isAtLimit}
+            />
+            <button
+              type="submit"
+              disabled={addFeedMutation.isPending || isAtLimit}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {addFeedMutation.isPending ? "Adding..." : "Add Feed"}
+            </button>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">CSV Format</h3>
+              <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                Upload a CSV file with feed URLs. The file should have a header row and at least a URL column. Optionally include a title column.
+              </p>
+              <button
+                type="button"
+                onClick={downloadSampleCSV}
+                className="text-sm text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 underline font-medium"
+              >
+                Download sample CSV template
+              </button>
+            </div>
+
+            <form onSubmit={handleBulkImport} className="space-y-3">
+              <div>
+                <label htmlFor="csv-file" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select CSV File
+                </label>
+                <input
+                  id="csv-file"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={e => setBulkImportFile(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isAtLimit}
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={!bulkImportFile || bulkImportMutation.isPending || isAtLimit}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bulkImportMutation.isPending ? "Importing..." : "Import Feeds"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBulkImport(false)
+                    setBulkImportFile(null)
+                  }}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Feeds List */}
