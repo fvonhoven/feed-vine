@@ -145,17 +145,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : null
   const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null
 
-  // Update subscription in database
-  const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions`, {
-    method: "POST",
+  // Update subscription in database using PATCH to update existing record
+  const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
+    method: "PATCH",
     headers: {
       apikey: supabaseKey,
       Authorization: `Bearer ${supabaseKey}`,
       "Content-Type": "application/json",
-      Prefer: "resolution=merge-duplicates",
     },
     body: JSON.stringify({
-      user_id: userId,
       stripe_customer_id: session.customer,
       stripe_subscription_id: subscriptionId,
       plan_id: planId,
@@ -218,31 +216,38 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
 
   console.log("Period start:", periodStart, "Period end:", periodEnd)
 
-  // Create or update subscription in database
-  const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions`, {
-    method: "POST",
+  const payload = {
+    user_id: userId,
+    stripe_customer_id: customerId,
+    stripe_subscription_id: subscription.id,
+    plan_id: planId,
+    status: dbStatus,
+    current_period_start: periodStart,
+    current_period_end: periodEnd,
+    cancel_at_period_end: subscription.cancel_at_period_end,
+  }
+
+  console.log("Attempting to update subscription with payload:", JSON.stringify(payload))
+
+  // Update subscription in database using PATCH to update existing record
+  const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
+    method: "PATCH",
     headers: {
       apikey: supabaseKey,
       Authorization: `Bearer ${supabaseKey}`,
       "Content-Type": "application/json",
-      Prefer: "resolution=merge-duplicates",
     },
-    body: JSON.stringify({
-      user_id: userId,
-      stripe_customer_id: customerId,
-      stripe_subscription_id: subscription.id,
-      plan_id: planId,
-      status: dbStatus,
-      current_period_start: periodStart,
-      current_period_end: periodEnd,
-      cancel_at_period_end: subscription.cancel_at_period_end,
-    }),
+    body: JSON.stringify(payload),
   })
+
+  console.log("Database response status:", response.status)
 
   if (!response.ok) {
     const errorText = await response.text()
     console.error("Failed to create subscription in database:", errorText)
   } else {
+    const responseData = await response.text()
+    console.log("Database response body:", responseData)
     console.log("Successfully created subscription for user:", userId, "to plan:", planId)
   }
 }

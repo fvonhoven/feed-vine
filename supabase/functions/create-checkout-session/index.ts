@@ -17,7 +17,9 @@ async function createStripeCustomer(email: string, userId: string) {
   })
 
   if (!response.ok) {
-    throw new Error(`Stripe customer creation failed: ${response.status}`)
+    const errorBody = await response.text()
+    console.error("Stripe customer creation error:", errorBody)
+    throw new Error(`Stripe customer creation failed: ${response.status} - ${errorBody}`)
   }
 
   return await response.json()
@@ -42,7 +44,9 @@ async function createStripeCheckoutSession(customerId: string, priceId: string, 
   })
 
   if (!response.ok) {
-    throw new Error(`Stripe checkout session creation failed: ${response.status}`)
+    const errorBody = await response.text()
+    console.error("Stripe checkout session error:", errorBody)
+    throw new Error(`Stripe checkout session creation failed: ${response.status} - ${errorBody}`)
   }
 
   return await response.json()
