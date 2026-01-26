@@ -10,10 +10,58 @@ interface RSSItem {
   guid?: string
 }
 
+interface EdgeFunctionArticle {
+  feed_id: string
+  title: string
+  url: string
+  description: string | null
+  published_at: string
+  guid: string
+}
+
 interface DiscoveredFeed {
   url: string
   title?: string
   type: string
+}
+
+/**
+ * Fetch RSS feed using server-side edge function (recommended for production)
+ * This bypasses CORS and Cloudflare protection
+ */
+export async function fetchRSSFeedServerSide(feedUrl: string): Promise<RSSItem[]> {
+  try {
+    console.log(`Fetching RSS feed server-side: ${feedUrl}`)
+
+    const { data, error } = await supabase.functions.invoke("fetch-rss", {
+      body: { url: feedUrl },
+    })
+
+    if (error) throw error
+
+    if (!data.success || !data.results || data.results.length === 0) {
+      throw new Error("Failed to fetch feed from server")
+    }
+
+    const result = data.results[0]
+
+    if (!result.success) {
+      throw new Error(result.error || "Failed to fetch feed")
+    }
+
+    // Convert edge function articles to RSSItem format
+    const articles: EdgeFunctionArticle[] = result.articles || []
+    return articles.map(article => ({
+      title: article.title,
+      link: article.url,
+      description: article.description || undefined,
+      pubDate: article.published_at,
+      guid: article.guid,
+    }))
+  } catch (error) {
+    console.error("Server-side RSS fetch failed:", error)
+    throw error
+  }
 }
 
 /**
@@ -278,11 +326,48 @@ export async function fetchRSSFeed(feedUrl: string): Promise<RSSItem[]> {
 }
 
 /**
- * Fetch RSS feed and save articles to database
+ * Fetch RSS feed and save articles to database using server-side edge function
  */
 export async function fetchAndSaveArticles(feedId: string, feedUrl: string): Promise<number> {
   try {
-    console.log(`Fetching RSS feed: ${feedUrl}`)
+    console.log(`Fetching RSS feed server-side: ${feedUrl}`)
+
+    // Use edge function to fetch feed server-side (bypasses CORS and Cloudflare)
+    const { data, error } = await supabase.functions.invoke("fetch-rss", {
+      body: { feedId },
+    })
+
+    if (error) {
+      console.error("Edge function error:", error)
+      throw new Error(error.message || "Failed to fetch feed from server")
+    }
+
+    if (!data.success || !data.results || data.results.length === 0) {
+      throw new Error("Failed to fetch feed from server")
+    }
+
+    const result = data.results[0]
+
+    if (!result.success) {
+      throw new Error(result.error || "Failed to fetch feed")
+    }
+
+    console.log(`Successfully fetched ${result.articlesCount} articles from server`)
+    return result.articlesCount || 0
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Failed to fetch feed"
+    console.error(`Error fetching feed ${feedId}:`, errorMessage)
+    throw error
+  }
+}
+
+/**
+ * Fetch RSS feed and save articles to database (client-side fallback - deprecated)
+ * @deprecated Use fetchAndSaveArticles instead which uses server-side fetching
+ */
+export async function fetchAndSaveArticlesClientSide(feedId: string, feedUrl: string): Promise<number> {
+  try {
+    console.log(`Fetching RSS feed client-side: ${feedUrl}`)
     const items = await fetchRSSFeed(feedUrl)
 
     console.log(`Found ${items.length} items in feed`)

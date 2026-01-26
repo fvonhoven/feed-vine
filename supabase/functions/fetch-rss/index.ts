@@ -22,10 +22,38 @@ serve(async req => {
   try {
     const supabaseClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")
 
-    // Get all active feeds
-    const { data: feeds, error: feedsError } = await supabaseClient.from("feeds").select("id, url, title").eq("status", "active")
+    // Check if this is a request for a specific feed
+    const url = new URL(req.url)
+    let feedId = url.searchParams.get("feedId")
+    let feedUrl = url.searchParams.get("url")
 
-    if (feedsError) throw feedsError
+    // Also check POST body for parameters
+    if (req.method === "POST") {
+      try {
+        const body = await req.json()
+        feedId = body.feedId || feedId
+        feedUrl = body.url || feedUrl
+      } catch {
+        // Ignore JSON parse errors, use query params
+      }
+    }
+
+    let feeds: Feed[] = []
+
+    if (feedId) {
+      // Fetch specific feed by ID
+      const { data, error } = await supabaseClient.from("feeds").select("id, url, title").eq("id", feedId).single()
+      if (error) throw error
+      feeds = [data]
+    } else if (feedUrl) {
+      // Fetch from a URL directly (for discovery/testing)
+      feeds = [{ id: "temp", url: feedUrl, title: "Temporary Feed" }]
+    } else {
+      // Get all active feeds (cron job mode)
+      const { data, error: feedsError } = await supabaseClient.from("feeds").select("id, url, title").eq("status", "active")
+      if (feedsError) throw feedsError
+      feeds = data as Feed[]
+    }
 
     const results = []
 
@@ -63,39 +91,46 @@ serve(async req => {
           guid: entry.id?.value || entry.links?.[0]?.href || "",
         }))
 
-        // Upsert articles (insert or ignore duplicates)
-        const { error: articlesError } = await supabaseClient.from("articles").upsert(articles, { onConflict: "url", ignoreDuplicates: true })
+        // Only insert articles if this is a real feed (not a temporary URL fetch)
+        if (feed.id !== "temp") {
+          // Upsert articles (insert or ignore duplicates)
+          const { error: articlesError } = await supabaseClient.from("articles").upsert(articles, { onConflict: "url", ignoreDuplicates: true })
 
-        if (articlesError && !articlesError.message.includes("duplicate")) {
-          console.error(`Error inserting articles for feed ${feed.id}:`, articlesError)
+          if (articlesError && !articlesError.message.includes("duplicate")) {
+            console.error(`Error inserting articles for feed ${feed.id}:`, articlesError)
+          }
+
+          // Update feed status
+          await supabaseClient
+            .from("feeds")
+            .update({
+              last_fetched: new Date().toISOString(),
+              status: "active",
+              error_message: null,
+            })
+            .eq("id", feed.id)
         }
-
-        // Update feed status
-        await supabaseClient
-          .from("feeds")
-          .update({
-            last_fetched: new Date().toISOString(),
-            status: "active",
-            error_message: null,
-          })
-          .eq("id", feed.id)
 
         results.push({
           feedId: feed.id,
           success: true,
           articlesCount: articles.length,
+          feedTitle: parsedFeed.title?.value || feed.title,
+          articles: feedUrl ? articles : undefined, // Return articles only for direct URL fetches
         })
       } catch (error) {
         console.error(`Error processing feed ${feed.id}:`, error)
 
-        // Update feed with error status
-        await supabaseClient
-          .from("feeds")
-          .update({
-            status: "error",
-            error_message: error.message,
-          })
-          .eq("id", feed.id)
+        // Update feed with error status (only for real feeds)
+        if (feed.id !== "temp") {
+          await supabaseClient
+            .from("feeds")
+            .update({
+              status: "error",
+              error_message: error.message,
+            })
+            .eq("id", feed.id)
+        }
 
         results.push({
           feedId: feed.id,
