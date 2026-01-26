@@ -129,7 +129,7 @@ export async function fetchRSSFeed(feedUrl: string): Promise<RSSItem[]> {
       throw new Error("Failed to fetch feed - no content returned from proxy")
     }
 
-    const xmlText = data.contents
+    let xmlText = data.contents
 
     console.log(`Received ${xmlText.length} bytes of content`)
 
