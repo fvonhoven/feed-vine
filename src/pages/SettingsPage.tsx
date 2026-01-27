@@ -78,41 +78,68 @@ export default function SettingsPage() {
       return
     }
 
-    if (newPlanId === "free") {
-      toast.error("Please contact support to downgrade to the free plan")
-      return
-    }
-
     if (newPlanId === currentPlanId) {
       toast.success("You're already on this plan!")
       return
     }
 
-    const priceId = getPlanPriceId(newPlanId.toUpperCase() as any, interval)
-    if (!priceId) {
-      toast.error("Price ID not configured. Please contact support.")
-      return
-    }
+    // Determine if this is an upgrade or downgrade
+    const planOrder = { free: 0, pro: 1, plus: 2, premium: 3 }
+    const currentPlanOrder = planOrder[currentPlanId.toLowerCase() as keyof typeof planOrder]
+    const newPlanOrder = planOrder[newPlanId.toLowerCase() as keyof typeof planOrder]
+    const isDowngrade = newPlanOrder < currentPlanOrder
 
-    setChangingPlan(true)
+    if (isDowngrade) {
+      // For downgrades, schedule change at period end
+      const confirmMessage =
+        newPlanId === "free"
+          ? `Are you sure you want to cancel your subscription? Your ${PRICING_PLANS[currentPlanId.toUpperCase() as PlanId].name} plan will remain active until ${subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : "the end of your billing period"}, then you'll be downgraded to the Free plan.`
+          : `Your plan will be downgraded to ${PRICING_PLANS[newPlanId.toUpperCase() as PlanId].name} at the end of your current billing period (${subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : "end of period"}). You'll keep your current ${PRICING_PLANS[currentPlanId.toUpperCase() as PlanId].name} features until then.`
 
-    try {
-      const { data, error } = await supabase.functions.invoke("create-checkout-session", {
-        body: { priceId },
-      })
-
-      if (error) throw error
-
-      if (data?.url) {
-        window.location.href = data.url
-      } else {
-        throw new Error("No checkout URL returned")
+      if (!confirm(confirmMessage)) {
+        return
       }
-    } catch (error: any) {
-      console.error("Plan change error:", error)
-      toast.error(error.message || "Failed to change plan. Please try again.")
-    } finally {
-      setChangingPlan(false)
+
+      setChangingPlan(true)
+
+      try {
+        // TODO: Implement downgrade scheduling via Stripe API
+        // For now, show a message
+        toast.error("Downgrade functionality coming soon. Please contact support to downgrade your plan.")
+      } catch (error: any) {
+        console.error("Downgrade error:", error)
+        toast.error(error.message || "Failed to schedule downgrade. Please try again.")
+      } finally {
+        setChangingPlan(false)
+      }
+    } else {
+      // For upgrades, proceed with immediate checkout
+      const priceId = getPlanPriceId(newPlanId.toUpperCase() as any, interval)
+      if (!priceId) {
+        toast.error("Price ID not configured. Please contact support.")
+        return
+      }
+
+      setChangingPlan(true)
+
+      try {
+        const { data, error } = await supabase.functions.invoke("create-checkout-session", {
+          body: { priceId },
+        })
+
+        if (error) throw error
+
+        if (data?.url) {
+          window.location.href = data.url
+        } else {
+          throw new Error("No checkout URL returned")
+        }
+      } catch (error: any) {
+        console.error("Plan change error:", error)
+        toast.error(error.message || "Failed to change plan. Please try again.")
+      } finally {
+        setChangingPlan(false)
+      }
     }
   }
 
@@ -190,31 +217,50 @@ export default function SettingsPage() {
             </div>
 
             {/* Change Plan */}
-            {planIdUpper !== "PREMIUM" && (
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Change Your Plan</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {Object.entries(PRICING_PLANS)
-                    .filter(([id]) => id !== "FREE" && id !== planIdUpper)
-                    .map(([id, plan]) => (
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Change Your Plan</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {Object.entries(PRICING_PLANS)
+                  .filter(([id]) => id !== planIdUpper)
+                  .map(([id, plan]) => {
+                    const planOrder = { FREE: 0, PRO: 1, PLUS: 2, PREMIUM: 3 }
+                    const isDowngrade = planOrder[id as keyof typeof planOrder] < planOrder[planIdUpper]
+                    const isCurrentPlan = id === planIdUpper
+
+                    return (
                       <button
                         key={id}
                         onClick={() => handleChangePlan(id.toLowerCase(), "monthly")}
-                        disabled={changingPlan}
-                        className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={changingPlan || isCurrentPlan}
+                        className={`p-4 border-2 rounded-lg transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isCurrentPlan
+                            ? "border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-900/20"
+                            : "border-gray-200 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500"
+                        }`}
                       >
-                        <p className="font-semibold text-gray-900 dark:text-white">{plan.name}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">${getPlanPrice(id as PlanId, "monthly")}/month</p>
-                        <p className="text-xs text-primary-600 dark:text-primary-400 mt-2">
-                          {id === "PRO" && "Perfect for individuals"}
-                          {id === "PLUS" && "Great for power users"}
-                          {id === "PREMIUM" && "Best for professionals"}
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {plan.name}
+                          {isCurrentPlan && <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Current)</span>}
                         </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {id === "FREE" ? "Free" : `$${getPlanPrice(id as PlanId, "monthly")}/month`}
+                        </p>
+                        {!isCurrentPlan && (
+                          <p className="text-xs text-primary-600 dark:text-primary-400 mt-2">
+                            {isDowngrade ? "Downgrade at period end" : "Upgrade now"}
+                          </p>
+                        )}
                       </button>
-                    ))}
-                </div>
+                    )
+                  })}
               </div>
-            )}
+              {planIdUpper !== "FREE" && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                  Upgrades take effect immediately. Downgrades take effect at the end of your current billing period (
+                  {subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : "end of period"}).
+                </p>
+              )}
+            </div>
 
             {/* Manage Subscription Link */}
             {planIdUpper !== "FREE" && subscription?.stripe_customer_id && (
