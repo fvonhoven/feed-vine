@@ -14,6 +14,7 @@ export default function FeedArticlesPage() {
   const { data: feed } = useQuery({
     queryKey: ["feed", feedId],
     queryFn: async () => {
+      if (!feedId) throw new Error("Feed ID is required")
       if (isDemoMode) {
         return mockFeeds.find(f => f.id === feedId) || null
       }
@@ -28,6 +29,7 @@ export default function FeedArticlesPage() {
   const { data: articles, isLoading } = useQuery({
     queryKey: ["feed-articles", feedId],
     queryFn: async () => {
+      if (!feedId) throw new Error("Feed ID is required")
       if (isDemoMode) {
         return mockArticlesWithStatus.filter(a => a.feed_id === feedId)
       }
@@ -127,9 +129,7 @@ export default function FeedArticlesPage() {
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{feed?.title || "Feed Articles"}</h1>
         {feed?.url && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{feed.url}</p>}
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-          {articles?.length || 0} articles
-        </p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{articles?.length || 0} articles</p>
       </div>
 
       {articles?.length === 0 ? (
@@ -151,4 +151,3 @@ export default function FeedArticlesPage() {
     </div>
   )
 }
-
