@@ -9,6 +9,14 @@ interface ArticleCardProps {
   onToggleSave?: (articleId: string, isSaved: boolean) => void
 }
 
+// Strip HTML tags from text and decode HTML entities
+function stripHtml(html: string | null | undefined): string {
+  if (!html) return ""
+  // Create a temporary element to decode HTML entities
+  const doc = new DOMParser().parseFromString(html, "text/html")
+  return doc.body.textContent || ""
+}
+
 export default function ArticleCard({ article, onToggleRead, onToggleSave }: ArticleCardProps) {
   const isRead = article.user_article?.is_read || false
   const isSaved = article.user_article?.is_saved || false
@@ -59,7 +67,7 @@ export default function ArticleCard({ article, onToggleRead, onToggleSave }: Art
             >
               {article.title}
             </h2>
-            {article.description && <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">{article.description}</p>}
+            {article.description && <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">{stripHtml(article.description)}</p>}
           </a>
 
           <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-500">
@@ -95,8 +103,8 @@ export default function ArticleCard({ article, onToggleRead, onToggleSave }: Art
               isSaved
                 ? "text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20"
                 : canSaveArticles
-                ? "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-                : "text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50"
+                  ? "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  : "text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50"
             }`}
             title={!canSaveArticles && !isSaved ? "Upgrade to Pro to save articles" : isSaved ? "Remove from saved" : "Save for later"}
           >
