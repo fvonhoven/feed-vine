@@ -16,22 +16,24 @@ serve(async req => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!
-
-    // Get the authorization header
+    // Get the authorization header for user verification
     const authHeader = req.headers.get("Authorization")
+
     if (!authHeader) {
-      console.error("No Authorization header found")
+      console.error("Missing authorization header")
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       })
     }
 
+    // Verify user via Supabase Auth API
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+
+    console.log("Supabase URL:", supabaseUrl)
     console.log("Auth header present:", !!authHeader)
 
-    // Verify user via Supabase Auth API
     const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: {
         Authorization: authHeader,
@@ -51,8 +53,8 @@ serve(async req => {
     }
 
     const user = await userResponse.json()
+    console.log("User verified:", user.id)
     const userId = user.id
-    console.log("Authenticated user:", userId)
 
     const { returnUrl } = await req.json()
 
