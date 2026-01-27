@@ -89,7 +89,7 @@ serve(async req => {
             published_at,
             created_at,
             feed:feeds(id, title, url),
-            user_article:user_articles(is_read, is_saved, read_at, saved_at)
+            user_article:user_articles!left(is_read, is_saved, read_at, saved_at)
           `,
             { count: "exact" },
           )
@@ -137,7 +137,7 @@ serve(async req => {
           published_at,
           created_at,
           feed:feeds!inner(id, title, url, user_id),
-          user_article:user_articles(is_read, is_saved, read_at, saved_at)
+          user_article:user_articles!left(is_read, is_saved, read_at, saved_at)
         `,
         )
         .eq("id", articleId)
@@ -221,4 +221,3 @@ serve(async req => {
     return errorResponse(error.message || "Internal server error", 500)
   }
 })
-
