@@ -12,9 +12,19 @@ interface ArticleCardProps {
 // Strip HTML tags from text and decode HTML entities
 function stripHtml(html: string | null | undefined): string {
   if (!html) return ""
-  // Create a temporary element to decode HTML entities
+
+  // First, decode HTML entities (handles &lt;p&gt; -> <p>)
   const doc = new DOMParser().parseFromString(html, "text/html")
-  return doc.body.textContent || ""
+  let text = doc.body.textContent || ""
+
+  // If the result still contains HTML tags (double-encoded), strip them with regex
+  // This handles cases where entities were decoded to actual tags
+  text = text.replace(/<[^>]*>/g, " ")
+
+  // Clean up multiple spaces and trim
+  text = text.replace(/\s+/g, " ").trim()
+
+  return text
 }
 
 export default function ArticleCard({ article, onToggleRead, onToggleSave }: ArticleCardProps) {
