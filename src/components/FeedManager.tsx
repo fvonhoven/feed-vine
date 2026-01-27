@@ -5,13 +5,14 @@ import type { Feed } from "../types/database"
 import toast from "react-hot-toast"
 import { formatDistanceToNow } from "date-fns"
 import { mockFeeds } from "../lib/mockData"
-import { fetchAndSaveArticles, discoverRSSFeeds } from "../lib/rssFetcher"
+import { fetchAndSaveArticles, discoverRSSFeeds, refreshAllFeeds } from "../lib/rssFetcher"
 import { useSubscription } from "../hooks/useSubscription"
 import { Link } from "react-router-dom"
 
 export default function FeedManager() {
   const [newFeedUrl, setNewFeedUrl] = useState("")
   const [refreshingFeedId, setRefreshingFeedId] = useState<string | null>(null)
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null)
   const queryClient = useQueryClient()
@@ -170,6 +171,30 @@ export default function FeedManager() {
     onError: (error: any) => {
       setRefreshingFeedId(null)
       toast.error(error.message || "Failed to refresh feed")
+    },
+  })
+
+  const refreshAllFeedsMutation = useMutation({
+    mutationFn: async () => {
+      if (isDemoMode) {
+        throw new Error("Demo mode: Cannot refresh feeds")
+      }
+      setIsRefreshingAll(true)
+      return await refreshAllFeeds()
+    },
+    onSuccess: result => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] })
+      queryClient.invalidateQueries({ queryKey: ["feeds"] })
+      setIsRefreshingAll(false)
+      if (result.failed > 0) {
+        toast.success(`Refreshed ${result.success} feeds. ${result.failed} failed.`)
+      } else {
+        toast.success(`Successfully refreshed all ${result.success} feeds!`)
+      }
+    },
+    onError: (error: any) => {
+      setIsRefreshingAll(false)
+      toast.error(error.message || "Failed to refresh feeds")
     },
   })
 
@@ -473,8 +498,26 @@ Example Feed,https://feeds.feedburner.com/example`
 
       {/* Feeds List */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Your Feeds ({feeds?.length || 0})</h2>
+          {feeds && feeds.length > 0 && (
+            <button
+              onClick={() => refreshAllFeedsMutation.mutate()}
+              disabled={isRefreshingAll || isDemoMode}
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Refresh all feeds"
+            >
+              <svg className={`w-4 h-4 ${isRefreshingAll ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              <span className="ml-1.5">{isRefreshingAll ? "Refreshing All..." : "Refresh All"}</span>
+            </button>
+          )}
         </div>
         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
           {isLoading ? (

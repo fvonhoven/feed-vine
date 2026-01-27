@@ -66,6 +66,7 @@ serve(async req => {
         const response = await fetch(feed.url, {
           headers: {
             "User-Agent": "RSS-Aggregator/1.0",
+            Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
           },
         })
 
@@ -73,7 +74,19 @@ serve(async req => {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
 
+        const contentType = response.headers.get("content-type") || ""
         const xml = await response.text()
+
+        // Check if we got HTML instead of XML
+        if (contentType.includes("text/html") || xml.trim().startsWith("<!DOCTYPE html") || xml.trim().startsWith("<html")) {
+          throw new Error("Feed URL returned HTML instead of RSS/XML. The URL may be incorrect or the feed may not exist.")
+        }
+
+        // Check for Cloudflare challenge
+        if (xml.includes("Enable JavaScript and cookies to continue") || xml.includes("__cf_chl_opt")) {
+          throw new Error("Feed is protected by Cloudflare. Please contact support.")
+        }
+
         const parsedFeed = await parseFeed(xml)
 
         // Update feed title if different
