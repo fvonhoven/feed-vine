@@ -13,6 +13,8 @@ export default function FeedManager() {
   const [newFeedUrl, setNewFeedUrl] = useState("")
   const [refreshingFeedId, setRefreshingFeedId] = useState<string | null>(null)
   const [validatingFeedId, setValidatingFeedId] = useState<string | null>(null)
+  const [deletingFeedId, setDeletingFeedId] = useState<string | null>(null)
+  const [feedToDelete, setFeedToDelete] = useState<Feed | null>(null)
   const [isRefreshingAll, setIsRefreshingAll] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null)
@@ -163,6 +165,7 @@ export default function FeedManager() {
         throw new Error("Demo mode: Connect Supabase to remove feeds")
       }
 
+      setDeletingFeedId(feedId)
       const { error } = await supabase.from("feeds").delete().eq("id", feedId)
 
       if (error) throw error
@@ -171,11 +174,29 @@ export default function FeedManager() {
       queryClient.invalidateQueries({ queryKey: ["feeds"] })
       queryClient.invalidateQueries({ queryKey: ["articles"] })
       toast.success("Feed removed successfully!")
+      setDeletingFeedId(null)
+      setFeedToDelete(null)
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to remove feed")
+      setDeletingFeedId(null)
+      setFeedToDelete(null)
     },
   })
+
+  const handleDeleteClick = (feed: Feed) => {
+    setFeedToDelete(feed)
+  }
+
+  const confirmDelete = () => {
+    if (feedToDelete) {
+      deleteFeedMutation.mutate(feedToDelete.id)
+    }
+  }
+
+  const cancelDelete = () => {
+    setFeedToDelete(null)
+  }
 
   const handleAddFeed = (e: React.FormEvent) => {
     e.preventDefault()
@@ -674,11 +695,19 @@ Example Feed,https://feeds.feedburner.com/example`
                       <span className="ml-1.5">{refreshingFeedId === feed.id ? "Refreshing..." : "Refresh"}</span>
                     </button>
                     <button
-                      onClick={() => deleteFeedMutation.mutate(feed.id)}
-                      disabled={deleteFeedMutation.isPending}
-                      className="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
+                      onClick={() => handleDeleteClick(feed)}
+                      disabled={deletingFeedId === feed.id}
+                      className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50 transition-colors"
+                      title="Delete feed"
                     >
-                      Remove
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
                     </button>
                   </div>
                 </div>
@@ -687,6 +716,49 @@ Example Feed,https://feeds.feedburner.com/example`
           )}
         </ul>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {feedToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-start mb-4">
+              <div className="flex-shrink-0">
+                <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Delete Feed</h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  Are you sure you want to delete <span className="font-semibold">"{feedToDelete.title}"</span>? This will also delete all articles
+                  from this feed. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={cancelDelete}
+                disabled={deletingFeedId === feedToDelete.id}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deletingFeedId === feedToDelete.id}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+              >
+                {deletingFeedId === feedToDelete.id ? "Deleting..." : "Delete Feed"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
