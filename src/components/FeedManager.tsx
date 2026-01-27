@@ -98,16 +98,21 @@ export default function FeedManager() {
       if (isDemoMode) {
         throw new Error("Demo mode: Connect Supabase to update feeds")
       }
-      const { error } = await supabase.from("feeds").update({ category_id: categoryId }).eq("id", feedId)
+      const { data, error } = await supabase.from("feeds").update({ category_id: categoryId }).eq("id", feedId).select()
 
-      if (error) throw error
+      if (error) {
+        console.error("Update feed category error:", error)
+        throw error
+      }
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feeds"] })
       toast.success("Feed category updated!")
     },
     onError: (error: Error) => {
-      toast.error(error.message)
+      console.error("Mutation error:", error)
+      toast.error(error.message || "Failed to update feed category")
     },
   })
 
@@ -795,12 +800,13 @@ Example Feed,https://feeds.feedburner.com/example`
                       {feed.last_fetched && <span>Last fetched {formatDistanceToNow(new Date(feed.last_fetched), { addSuffix: true })}</span>}
                       <select
                         value={feed.category_id || ""}
-                        onChange={e =>
+                        onChange={e => {
+                          const value = e.target.value
                           updateFeedCategoryMutation.mutate({
                             feedId: feed.id,
-                            categoryId: e.target.value || null,
+                            categoryId: value === "" ? null : value,
                           })
-                        }
+                        }}
                         className="px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                       >
                         <option value="">Uncategorized</option>
