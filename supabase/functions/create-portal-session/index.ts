@@ -17,24 +17,29 @@ serve(async req => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     const authHeader = req.headers.get("Authorization")!
 
-    // Verify user authentication
-    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        Authorization: authHeader,
-        apikey: Deno.env.get("SUPABASE_ANON_KEY")!,
+    // Create Supabase client with user's auth
+    const supabaseClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: {
+        headers: { Authorization: authHeader },
       },
     })
 
-    if (!userResponse.ok) {
+    // Get authenticated user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser()
+
+    if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       })
     }
 
-    const user = await userResponse.json()
     const userId = user.id
 
     const { returnUrl } = await req.json()
@@ -43,9 +48,9 @@ serve(async req => {
       throw new Error("Missing required parameter: returnUrl")
     }
 
-    // Get user's subscription to find Stripe customer ID
-    const supabaseClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
-    const { data: subscription, error: subError } = await supabaseClient.from("subscriptions").select("*").eq("user_id", userId).single()
+    // Get user's subscription to find Stripe customer ID (use service role for this query)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+    const { data: subscription, error: subError } = await supabaseAdmin.from("subscriptions").select("*").eq("user_id", userId).single()
 
     if (subError || !subscription) {
       throw new Error("No subscription found")
@@ -93,4 +98,3 @@ serve(async req => {
     })
   }
 })
-
