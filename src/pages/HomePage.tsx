@@ -83,13 +83,14 @@ export default function HomePage() {
       }
 
       // Real Supabase query with user_articles join
+      // Use !left to make it a LEFT JOIN so we get articles even without user_articles records
       let query = supabase
         .from("articles")
         .select(
           `
           *,
           feed:feeds(title, url),
-          user_article:user_articles(is_read, is_saved)
+          user_article:user_articles!left(is_read, is_saved)
         `,
         )
         .order("published_at", { ascending: false })
