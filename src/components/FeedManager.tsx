@@ -1,10 +1,10 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
-import type { Feed } from "../types/database"
+import type { Feed, Category } from "../types/database"
 import toast from "react-hot-toast"
 import { formatDistanceToNow } from "date-fns"
-import { mockFeeds } from "../lib/mockData"
+import { mockFeeds, mockCategories } from "../lib/mockData"
 import { fetchAndSaveArticles, discoverRSSFeeds, refreshAllFeeds } from "../lib/rssFetcher"
 import { useSubscription } from "../hooks/useSubscription"
 import { Link } from "react-router-dom"
@@ -18,6 +18,8 @@ export default function FeedManager() {
   const [isRefreshingAll, setIsRefreshingAll] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null)
+  const [showCategoryManager, setShowCategoryManager] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState("")
   const queryClient = useQueryClient()
   const { getLimit } = useSubscription()
 
@@ -33,6 +35,79 @@ export default function FeedManager() {
 
       if (error) throw error
       return data as Feed[]
+    },
+  })
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      if (isDemoMode) {
+        return mockCategories
+      }
+      const { data, error } = await supabase.from("categories").select("*").order("name")
+      if (error) throw error
+      return data as Category[]
+    },
+  })
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (isDemoMode) {
+        throw new Error("Demo mode: Connect Supabase to create categories")
+      }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+
+      const { data, error } = await supabase.from("categories").insert({ user_id: user.id, name }).select().single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] })
+      setNewCategoryName("")
+      toast.success("Category created!")
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (categoryId: string) => {
+      if (isDemoMode) {
+        throw new Error("Demo mode: Connect Supabase to delete categories")
+      }
+      const { error } = await supabase.from("categories").delete().eq("id", categoryId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] })
+      queryClient.invalidateQueries({ queryKey: ["feeds"] })
+      toast.success("Category deleted!")
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const updateFeedCategoryMutation = useMutation({
+    mutationFn: async ({ feedId, categoryId }: { feedId: string; categoryId: string | null }) => {
+      if (isDemoMode) {
+        throw new Error("Demo mode: Connect Supabase to update feeds")
+      }
+      const { error } = await supabase.from("feeds").update({ category_id: categoryId }).eq("id", feedId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["feeds"] })
+      toast.success("Feed category updated!")
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
     },
   })
 
@@ -601,6 +676,64 @@ Example Feed,https://feeds.feedburner.com/example`
         )}
       </div>
 
+      {/* Category Manager */}
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Categories ({categories?.length || 0})</h2>
+          <button
+            onClick={() => setShowCategoryManager(!showCategoryManager)}
+            className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
+          >
+            {showCategoryManager ? "Hide" : "Manage"}
+          </button>
+        </div>
+        {showCategoryManager && (
+          <div className="p-6 space-y-4">
+            <form
+              onSubmit={e => {
+                e.preventDefault()
+                if (newCategoryName.trim()) {
+                  createCategoryMutation.mutate(newCategoryName.trim())
+                }
+              }}
+              className="flex gap-3"
+            >
+              <input
+                type="text"
+                value={newCategoryName}
+                onChange={e => setNewCategoryName(e.target.value)}
+                placeholder="New category name..."
+                className="flex-1 px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              />
+              <button
+                type="submit"
+                disabled={createCategoryMutation.isPending || !newCategoryName.trim()}
+                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 text-sm font-medium disabled:opacity-50"
+              >
+                {createCategoryMutation.isPending ? "Adding..." : "Add Category"}
+              </button>
+            </form>
+            {categories && categories.length > 0 ? (
+              <div className="space-y-2">
+                {categories.map(cat => (
+                  <div key={cat.id} className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-900 rounded">
+                    <span className="text-sm text-gray-900 dark:text-white">{cat.name}</span>
+                    <button
+                      onClick={() => deleteCategoryMutation.mutate(cat.id)}
+                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">No categories yet. Create one to organize your feeds!</p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Feeds List */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -647,6 +780,23 @@ Example Feed,https://feeds.feedburner.com/example`
                         {feed.status}
                       </span>
                       {feed.last_fetched && <span>Last fetched {formatDistanceToNow(new Date(feed.last_fetched), { addSuffix: true })}</span>}
+                      <select
+                        value={feed.category_id || ""}
+                        onChange={e =>
+                          updateFeedCategoryMutation.mutate({
+                            feedId: feed.id,
+                            categoryId: e.target.value || null,
+                          })
+                        }
+                        className="px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      >
+                        <option value="">Uncategorized</option>
+                        {categories?.map(cat => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     {feed.error_message && (
                       <div className="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
