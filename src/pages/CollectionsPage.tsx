@@ -268,7 +268,7 @@ export default function CollectionsPage() {
                 onChange={e => handleSlugChange(e.target.value)}
                 placeholder="e.g., AI News"
                 required
-                className="w-full rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                className="w-full px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
               />
             </div>
 
@@ -281,7 +281,7 @@ export default function CollectionsPage() {
                 placeholder="ai-news"
                 required
                 pattern="[a-z0-9-]+"
-                className="w-full rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                className="w-full px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Only lowercase letters, numbers, and hyphens</p>
             </div>
@@ -293,7 +293,7 @@ export default function CollectionsPage() {
                 onChange={e => setNewCollection({ ...newCollection, description: e.target.value })}
                 placeholder="A collection of AI-related news from multiple sources"
                 rows={3}
-                className="w-full rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                className="w-full px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
               />
             </div>
 
@@ -314,7 +314,7 @@ export default function CollectionsPage() {
               <select
                 value={newCollection.output_format}
                 onChange={e => setNewCollection({ ...newCollection, output_format: e.target.value as "rss" | "json" | "both" })}
-                className="w-full rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                className="w-full px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
               >
                 <option value="rss">RSS only</option>
                 <option value="json">JSON only</option>

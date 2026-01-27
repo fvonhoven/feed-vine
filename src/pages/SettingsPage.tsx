@@ -192,7 +192,7 @@ export default function SettingsPage() {
             {/* Change Plan */}
             {planIdUpper !== "PREMIUM" && (
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Upgrade Your Plan</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Change Your Plan</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {Object.entries(PRICING_PLANS)
                     .filter(([id]) => id !== "FREE" && id !== planIdUpper)
