@@ -20,6 +20,10 @@ export default function FeedManager() {
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null)
   const [showCategoryManager, setShowCategoryManager] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
+  const [newCategoryColor, setNewCategoryColor] = useState("#3B82F6")
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
+  const [editingCategoryName, setEditingCategoryName] = useState("")
+  const [editingCategoryColor, setEditingCategoryColor] = useState("")
   const queryClient = useQueryClient()
   const { getLimit } = useSubscription()
 
@@ -51,7 +55,7 @@ export default function FeedManager() {
   })
 
   const createCategoryMutation = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async ({ name, color }: { name: string; color: string }) => {
       if (isDemoMode) {
         throw new Error("Demo mode: Connect Supabase to create categories")
       }
@@ -60,7 +64,7 @@ export default function FeedManager() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      const { data, error } = await supabase.from("categories").insert({ user_id: user.id, name }).select().single()
+      const { data, error } = await supabase.from("categories").insert({ user_id: user.id, name, color }).select().single()
 
       if (error) throw error
       return data
@@ -68,7 +72,30 @@ export default function FeedManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] })
       setNewCategoryName("")
+      setNewCategoryColor("#3B82F6")
       toast.success("Category created!")
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, name, color }: { id: string; name: string; color: string }) => {
+      if (isDemoMode) {
+        throw new Error("Demo mode: Connect Supabase to update categories")
+      }
+      const { data, error } = await supabase.from("categories").update({ name, color }).eq("id", id).select().single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] })
+      setEditingCategoryId(null)
+      setEditingCategoryName("")
+      setEditingCategoryColor("")
+      toast.success("Category updated!")
     },
     onError: (error: Error) => {
       toast.error(error.message)
@@ -703,11 +730,18 @@ Example Feed,https://feeds.feedburner.com/example`
               onSubmit={e => {
                 e.preventDefault()
                 if (newCategoryName.trim()) {
-                  createCategoryMutation.mutate(newCategoryName.trim())
+                  createCategoryMutation.mutate({ name: newCategoryName.trim(), color: newCategoryColor })
                 }
               }}
               className="flex gap-3"
             >
+              <input
+                type="color"
+                value={newCategoryColor}
+                onChange={e => setNewCategoryColor(e.target.value)}
+                className="w-12 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                title="Choose category color"
+              />
               <input
                 type="text"
                 value={newCategoryName}
@@ -726,22 +760,91 @@ Example Feed,https://feeds.feedburner.com/example`
             {categories && categories.length > 0 ? (
               <div className="space-y-2">
                 {categories.map(cat => (
-                  <div key={cat.id} className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-900 rounded">
-                    <span className="text-sm text-gray-900 dark:text-white">{cat.name}</span>
-                    <button
-                      onClick={() => deleteCategoryMutation.mutate(cat.id)}
-                      className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                      title="Delete category"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  <div key={cat.id} className="px-3 py-2 bg-gray-50 dark:bg-gray-900 rounded">
+                    {editingCategoryId === cat.id ? (
+                      <form
+                        onSubmit={e => {
+                          e.preventDefault()
+                          if (editingCategoryName.trim()) {
+                            updateCategoryMutation.mutate({
+                              id: cat.id,
+                              name: editingCategoryName.trim(),
+                              color: editingCategoryColor,
+                            })
+                          }
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <input
+                          type="color"
+                          value={editingCategoryColor}
+                          onChange={e => setEditingCategoryColor(e.target.value)}
+                          className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
                         />
-                      </svg>
-                    </button>
+                        <input
+                          type="text"
+                          value={editingCategoryName}
+                          onChange={e => setEditingCategoryName(e.target.value)}
+                          className="flex-1 px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          autoFocus
+                        />
+                        <button type="submit" className="px-2 py-1 text-xs bg-primary-600 text-white rounded hover:bg-primary-700">
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCategoryId(null)
+                            setEditingCategoryName("")
+                            setEditingCategoryColor("")
+                          }}
+                          className="px-2 py-1 text-xs bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-400 dark:hover:bg-gray-500"
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: cat.color }} />
+                          <span className="text-sm text-gray-900 dark:text-white">{cat.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              setEditingCategoryId(cat.id)
+                              setEditingCategoryName(cat.name)
+                              setEditingCategoryColor(cat.color)
+                            }}
+                            className="p-1 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                            title="Edit category"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => deleteCategoryMutation.mutate(cat.id)}
+                            className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                            title="Delete category"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
