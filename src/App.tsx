@@ -6,6 +6,7 @@ import HomePage from "./pages/HomePage"
 import SavedPage from "./pages/SavedPage"
 import DiscoverPage from "./pages/DiscoverPage"
 import FeedsPage from "./pages/FeedsPage"
+import FeedArticlesPage from "./pages/FeedArticlesPage"
 import CollectionsPage from "./pages/CollectionsPage"
 import SettingsPage from "./pages/SettingsPage"
 import ApiKeysPage from "./pages/ApiKeysPage"
@@ -50,6 +51,7 @@ function App() {
           <Route path="/saved" element={<SavedPage />} />
           <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/feeds" element={<FeedsPage />} />
+          <Route path="/feed/:feedId" element={<FeedArticlesPage />} />
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
