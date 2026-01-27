@@ -314,7 +314,7 @@ export default function CollectionsPage() {
               <select
                 value={newCollection.output_format}
                 onChange={e => setNewCollection({ ...newCollection, output_format: e.target.value as "rss" | "json" | "both" })}
-                className="w-full px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                className="w-full pl-3 pr-10 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
               >
                 <option value="rss">RSS only</option>
                 <option value="json">JSON only</option>
