@@ -103,9 +103,19 @@ export default function SettingsPage() {
       setChangingPlan(true)
 
       try {
-        // TODO: Implement downgrade scheduling via Stripe API
-        // For now, show a message
-        toast.error("Downgrade functionality coming soon. Please contact support to downgrade your plan.")
+        const { data, error } = await supabase.functions.invoke("schedule-plan-change", {
+          body: { newPlanId },
+        })
+
+        if (error) throw error
+
+        if (data?.success) {
+          toast.success(data.message || "Plan change scheduled successfully!")
+          // Refresh subscription data
+          queryClient.invalidateQueries({ queryKey: ["subscription"] })
+        } else {
+          throw new Error(data?.error || "Failed to schedule plan change")
+        }
       } catch (error: any) {
         console.error("Downgrade error:", error)
         toast.error(error.message || "Failed to schedule downgrade. Please try again.")
