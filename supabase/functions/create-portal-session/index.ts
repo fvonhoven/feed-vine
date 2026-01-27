@@ -17,30 +17,42 @@ serve(async req => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    const authHeader = req.headers.get("Authorization")!
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!
 
-    // Create Supabase client with user's auth
-    const supabaseClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: {
-        headers: { Authorization: authHeader },
-      },
-    })
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser()
-
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    // Get the authorization header
+    const authHeader = req.headers.get("Authorization")
+    if (!authHeader) {
+      console.error("No Authorization header found")
+      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       })
     }
 
+    console.log("Auth header present:", !!authHeader)
+
+    // Verify user via Supabase Auth API
+    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        Authorization: authHeader,
+        apikey: supabaseAnonKey,
+      },
+    })
+
+    console.log("Auth API response status:", userResponse.status)
+
+    if (!userResponse.ok) {
+      const errorBody = await userResponse.text()
+      console.error("Auth API error:", errorBody)
+      return new Response(JSON.stringify({ error: "Unauthorized", details: errorBody }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      })
+    }
+
+    const user = await userResponse.json()
     const userId = user.id
+    console.log("Authenticated user:", userId)
 
     const { returnUrl } = await req.json()
 
@@ -48,7 +60,8 @@ serve(async req => {
       throw new Error("Missing required parameter: returnUrl")
     }
 
-    // Get user's subscription to find Stripe customer ID (use service role for this query)
+    // Get user's subscription to find Stripe customer ID
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
     const { data: subscription, error: subError } = await supabaseAdmin.from("subscriptions").select("*").eq("user_id", userId).single()
 
