@@ -104,16 +104,33 @@ serve(async req => {
           guid: entry.id?.value || entry.links?.[0]?.href || "",
         }))
 
+        // Track insert counts
+        let insertedCount = 0
+        let skippedCount = 0
+        let errorCount = 0
+        let lastError: any = null
+
         // Only insert articles if this is a real feed (not a temporary URL fetch)
         if (feed.id !== "temp") {
-          // Upsert articles (insert or ignore duplicates based on feed_id + guid)
-          const { error: articlesError } = await supabaseClient
-            .from("articles")
-            .upsert(articles, { onConflict: "feed_id,guid", ignoreDuplicates: true })
+          // Insert articles one by one to handle duplicates gracefully
+          for (const article of articles) {
+            const { error: insertError } = await supabaseClient.from("articles").insert(article)
 
-          if (articlesError && !articlesError.message.includes("duplicate")) {
-            console.error(`Error inserting articles for feed ${feed.id}:`, articlesError)
+            if (insertError) {
+              if (insertError.code === "23505") {
+                // Duplicate key - this is expected for existing articles
+                skippedCount++
+              } else {
+                console.error(`Error inserting article:`, insertError.message)
+                lastError = insertError
+                errorCount++
+              }
+            } else {
+              insertedCount++
+            }
           }
+
+          console.log(`Feed ${feed.id}: Inserted ${insertedCount}, skipped ${skippedCount}, errors ${errorCount}`)
 
           // Update feed status
           await supabaseClient
@@ -130,6 +147,10 @@ serve(async req => {
           feedId: feed.id,
           success: true,
           articlesCount: articles.length,
+          insertedCount,
+          skippedCount,
+          errorCount,
+          lastError: lastError ? { message: lastError.message, code: lastError.code, details: lastError.details } : null,
           feedTitle: parsedFeed.title?.value || feed.title,
           articles: feedUrl ? articles : undefined, // Return articles only for direct URL fetches
         })
