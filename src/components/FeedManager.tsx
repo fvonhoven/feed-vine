@@ -29,7 +29,7 @@ export default function FeedManager() {
         return mockFeeds
       }
 
-      const { data, error } = await supabase.from("feeds").select("*").order("created_at", { ascending: false })
+      const { data, error } = await supabase.from("feeds").select("*").order("title", { ascending: true })
 
       if (error) throw error
       return data as Feed[]
