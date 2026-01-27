@@ -18,6 +18,7 @@ export default function SettingsPage() {
   const { subscription, planId: currentPlanId } = useSubscription()
   const [showFeedURL, setShowFeedURL] = useState(false)
   const [changingPlan, setChangingPlan] = useState(false)
+  const [loadingPortal, setLoadingPortal] = useState(false)
 
   // Show success toast when returning from Stripe checkout
   useEffect(() => {
@@ -70,6 +71,33 @@ export default function SettingsPage() {
     copyRSSFeedURL(user?.email || "user")
     toast.success("Feed URL copied to clipboard!")
     setShowFeedURL(true)
+  }
+
+  const handleManageSubscription = async () => {
+    if (!user) {
+      toast.error("Please sign in to manage subscription")
+      return
+    }
+
+    setLoadingPortal(true)
+
+    try {
+      const { data, error } = await supabase.functions.invoke("create-portal-session", {
+        body: { returnUrl: window.location.href },
+      })
+
+      if (error) throw error
+
+      if (data?.url) {
+        window.location.href = data.url
+      } else {
+        throw new Error("No portal URL returned")
+      }
+    } catch (error: any) {
+      console.error("Portal session error:", error)
+      toast.error(error.message || "Failed to open billing portal. Please try again.")
+      setLoadingPortal(false)
+    }
   }
 
   const handleChangePlan = async (newPlanId: string, interval: BillingInterval) => {
@@ -272,20 +300,17 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Manage Subscription Link */}
+            {/* Manage Subscription Button */}
             {planIdUpper !== "FREE" && subscription?.stripe_customer_id && (
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Need to update payment method or cancel?{" "}
-                  <a
-                    href={`https://billing.stripe.com/p/login/test_${subscription.stripe_customer_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary-600 dark:text-primary-400 hover:underline"
-                  >
-                    Manage your subscription →
-                  </a>
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Need to update payment method or view invoices?</p>
+                <button
+                  onClick={handleManageSubscription}
+                  disabled={loadingPortal}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loadingPortal ? "Opening..." : "Manage Subscription →"}
+                </button>
               </div>
             )}
           </div>
