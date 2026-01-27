@@ -21,13 +21,16 @@ export default function SavedPage() {
           `
           *,
           feed:feeds(title, url),
-          user_article:user_articles!inner(is_read, is_saved)
+          user_article:user_articles!inner(is_read, is_saved, saved_at)
         `,
         )
         .eq("user_article.is_saved", true)
-        .order("user_article.saved_at", { ascending: false })
+        .order("published_at", { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error("Saved articles query error:", error)
+        throw error
+      }
 
       // Transform the data to match ArticleWithStatus type
       return (data || []).map(article => ({
