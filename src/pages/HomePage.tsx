@@ -81,7 +81,7 @@ export default function HomePage() {
         `,
         )
         .order("published_at", { ascending: false })
-        .limit(100)
+        .limit(500)
 
       // Apply filters
       if (keyword) {
