@@ -12,6 +12,7 @@ import { Link } from "react-router-dom"
 export default function FeedManager() {
   const [newFeedUrl, setNewFeedUrl] = useState("")
   const [refreshingFeedId, setRefreshingFeedId] = useState<string | null>(null)
+  const [validatingFeedId, setValidatingFeedId] = useState<string | null>(null)
   const [isRefreshingAll, setIsRefreshingAll] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null)
@@ -90,6 +91,35 @@ export default function FeedManager() {
           console.warn("RSS discovery failed, using URL as-is:", discoveryError)
           toast("RSS discovery failed, trying URL as-is...", { icon: "⚠️" })
         }
+      }
+
+      // Validate feed before adding to database
+      toast.loading("Validating feed...")
+      try {
+        const { data: validationData, error: validationError } = await supabase.functions.invoke("fetch-rss", {
+          body: { url: feedUrl },
+        })
+
+        toast.dismiss()
+
+        if (validationError || !validationData.success || !validationData.results || validationData.results.length === 0) {
+          throw new Error("Failed to validate feed - unable to fetch content")
+        }
+
+        const result = validationData.results[0]
+        if (!result.success) {
+          throw new Error(result.error || "Feed validation failed")
+        }
+
+        // Update title from feed if available
+        if (result.feedTitle) {
+          feedTitle = result.feedTitle
+        }
+
+        toast.success("Feed validated! Adding to your feeds...")
+      } catch (validationError: any) {
+        toast.dismiss()
+        throw new Error(`Feed validation failed: ${validationError.message || "Unable to fetch feed"}`)
       }
 
       const { data, error } = await supabase
@@ -195,6 +225,60 @@ export default function FeedManager() {
     onError: (error: any) => {
       setIsRefreshingAll(false)
       toast.error(error.message || "Failed to refresh feeds")
+    },
+  })
+
+  const validateFeedMutation = useMutation({
+    mutationFn: async (feed: Feed) => {
+      if (isDemoMode) {
+        throw new Error("Demo mode: Cannot validate feeds")
+      }
+      setValidatingFeedId(feed.id)
+
+      const { data, error } = await supabase.functions.invoke("fetch-rss", {
+        body: { url: feed.url },
+      })
+
+      if (error) throw error
+
+      if (!data.success || !data.results || data.results.length === 0) {
+        throw new Error("Failed to validate feed")
+      }
+
+      const result = data.results[0]
+      if (!result.success) {
+        throw new Error(result.error || "Feed validation failed")
+      }
+
+      return result
+    },
+    onSuccess: (result, feed) => {
+      setValidatingFeedId(null)
+      toast.success(`Feed is valid! Found ${result.articlesCount || 0} articles.`)
+
+      // Update feed status to active if it was in error
+      if (feed.status === "error") {
+        supabase
+          .from("feeds")
+          .update({ status: "active", error_message: null })
+          .eq("id", feed.id)
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ["feeds"] })
+          })
+      }
+    },
+    onError: (error: any, feed) => {
+      setValidatingFeedId(null)
+      toast.error(`Validation failed: ${error.message}`)
+
+      // Update feed with error status
+      supabase
+        .from("feeds")
+        .update({ status: "error", error_message: error.message })
+        .eq("id", feed.id)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["feeds"] })
+        })
     },
   })
 
@@ -543,8 +627,31 @@ Example Feed,https://feeds.feedburner.com/example`
                       </span>
                       {feed.last_fetched && <span>Last fetched {formatDistanceToNow(new Date(feed.last_fetched), { addSuffix: true })}</span>}
                     </div>
+                    {feed.error_message && (
+                      <div className="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
+                        <span className="font-medium">Error:</span> {feed.error_message}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {feed.status === "error" && (
+                      <button
+                        onClick={() => validateFeedMutation.mutate(feed)}
+                        disabled={validatingFeedId === feed.id}
+                        className="inline-flex items-center px-3 py-1.5 border border-yellow-300 dark:border-yellow-600 text-xs font-medium rounded text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50"
+                        title="Test if feed is working"
+                      >
+                        <svg
+                          className={`w-4 h-4 ${validatingFeedId === feed.id ? "animate-spin" : ""}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="ml-1.5">{validatingFeedId === feed.id ? "Testing..." : "Test"}</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => refreshFeedMutation.mutate(feed)}
                       disabled={refreshingFeedId === feed.id}
