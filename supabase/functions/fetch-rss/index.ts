@@ -106,8 +106,10 @@ serve(async req => {
 
         // Only insert articles if this is a real feed (not a temporary URL fetch)
         if (feed.id !== "temp") {
-          // Upsert articles (insert or ignore duplicates)
-          const { error: articlesError } = await supabaseClient.from("articles").upsert(articles, { onConflict: "url", ignoreDuplicates: true })
+          // Upsert articles (insert or ignore duplicates based on feed_id + guid)
+          const { error: articlesError } = await supabaseClient
+            .from("articles")
+            .upsert(articles, { onConflict: "feed_id,guid", ignoreDuplicates: true })
 
           if (articlesError && !articlesError.message.includes("duplicate")) {
             console.error(`Error inserting articles for feed ${feed.id}:`, articlesError)
