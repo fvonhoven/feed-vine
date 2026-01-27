@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
-import type { ArticleWithStatus } from "../types/database"
+import type { ArticleWithStatus, Feed } from "../types/database"
 import ArticleCard from "../components/ArticleCard"
 import FilterBar from "../components/FilterBar"
 import { mockArticlesWithStatus } from "../lib/mockData"
@@ -16,8 +16,20 @@ export default function HomePage() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false)
   const [selectedArticleIndex, setSelectedArticleIndex] = useState(0)
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false)
   const queryClient = useQueryClient()
   const articleRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  // Fetch all feeds for refresh all functionality
+  const { data: feeds } = useQuery({
+    queryKey: ["feeds"],
+    queryFn: async () => {
+      if (isDemoMode) return []
+      const { data, error } = await supabase.from("feeds").select("*").eq("status", "active")
+      if (error) throw error
+      return data as Feed[]
+    },
+  })
 
   const { data: articles, isLoading } = useQuery({
     queryKey: ["articles", keyword, selectedFeedId, dateRange, showUnreadOnly],
@@ -279,6 +291,54 @@ export default function HomePage() {
     ],
   })
 
+  const handleRefreshAllFeeds = async () => {
+    if (isDemoMode) {
+      toast.error("Demo mode: Connect Supabase to refresh feeds")
+      return
+    }
+
+    if (!feeds || feeds.length === 0) {
+      toast.error("No active feeds to refresh")
+      return
+    }
+
+    setIsRefreshingAll(true)
+    const toastId = toast.loading(`Refreshing ${feeds.length} feeds...`)
+
+    try {
+      // Call the edge function without parameters to refresh all feeds
+      const { data, error } = await supabase.functions.invoke("fetch-rss")
+
+      if (error) {
+        throw new Error(error.message || "Failed to refresh feeds")
+      }
+
+      if (!data.success || !data.results) {
+        throw new Error("Failed to refresh feeds")
+      }
+
+      // Count successes and failures
+      const successCount = data.results.filter((r: any) => r.success).length
+      const failureCount = data.results.length - successCount
+
+      // Invalidate queries to refresh the UI
+      queryClient.invalidateQueries({ queryKey: ["articles"] })
+      queryClient.invalidateQueries({ queryKey: ["feeds"] })
+
+      toast.dismiss(toastId)
+      if (failureCount === 0) {
+        toast.success(`Successfully refreshed all ${successCount} feeds!`)
+      } else {
+        toast.success(`Refreshed ${successCount} feeds. ${failureCount} failed.`)
+      }
+    } catch (error: any) {
+      toast.dismiss(toastId)
+      toast.error(error.message || "Failed to refresh feeds")
+    } finally {
+      setIsRefreshingAll(false)
+    }
+  }
+
   return (
     <div className="px-4 sm:px-0">
       {showShortcutsHelp && <KeyboardShortcutsHelp shortcuts={shortcuts} onClose={() => setShowShortcutsHelp(false)} />}
@@ -305,6 +365,22 @@ export default function HomePage() {
                 d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
+          </button>
+          <button
+            onClick={handleRefreshAllFeeds}
+            disabled={isRefreshingAll || isDemoMode}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors"
+            title="Refresh all feeds"
+          >
+            <svg className={`w-4 h-4 mr-2 ${isRefreshingAll ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            {isRefreshingAll ? "Refreshing..." : "Refresh All"}
           </button>
           <button
             onClick={() => setShowUnreadOnly(!showUnreadOnly)}
