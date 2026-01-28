@@ -70,8 +70,13 @@ function generateJSON(articles: Article[], collectionName: string, collectionDes
 }
 
 serve(async req => {
+  console.log("=== serve-collection called ===")
+  console.log("Method:", req.method)
+  console.log("URL:", req.url)
+
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
+    console.log("Handling OPTIONS request")
     return new Response("ok", { headers: corsHeaders })
   }
 
