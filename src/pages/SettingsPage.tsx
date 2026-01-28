@@ -15,9 +15,12 @@ export default function SettingsPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
-  const { subscription, planId: currentPlanId } = useSubscription()
+  const { subscription, planId: currentPlanId, isLoading: subscriptionLoading } = useSubscription()
   const [showFeedURL, setShowFeedURL] = useState(false)
   const [changingPlan, setChangingPlan] = useState(false)
+
+  // Debug: Log subscription data
+  console.log("SettingsPage - Subscription data:", { subscription, currentPlanId, subscriptionLoading })
 
   // Show success toast when returning from Stripe checkout
   useEffect(() => {
@@ -179,7 +182,18 @@ export default function SettingsPage() {
 
         {/* Subscription & Billing */}
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Subscription & Billing</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Subscription & Billing</h2>
+            <button
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ["subscription"] })
+                toast.success("Subscription data refreshed!")
+              }}
+              className="text-xs px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
 
           <div className="space-y-4">
             {/* Current Plan */}
@@ -187,12 +201,19 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Current Plan</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{currentPlan.name}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                    {currentPlan.name}
+                    {subscriptionLoading && <span className="text-sm text-gray-500 ml-2">(loading...)</span>}
+                  </p>
                   {subscription?.status && subscription.status !== "active" && (
                     <span className="inline-block mt-2 px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
                       Status: {subscription.status}
                     </span>
                   )}
+                  {/* Debug info */}
+                  <p className="text-xs text-gray-500 dark:text-gray-600 mt-2">
+                    Plan ID: {subscription?.plan_id} → {currentPlanId}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
