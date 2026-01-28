@@ -18,7 +18,6 @@ export default function SettingsPage() {
   const { subscription, planId: currentPlanId } = useSubscription()
   const [showFeedURL, setShowFeedURL] = useState(false)
   const [changingPlan, setChangingPlan] = useState(false)
-  const [loadingPortal, setLoadingPortal] = useState(false)
 
   // Show success toast when returning from Stripe checkout
   useEffect(() => {
@@ -71,73 +70,6 @@ export default function SettingsPage() {
     copyRSSFeedURL(user?.email || "user")
     toast.success("Feed URL copied to clipboard!")
     setShowFeedURL(true)
-  }
-
-  const handleManageSubscription = async () => {
-    if (!user) {
-      toast.error("Please sign in to manage subscription")
-      return
-    }
-
-    setLoadingPortal(true)
-
-    try {
-      console.log("Starting portal session request...")
-
-      // Refresh the session to ensure we have a valid token
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-
-      if (refreshError) {
-        console.error("Failed to refresh session:", refreshError)
-        throw new Error("Session expired. Please sign in again.")
-      }
-
-      const session = refreshData.session
-
-      console.log("Session:", !!session)
-      console.log("Access token:", session?.access_token?.substring(0, 20) + "...")
-
-      if (!session) throw new Error("Not authenticated")
-
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-portal-session`
-      console.log("Calling:", url)
-
-      // Use direct fetch instead of supabase.functions.invoke to ensure auth header is passed
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ returnUrl: window.location.href }),
-      })
-
-      console.log("Response status:", response.status)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.log("Error response:", errorText)
-        try {
-          const error = JSON.parse(errorText)
-          throw new Error(error.error || "Failed to create portal session")
-        } catch {
-          throw new Error(errorText || "Failed to create portal session")
-        }
-      }
-
-      const data = await response.json()
-      console.log("Success response:", data)
-
-      if (data?.url) {
-        window.location.href = data.url
-      } else {
-        throw new Error("No portal URL returned")
-      }
-    } catch (error: any) {
-      console.error("Portal session error:", error)
-      toast.error(error.message || "Failed to open billing portal. Please try again.")
-      setLoadingPortal(false)
-    }
   }
 
   const handleChangePlan = async (newPlanId: string, interval: BillingInterval) => {
@@ -340,17 +272,20 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Manage Subscription Button */}
+            {/* Manage Subscription Link */}
             {planIdUpper !== "FREE" && subscription?.stripe_customer_id && (
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Need to update payment method or view invoices?</p>
-                <button
-                  onClick={handleManageSubscription}
-                  disabled={loadingPortal}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loadingPortal ? "Opening..." : "Manage Subscription →"}
-                </button>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Need to update payment method or cancel?{" "}
+                  <a
+                    href={`https://billing.stripe.com/p/login/test_${subscription.stripe_customer_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-600 dark:text-primary-400 hover:underline"
+                  >
+                    Manage your subscription →
+                  </a>
+                </p>
               </div>
             )}
           </div>

@@ -81,16 +81,21 @@ serve(async req => {
     const slug = pathParts[pathParts.length - 1].replace(/\.(rss|json)$/, "")
     const format = pathParts[pathParts.length - 1].endsWith(".json") ? "json" : "rss"
 
+    console.log("Serving collection:", slug, "format:", format)
+
     if (!slug) {
+      console.log("ERROR: Missing slug")
       return new Response("Missing collection slug", {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "text/plain" },
       })
     }
 
-    const supabaseClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "")
+    // Use service role key to bypass RLS for public collections
+    const supabaseClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")
 
     // Get the collection (bypass RLS for public collections)
+    console.log("Querying for collection with slug:", slug)
     const { data: collection, error: collectionError } = await supabaseClient
       .from("feed_collections")
       .select("id, name, description, user_id, is_public")
@@ -98,29 +103,52 @@ serve(async req => {
       .eq("is_public", true) // Only allow public collections
       .single()
 
+    console.log("Collection query result:", { collection, error: collectionError })
+
     if (collectionError || !collection) {
-      return new Response("Collection not found or not public", {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "text/plain" },
-      })
+      console.log("ERROR: Collection not found or not public")
+      return new Response(
+        JSON.stringify({
+          error: "Collection not found or not public",
+          slug: slug,
+          details: collectionError?.message,
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      )
     }
 
     // Get feed IDs in this collection
+    console.log("Fetching sources for collection:", collection.id)
     const { data: sources, error: sourcesError } = await supabaseClient
       .from("feed_collection_sources")
       .select("feed_id")
       .eq("collection_id", collection.id)
 
+    console.log("Sources query result:", { sources, error: sourcesError })
+
     if (sourcesError || !sources || sources.length === 0) {
-      return new Response("No feeds in collection", {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "text/plain" },
-      })
+      console.log("ERROR: No feeds in collection")
+      return new Response(
+        JSON.stringify({
+          error: "No feeds in collection",
+          collection_id: collection.id,
+          details: sourcesError?.message,
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      )
     }
 
     const feedIds = sources.map(s => s.feed_id)
+    console.log("Feed IDs:", feedIds)
 
     // Get articles from these feeds
+    console.log("Fetching articles for feeds:", feedIds)
     const { data: articles, error: articlesError } = await supabaseClient
       .from("articles")
       .select(
@@ -138,8 +166,15 @@ serve(async req => {
       .order("published_at", { ascending: false })
       .limit(50)
 
+    console.log("Articles query result:", { count: articles?.length, error: articlesError })
+
     if (articlesError) {
+      console.log("ERROR: Failed to fetch articles:", articlesError)
       throw articlesError
+    }
+
+    if (!articles || articles.length === 0) {
+      console.log("WARNING: No articles found for this collection")
     }
 
     const baseUrl = `${url.protocol}//${url.host}${url.pathname}`
