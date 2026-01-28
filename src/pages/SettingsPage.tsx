@@ -82,14 +82,23 @@ export default function SettingsPage() {
     setLoadingPortal(true)
 
     try {
+      console.log("Starting portal session request...")
+
       // Get the current session to extract the access token
       const {
         data: { session },
       } = await supabase.auth.getSession()
+
+      console.log("Session:", !!session)
+      console.log("Access token:", session?.access_token?.substring(0, 20) + "...")
+
       if (!session) throw new Error("Not authenticated")
 
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-portal-session`
+      console.log("Calling:", url)
+
       // Use direct fetch instead of supabase.functions.invoke to ensure auth header is passed
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-portal-session`, {
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -99,12 +108,21 @@ export default function SettingsPage() {
         body: JSON.stringify({ returnUrl: window.location.href }),
       })
 
+      console.log("Response status:", response.status)
+
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to create portal session")
+        const errorText = await response.text()
+        console.log("Error response:", errorText)
+        try {
+          const error = JSON.parse(errorText)
+          throw new Error(error.error || "Failed to create portal session")
+        } catch {
+          throw new Error(errorText || "Failed to create portal session")
+        }
       }
 
       const data = await response.json()
+      console.log("Success response:", data)
 
       if (data?.url) {
         window.location.href = data.url

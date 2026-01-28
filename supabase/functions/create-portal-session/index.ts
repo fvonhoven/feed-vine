@@ -5,14 +5,22 @@ const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")!
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, Authorization",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 }
 
 serve(async req => {
+  console.log("=== create-portal-session called ===")
+  console.log("Method:", req.method)
+
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders })
+    console.log("Handling OPTIONS preflight - returning 200")
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    })
   }
 
   try {
@@ -20,32 +28,55 @@ serve(async req => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? ""
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
 
+    console.log("Supabase URL:", supabaseUrl)
+    console.log("Has anon key:", !!supabaseAnonKey)
+    console.log("Has service key:", !!supabaseServiceKey)
+
+    // Log all headers
+    console.log("Request headers:")
+    for (const [key, value] of req.headers.entries()) {
+      if (key.toLowerCase() === "authorization") {
+        console.log(`  ${key}: Bearer ***`)
+      } else {
+        console.log(`  ${key}: ${value}`)
+      }
+    }
+
     // Get user from auth header
     const authHeader = req.headers.get("Authorization")
+    console.log("Auth header present:", !!authHeader)
+
     if (!authHeader) {
+      console.log("ERROR: No authorization header")
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       })
     }
 
+    console.log("Creating Supabase client with auth header...")
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     })
 
+    console.log("Calling supabase.auth.getUser()...")
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser()
 
+    console.log("getUser result - user:", !!user, "error:", userError?.message)
+
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      console.log("ERROR: User auth failed:", userError?.message)
+      return new Response(JSON.stringify({ error: "Unauthorized", details: userError?.message }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       })
     }
 
     const userId = user.id
+    console.log("User authenticated:", userId)
 
     const { returnUrl } = await req.json()
 
