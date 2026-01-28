@@ -14,6 +14,57 @@ interface Feed {
 }
 
 /**
+ * Send article to Zapier webhook
+ * Sends article data immediately when a new article is ingested
+ */
+async function sendArticleToZapier(article: any, feedTitle: string, feedUrl: string): Promise<void> {
+  const webhookUrl = Deno.env.get("ZAPIER_WEBHOOK_URL")
+
+  if (!webhookUrl) {
+    console.log("No Zapier webhook URL configured, skipping webhook send")
+    return
+  }
+
+  try {
+    const payload = {
+      title: article.title,
+      url: article.url,
+      description: article.description || "",
+      category: article.category || "Uncategorized",
+      source: feedUrl,
+      source_name: feedTitle,
+      published_at: article.published_at,
+    }
+
+    console.log(`Sending article to Zapier: "${article.title}"`)
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      console.error(`Failed to send to Zapier: ${response.status} ${response.statusText}`)
+      // Try to read error response
+      try {
+        const errorText = await response.text()
+        console.error("Zapier error response:", errorText)
+      } catch {
+        // Ignore if we can't read the error
+      }
+    } else {
+      console.log(`✓ Successfully sent article to Zapier: "${article.title}"`)
+    }
+  } catch (error) {
+    console.error("Error sending to Zapier:", error)
+    // Don't throw - we don't want to fail article ingestion if webhook fails
+  }
+}
+
+/**
  * Batch categorize multiple articles using Claude API
  * Returns a map of article index to category
  */
@@ -228,6 +279,16 @@ serve(async req => {
             } else {
               insertedCount++
               console.log(`Inserted "${article.title}" as: ${category}`)
+
+              // Send new article to Zapier webhook
+              await sendArticleToZapier(
+                {
+                  ...article,
+                  category,
+                },
+                feed.title,
+                feed.url,
+              )
             }
           }
 
