@@ -16,6 +16,9 @@ export default function FeedManager() {
   const [validatingFeedId, setValidatingFeedId] = useState<string | null>(null)
   const [deletingFeedId, setDeletingFeedId] = useState<string | null>(null)
   const [feedToDelete, setFeedToDelete] = useState<Feed | null>(null)
+  const [editingFeedId, setEditingFeedId] = useState<string | null>(null)
+  const [editingFeedUrl, setEditingFeedUrl] = useState("")
+  const [editingFeedTitle, setEditingFeedTitle] = useState("")
   const [isRefreshingAll, setIsRefreshingAll] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null)
@@ -304,6 +307,55 @@ export default function FeedManager() {
 
   const cancelDelete = () => {
     setFeedToDelete(null)
+  }
+
+  const handleEditClick = (feed: Feed) => {
+    setEditingFeedId(feed.id)
+    setEditingFeedUrl(feed.url)
+    setEditingFeedTitle(feed.title)
+  }
+
+  const cancelEdit = () => {
+    setEditingFeedId(null)
+    setEditingFeedUrl("")
+    setEditingFeedTitle("")
+  }
+
+  const editFeedMutation = useMutation({
+    mutationFn: async ({ feedId, url, title }: { feedId: string; url: string; title: string }) => {
+      if (isDemoMode) {
+        throw new Error("Demo mode: Cannot edit feeds")
+      }
+
+      // Validate URL format
+      try {
+        new URL(url)
+      } catch {
+        throw new Error("Invalid URL format")
+      }
+
+      const { error } = await supabase.from("feeds").update({ url, title }).eq("id", feedId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["feeds"] })
+      toast.success("Feed updated successfully!")
+      cancelEdit()
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update feed")
+    },
+  })
+
+  const handleSaveEdit = () => {
+    if (editingFeedId && editingFeedUrl.trim() && editingFeedTitle.trim()) {
+      editFeedMutation.mutate({
+        feedId: editingFeedId,
+        url: editingFeedUrl.trim(),
+        title: editingFeedTitle.trim(),
+      })
+    }
   }
 
   const handleAddFeed = (e: React.FormEvent) => {
@@ -904,103 +956,160 @@ Example Feed,https://feeds.feedburner.com/example`
           ) : (
             feeds?.map(feed => (
               <li key={feed.id} className="px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{feed.title}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{feed.url}</p>
-                    <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded ${
-                          feed.status === "active"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                        }`}
-                      >
-                        {feed.status}
-                      </span>
-                      {feed.last_fetched && <span>Last fetched {formatDistanceToNow(new Date(feed.last_fetched), { addSuffix: true })}</span>}
-                      <select
-                        value={feed.category_id || ""}
-                        onChange={e => {
-                          const value = e.target.value
-                          updateFeedCategoryMutation.mutate({
-                            feedId: feed.id,
-                            categoryId: value === "" ? null : value,
-                          })
-                        }}
-                        className="px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                      >
-                        <option value="">Uncategorized</option>
-                        {categories?.map(cat => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
+                {editingFeedId === feed.id ? (
+                  // Edit mode
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Feed Title</label>
+                      <input
+                        type="text"
+                        value={editingFeedTitle}
+                        onChange={e => setEditingFeedTitle(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        placeholder="Feed title"
+                      />
                     </div>
-                    {feed.error_message && (
-                      <div className="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
-                        <span className="font-medium">Error:</span> {feed.error_message}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {feed.status === "error" && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Feed URL</label>
+                      <input
+                        type="url"
+                        value={editingFeedUrl}
+                        onChange={e => setEditingFeedUrl(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        placeholder="https://example.com/feed.xml"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
                       <button
-                        onClick={() => validateFeedMutation.mutate(feed)}
-                        disabled={validatingFeedId === feed.id}
-                        className="inline-flex items-center px-3 py-1.5 border border-yellow-300 dark:border-yellow-600 text-xs font-medium rounded text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50"
-                        title="Test if feed is working"
+                        onClick={handleSaveEdit}
+                        disabled={editFeedMutation.isPending || !editingFeedUrl.trim() || !editingFeedTitle.trim()}
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {editFeedMutation.isPending ? "Saving..." : "Save"}
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        disabled={editFeedMutation.isPending}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // View mode
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{feed.title}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{feed.url}</p>
+                      <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded ${
+                            feed.status === "active"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                          }`}
+                        >
+                          {feed.status}
+                        </span>
+                        {feed.last_fetched && <span>Last fetched {formatDistanceToNow(new Date(feed.last_fetched), { addSuffix: true })}</span>}
+                        <select
+                          value={feed.category_id || ""}
+                          onChange={e => {
+                            const value = e.target.value
+                            updateFeedCategoryMutation.mutate({
+                              feedId: feed.id,
+                              categoryId: value === "" ? null : value,
+                            })
+                          }}
+                          className="px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                        >
+                          <option value="">Uncategorized</option>
+                          {categories?.map(cat => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {feed.error_message && (
+                        <div className="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
+                          <span className="font-medium">Error:</span> {feed.error_message}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {feed.status === "error" && (
+                        <button
+                          onClick={() => validateFeedMutation.mutate(feed)}
+                          disabled={validatingFeedId === feed.id}
+                          className="inline-flex items-center px-3 py-1.5 border border-yellow-300 dark:border-yellow-600 text-xs font-medium rounded text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50"
+                          title="Test if feed is working"
+                        >
+                          <svg
+                            className={`w-4 h-4 ${validatingFeedId === feed.id ? "animate-spin" : ""}`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="ml-1.5">{validatingFeedId === feed.id ? "Testing..." : "Test"}</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => refreshFeedMutation.mutate(feed)}
+                        disabled={refreshingFeedId === feed.id || refreshingFeedIds.has(feed.id)}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+                        title="Refresh feed"
                       >
                         <svg
-                          className={`w-4 h-4 ${validatingFeedId === feed.id ? "animate-spin" : ""}`}
+                          className={`w-4 h-4 ${refreshingFeedId === feed.id || refreshingFeedIds.has(feed.id) ? "animate-spin" : ""}`}
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
                         </svg>
-                        <span className="ml-1.5">{validatingFeedId === feed.id ? "Testing..." : "Test"}</span>
+                        <span className="ml-1.5">{refreshingFeedId === feed.id || refreshingFeedIds.has(feed.id) ? "Refreshing..." : "Refresh"}</span>
                       </button>
-                    )}
-                    <button
-                      onClick={() => refreshFeedMutation.mutate(feed)}
-                      disabled={refreshingFeedId === feed.id || refreshingFeedIds.has(feed.id)}
-                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
-                      title="Refresh feed"
-                    >
-                      <svg
-                        className={`w-4 h-4 ${refreshingFeedId === feed.id || refreshingFeedIds.has(feed.id) ? "animate-spin" : ""}`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
+                      <button
+                        onClick={() => handleEditClick(feed)}
+                        className="p-1.5 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded transition-colors"
+                        title="Edit feed"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                        />
-                      </svg>
-                      <span className="ml-1.5">{refreshingFeedId === feed.id || refreshingFeedIds.has(feed.id) ? "Refreshing..." : "Refresh"}</span>
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClick(feed)}
-                      disabled={deletingFeedId === feed.id}
-                      className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50 transition-colors"
-                      title="Delete feed"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(feed)}
+                        disabled={deletingFeedId === feed.id}
+                        className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50 transition-colors"
+                        title="Delete feed"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </li>
             ))
           )}
