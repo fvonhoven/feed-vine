@@ -4,7 +4,6 @@ import { supabase, isDemoMode } from "../lib/supabase"
 import type { ArticleWithStatus, Feed } from "../types/database"
 import ArticleCard from "../components/ArticleCard"
 import FilterBar from "../components/FilterBar"
-import { mockArticlesWithStatus } from "../lib/mockData"
 import toast from "react-hot-toast"
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts"
 import { KeyboardShortcutsHelp } from "../components/KeyboardShortcutsHelp"
@@ -35,52 +34,9 @@ export default function HomePage() {
   const { data: articles, isLoading } = useQuery({
     queryKey: ["articles", keyword, selectedFeedId, dateRange, showUnreadOnly],
     queryFn: async () => {
-      // In demo mode, use mock data with client-side filtering
+      // In demo mode, return empty array
       if (isDemoMode) {
-        let filtered = [...mockArticlesWithStatus]
-
-        // Apply keyword filter
-        if (keyword) {
-          const lowerKeyword = keyword.toLowerCase()
-          filtered = filtered.filter(
-            article =>
-              article.title.toLowerCase().includes(lowerKeyword) ||
-              article.description?.toLowerCase().includes(lowerKeyword) ||
-              article.content?.toLowerCase().includes(lowerKeyword),
-          )
-        }
-
-        // Apply feed filter
-        if (selectedFeedId) {
-          filtered = filtered.filter(article => article.feed_id === selectedFeedId)
-        }
-
-        // Apply unread filter
-        if (showUnreadOnly) {
-          filtered = filtered.filter(article => !article.user_article?.is_read)
-        }
-
-        // Apply date range filter
-        if (dateRange !== "all") {
-          const now = new Date()
-          let startDate = new Date()
-
-          switch (dateRange) {
-            case "24h":
-              startDate.setHours(now.getHours() - 24)
-              break
-            case "week":
-              startDate.setDate(now.getDate() - 7)
-              break
-            case "month":
-              startDate.setMonth(now.getMonth() - 1)
-              break
-          }
-
-          filtered = filtered.filter(article => new Date(article.published_at) >= startDate)
-        }
-
-        return filtered
+        return []
       }
 
       // Real Supabase query with user_articles join

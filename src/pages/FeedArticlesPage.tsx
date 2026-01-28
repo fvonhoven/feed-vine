@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
 import type { ArticleWithStatus, Feed } from "../types/database"
 import ArticleCard from "../components/ArticleCard"
-import { mockArticlesWithStatus, mockFeeds } from "../lib/mockData"
 import toast from "react-hot-toast"
 
 export default function FeedArticlesPage() {
@@ -16,7 +15,7 @@ export default function FeedArticlesPage() {
     queryFn: async () => {
       if (!feedId) throw new Error("Feed ID is required")
       if (isDemoMode) {
-        return mockFeeds.find(f => f.id === feedId) || null
+        return null
       }
       const { data, error } = await supabase.from("feeds").select("*").eq("id", feedId).single()
       if (error) throw error
@@ -31,7 +30,7 @@ export default function FeedArticlesPage() {
     queryFn: async () => {
       if (!feedId) throw new Error("Feed ID is required")
       if (isDemoMode) {
-        return mockArticlesWithStatus.filter(a => a.feed_id === feedId)
+        return []
       }
 
       const { data, error } = await supabase

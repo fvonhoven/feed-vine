@@ -1,7 +1,6 @@
 import { Link, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
-import { mockCategories, mockFeeds } from "../lib/mockData"
 import type { Category, Feed } from "../types/database"
 
 export default function Sidebar() {
@@ -11,7 +10,7 @@ export default function Sidebar() {
     queryKey: ["categories"],
     queryFn: async () => {
       if (isDemoMode) {
-        return mockCategories
+        return []
       }
       const { data, error } = await supabase.from("categories").select("*").order("name")
       if (error) throw error
@@ -23,7 +22,7 @@ export default function Sidebar() {
     queryKey: ["feeds"],
     queryFn: async () => {
       if (isDemoMode) {
-        return mockFeeds
+        return []
       }
       const { data, error } = await supabase.from("feeds").select("*").order("title")
       if (error) throw error
@@ -34,12 +33,15 @@ export default function Sidebar() {
   const isActive = (path: string) => location.pathname === path
 
   // Group feeds by category
-  const feedsByCategory = feeds?.reduce((acc, feed) => {
-    const catId = feed.category_id || "uncategorized"
-    if (!acc[catId]) acc[catId] = []
-    acc[catId].push(feed)
-    return acc
-  }, {} as Record<string, Feed[]>)
+  const feedsByCategory = feeds?.reduce(
+    (acc, feed) => {
+      const catId = feed.category_id || "uncategorized"
+      if (!acc[catId]) acc[catId] = []
+      acc[catId].push(feed)
+      return acc
+    },
+    {} as Record<string, Feed[]>,
+  )
 
   return (
     <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full overflow-y-auto">

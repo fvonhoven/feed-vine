@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
 import type { Feed } from "../types/database"
-import { mockFeeds } from "../lib/mockData"
 
 interface FilterBarProps {
   keyword: string
@@ -16,9 +15,9 @@ export default function FilterBar({ keyword, onKeywordChange, selectedFeedId, on
   const { data: feeds } = useQuery({
     queryKey: ["feeds"],
     queryFn: async () => {
-      // In demo mode, return mock feeds
+      // In demo mode, return empty array
       if (isDemoMode) {
-        return mockFeeds
+        return []
       }
 
       const { data, error } = await supabase.from("feeds").select("*").order("title")

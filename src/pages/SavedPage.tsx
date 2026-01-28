@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
 import type { ArticleWithStatus } from "../types/database"
 import ArticleCard from "../components/ArticleCard"
-import { mockArticlesWithStatus } from "../lib/mockData"
 import toast from "react-hot-toast"
 
 export default function SavedPage() {
@@ -12,7 +11,7 @@ export default function SavedPage() {
     queryKey: ["saved-articles"],
     queryFn: async () => {
       if (isDemoMode) {
-        return mockArticlesWithStatus.filter(article => article.user_article?.is_saved)
+        return []
       }
 
       const { data, error } = await supabase

@@ -1,7 +1,6 @@
 import { useAuth } from "../hooks/useAuth"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
-import { mockArticles } from "../lib/mockData"
 import { downloadRSSFeed, copyRSSFeedURL } from "../lib/rssGenerator"
 import type { ArticleWithFeed } from "../types/database"
 import toast from "react-hot-toast"
@@ -41,7 +40,7 @@ export default function SettingsPage() {
     queryKey: ["all-articles-for-export"],
     queryFn: async () => {
       if (isDemoMode) {
-        return mockArticles
+        return []
       }
 
       const { data, error } = await supabase

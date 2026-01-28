@@ -4,7 +4,6 @@ import { supabase, isDemoMode } from "../lib/supabase"
 import type { Feed, Category } from "../types/database"
 import toast from "react-hot-toast"
 import { formatDistanceToNow } from "date-fns"
-import { mockFeeds, mockCategories } from "../lib/mockData"
 import { fetchAndSaveArticles, discoverRSSFeeds, refreshAllFeeds } from "../lib/rssFetcher"
 import { useSubscription } from "../hooks/useSubscription"
 import { Link } from "react-router-dom"
@@ -34,9 +33,9 @@ export default function FeedManager() {
   const { data: feeds, isLoading } = useQuery({
     queryKey: ["feeds"],
     queryFn: async () => {
-      // In demo mode, return mock feeds
+      // In demo mode, return empty array
       if (isDemoMode) {
-        return mockFeeds
+        return []
       }
 
       const { data, error } = await supabase.from("feeds").select("*").order("title", { ascending: true })
@@ -50,7 +49,7 @@ export default function FeedManager() {
     queryKey: ["categories"],
     queryFn: async () => {
       if (isDemoMode) {
-        return mockCategories
+        return []
       }
       const { data, error } = await supabase.from("categories").select("*").order("name")
       if (error) throw error
@@ -399,7 +398,7 @@ export default function FeedManager() {
           setRefreshingFeedIds(prev => new Set(prev).add(feedId))
         },
         // onFeedComplete callback
-        (feedId: string, success: boolean) => {
+        (feedId: string) => {
           setRefreshingFeedIds(prev => {
             const next = new Set(prev)
             next.delete(feedId)

@@ -1,16 +1,15 @@
 import { useState, useEffect } from "react"
 import { User } from "@supabase/supabase-js"
 import { supabase, isDemoMode } from "../lib/supabase"
-import { mockUser } from "../lib/mockData"
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // In demo mode, automatically set mock user
+    // In demo mode, set null user
     if (isDemoMode) {
-      setUser(mockUser as User)
+      setUser(null)
       setLoading(false)
       return
     }
