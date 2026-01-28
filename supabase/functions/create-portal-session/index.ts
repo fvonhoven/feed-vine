@@ -16,44 +16,35 @@ serve(async req => {
   }
 
   try {
-    // Get the authorization header for user verification
-    const authHeader = req.headers.get("Authorization")
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
 
+    // Get user from auth header
+    const authHeader = req.headers.get("Authorization")
     if (!authHeader) {
-      console.error("Missing authorization header")
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       })
     }
 
-    // Verify user via Supabase Auth API
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-
-    console.log("Supabase URL:", supabaseUrl)
-    console.log("Auth header present:", !!authHeader)
-
-    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        Authorization: authHeader,
-        apikey: supabaseAnonKey,
-      },
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
     })
 
-    console.log("Auth API response status:", userResponse.status)
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!userResponse.ok) {
-      const errorBody = await userResponse.text()
-      console.error("Auth API error:", errorBody)
-      return new Response(JSON.stringify({ error: "Unauthorized", details: errorBody }), {
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       })
     }
 
-    const user = await userResponse.json()
-    console.log("User verified:", user.id)
     const userId = user.id
 
     const { returnUrl } = await req.json()
@@ -63,7 +54,6 @@ serve(async req => {
     }
 
     // Get user's subscription to find Stripe customer ID
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
     const { data: subscription, error: subError } = await supabaseAdmin.from("subscriptions").select("*").eq("user_id", userId).single()
 
