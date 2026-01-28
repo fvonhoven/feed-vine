@@ -79,6 +79,7 @@ export interface Database {
           description: string | null
           content: string | null
           author: string | null
+          category: string | null
           published_at: string
           guid: string
           created_at: string
@@ -91,6 +92,7 @@ export interface Database {
           description?: string | null
           content?: string | null
           author?: string | null
+          category?: string | null
           published_at: string
           guid: string
           created_at?: string
@@ -103,6 +105,7 @@ export interface Database {
           description?: string | null
           content?: string | null
           author?: string | null
+          category?: string | null
           published_at?: string
           guid?: string
           created_at?: string

@@ -10,7 +10,9 @@ interface Article {
   id: string
   title: string
   url: string
+  description: string | null
   content: string | null
+  category: string | null
   published_at: string
   feed: {
     title: string
@@ -29,7 +31,7 @@ function generateRSS(articles: Article[], collectionName: string, collectionDesc
       <link>${article.url}</link>
       <guid isPermaLink="true">${article.url}</guid>
       <pubDate>${new Date(article.published_at).toUTCString()}</pubDate>
-      <description><![CDATA[${article.content || ""}]]></description>
+      <description><![CDATA[${article.description || article.content || ""}]]></description>${article.category ? `\n      <category>${article.category}</category>` : ""}
       <source url="${article.feed.url}">${article.feed.title}</source>
     </item>
   `,
@@ -59,8 +61,10 @@ function generateJSON(articles: Article[], collectionName: string, collectionDes
       id: article.url,
       url: article.url,
       title: article.title,
-      content_html: article.content || "",
+      content_html: article.description || article.content || "",
+      summary: article.description || "",
       date_published: article.published_at,
+      tags: article.category ? [article.category] : [],
       _source: {
         title: article.feed.title,
         url: article.feed.url,
@@ -163,6 +167,7 @@ serve(async req => {
         url,
         description,
         content,
+        category,
         published_at,
         feed:feeds(title, url)
       `,

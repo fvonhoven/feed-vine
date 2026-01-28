@@ -12,6 +12,7 @@ import { Link } from "react-router-dom"
 export default function FeedManager() {
   const [newFeedUrl, setNewFeedUrl] = useState("")
   const [refreshingFeedId, setRefreshingFeedId] = useState<string | null>(null)
+  const [refreshingFeedIds, setRefreshingFeedIds] = useState<Set<string>>(new Set())
   const [validatingFeedId, setValidatingFeedId] = useState<string | null>(null)
   const [deletingFeedId, setDeletingFeedId] = useState<string | null>(null)
   const [feedToDelete, setFeedToDelete] = useState<Feed | null>(null)
@@ -338,12 +339,28 @@ export default function FeedManager() {
         throw new Error("Demo mode: Cannot refresh feeds")
       }
       setIsRefreshingAll(true)
-      return await refreshAllFeeds()
+      setRefreshingFeedIds(new Set())
+
+      return await refreshAllFeeds(
+        // onFeedStart callback
+        (feedId: string) => {
+          setRefreshingFeedIds(prev => new Set(prev).add(feedId))
+        },
+        // onFeedComplete callback
+        (feedId: string, success: boolean) => {
+          setRefreshingFeedIds(prev => {
+            const next = new Set(prev)
+            next.delete(feedId)
+            return next
+          })
+        },
+      )
     },
     onSuccess: result => {
       queryClient.invalidateQueries({ queryKey: ["articles"] })
       queryClient.invalidateQueries({ queryKey: ["feeds"] })
       setIsRefreshingAll(false)
+      setRefreshingFeedIds(new Set())
       if (result.failed > 0) {
         toast.success(`Refreshed ${result.success} feeds. ${result.failed} failed.`)
       } else {
@@ -352,6 +369,7 @@ export default function FeedManager() {
     },
     onError: (error: any) => {
       setIsRefreshingAll(false)
+      setRefreshingFeedIds(new Set())
       toast.error(error.message || "Failed to refresh feeds")
     },
   })
@@ -947,12 +965,12 @@ Example Feed,https://feeds.feedburner.com/example`
                     )}
                     <button
                       onClick={() => refreshFeedMutation.mutate(feed)}
-                      disabled={refreshingFeedId === feed.id}
+                      disabled={refreshingFeedId === feed.id || refreshingFeedIds.has(feed.id)}
                       className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
                       title="Refresh feed"
                     >
                       <svg
-                        className={`w-4 h-4 ${refreshingFeedId === feed.id ? "animate-spin" : ""}`}
+                        className={`w-4 h-4 ${refreshingFeedId === feed.id || refreshingFeedIds.has(feed.id) ? "animate-spin" : ""}`}
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -964,7 +982,7 @@ Example Feed,https://feeds.feedburner.com/example`
                           d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                         />
                       </svg>
-                      <span className="ml-1.5">{refreshingFeedId === feed.id ? "Refreshing..." : "Refresh"}</span>
+                      <span className="ml-1.5">{refreshingFeedId === feed.id || refreshingFeedIds.has(feed.id) ? "Refreshing..." : "Refresh"}</span>
                     </button>
                     <button
                       onClick={() => handleDeleteClick(feed)}

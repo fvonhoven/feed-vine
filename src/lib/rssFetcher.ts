@@ -447,7 +447,10 @@ export async function fetchAndSaveArticlesClientSide(feedId: string, feedUrl: st
 /**
  * Refresh all active feeds for the current user
  */
-export async function refreshAllFeeds(): Promise<{ success: number; failed: number }> {
+export async function refreshAllFeeds(
+  onFeedStart?: (feedId: string) => void,
+  onFeedComplete?: (feedId: string, success: boolean) => void,
+): Promise<{ success: number; failed: number }> {
   const { data: feeds, error } = await supabase.from("feeds").select("id, url").eq("status", "active")
 
   if (error || !feeds) {
@@ -459,11 +462,14 @@ export async function refreshAllFeeds(): Promise<{ success: number; failed: numb
 
   for (const feed of feeds) {
     try {
+      onFeedStart?.(feed.id)
       await fetchAndSaveArticles(feed.id, feed.url)
       success++
+      onFeedComplete?.(feed.id, true)
     } catch (error) {
       console.error(`Failed to refresh feed ${feed.id}:`, error)
       failed++
+      onFeedComplete?.(feed.id, false)
     }
   }
 

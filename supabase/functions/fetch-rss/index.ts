@@ -13,6 +13,88 @@ interface Feed {
   title: string
 }
 
+/**
+ * Batch categorize multiple articles using Claude API
+ * Returns a map of article index to category
+ */
+async function batchCategorizeArticles(articles: Array<{ title: string; description: string | null }>): Promise<string[]> {
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY")
+
+  if (!apiKey) {
+    console.warn("ANTHROPIC_API_KEY not set, defaulting all to Uncategorized")
+    return articles.map(() => "Uncategorized")
+  }
+
+  if (articles.length === 0) {
+    return []
+  }
+
+  try {
+    // Build a prompt with all articles
+    const articlesList = articles
+      .map((article, idx) => `${idx + 1}. Title: ${article.title}\n   Description: ${article.description || "No description"}`)
+      .join("\n\n")
+
+    const prompt = `Categorize each of these articles into ONE of these categories: AI News, Tools, Opinion, Startups, Backend, Tutorial, Research, Uncategorized
+
+${articlesList}
+
+Return ONLY a comma-separated list of categories in the same order as the articles, nothing else.
+Example response: AI News, Tools, Opinion, Uncategorized`
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-haiku-20241022", // Use Haiku for fast, cheap batch categorization
+        max_tokens: 200,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      console.error("Claude API error:", error)
+      return articles.map(() => "Uncategorized")
+    }
+
+    const data = await response.json()
+    const categoriesText = data.content?.[0]?.text?.trim() || ""
+
+    // Parse the comma-separated categories
+    const categories = categoriesText.split(",").map(c => c.trim())
+
+    // Validate and map categories
+    const validCategories = ["AI News", "Tools", "Opinion", "Startups", "Backend", "Tutorial", "Research", "Uncategorized"]
+    const result = categories.map((category, idx) => {
+      if (validCategories.includes(category)) {
+        return category
+      }
+      console.warn(`Invalid category for article ${idx + 1}: ${category}, defaulting to Uncategorized`)
+      return "Uncategorized"
+    })
+
+    // If we got fewer categories than articles, fill the rest with Uncategorized
+    while (result.length < articles.length) {
+      result.push("Uncategorized")
+    }
+
+    return result.slice(0, articles.length)
+  } catch (error) {
+    console.error("Error calling Claude API:", error)
+    return articles.map(() => "Uncategorized")
+  }
+}
+
 serve(async req => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -112,9 +194,27 @@ serve(async req => {
 
         // Only insert articles if this is a real feed (not a temporary URL fetch)
         if (feed.id !== "temp") {
+          // Batch categorize all articles at once (much faster!)
+          console.log(`Batch categorizing ${articles.length} articles...`)
+          let categories: string[] = []
+          try {
+            categories = await batchCategorizeArticles(articles)
+            console.log(`Batch categorization complete:`, categories)
+          } catch (catError) {
+            console.warn(`Failed to batch categorize articles, using defaults:`, catError)
+            categories = articles.map(() => "Uncategorized")
+          }
+
           // Insert articles one by one to handle duplicates gracefully
-          for (const article of articles) {
-            const { error: insertError } = await supabaseClient.from("articles").insert(article)
+          for (let i = 0; i < articles.length; i++) {
+            const article = articles[i]
+            const category = categories[i] || "Uncategorized"
+
+            // Insert article with category
+            const { error: insertError } = await supabaseClient.from("articles").insert({
+              ...article,
+              category,
+            })
 
             if (insertError) {
               if (insertError.code === "23505") {
@@ -127,6 +227,7 @@ serve(async req => {
               }
             } else {
               insertedCount++
+              console.log(`Inserted "${article.title}" as: ${category}`)
             }
           }
 
