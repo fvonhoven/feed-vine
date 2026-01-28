@@ -84,10 +84,15 @@ export default function SettingsPage() {
     try {
       console.log("Starting portal session request...")
 
-      // Get the current session to extract the access token
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+      // Refresh the session to ensure we have a valid token
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+
+      if (refreshError) {
+        console.error("Failed to refresh session:", refreshError)
+        throw new Error("Session expired. Please sign in again.")
+      }
+
+      const session = refreshData.session
 
       console.log("Session:", !!session)
       console.log("Access token:", session?.access_token?.substring(0, 20) + "...")
