@@ -126,10 +126,27 @@ export default function DiscoverPage() {
           >
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{feed.title}</h3>
-                <span className="inline-block px-2 py-1 text-xs font-medium bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded">
-                  {feed.category}
-                </span>
+                <a
+                  href={feed.websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 transition-colors mb-1 inline-flex items-center gap-1 group"
+                >
+                  {feed.title}
+                  <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                </a>
+                <div className="mt-1">
+                  <span className="inline-block px-2 py-1 text-xs font-medium bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded">
+                    {feed.category}
+                  </span>
+                </div>
               </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">{feed.description}</p>
