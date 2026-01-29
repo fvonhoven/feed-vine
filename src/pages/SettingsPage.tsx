@@ -17,6 +17,7 @@ export default function SettingsPage() {
   const { subscription, planId: currentPlanId, isLoading: subscriptionLoading } = useSubscription()
   const [showFeedURL, setShowFeedURL] = useState(false)
   const [changingPlan, setChangingPlan] = useState(false)
+  const [loadingPortal, setLoadingPortal] = useState(false)
 
   // Debug: Log subscription data
   console.log("SettingsPage - Subscription data:", { subscription, currentPlanId, subscriptionLoading })
@@ -152,6 +153,32 @@ export default function SettingsPage() {
       } finally {
         setChangingPlan(false)
       }
+    }
+  }
+
+  const handleManageSubscription = async () => {
+    if (isDemoMode) {
+      toast.error("Cannot manage subscription in demo mode")
+      return
+    }
+
+    setLoadingPortal(true)
+    try {
+      const { data, error } = await supabase.functions.invoke("create-portal-session", {
+        body: { returnUrl: window.location.origin },
+      })
+
+      if (error) throw error
+
+      if (data?.url) {
+        window.location.href = data.url
+      } else {
+        throw new Error("No portal URL returned")
+      }
+    } catch (error: any) {
+      console.error("Portal session error:", error)
+      toast.error(error.message || "Failed to open billing portal. Please try again.")
+      setLoadingPortal(false)
     }
   }
 
@@ -297,14 +324,13 @@ export default function SettingsPage() {
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Need to update payment method or cancel?{" "}
-                  <a
-                    href={`https://billing.stripe.com/p/login/test_${subscription.stripe_customer_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary-600 dark:text-primary-400 hover:underline"
+                  <button
+                    onClick={handleManageSubscription}
+                    disabled={loadingPortal}
+                    className="text-primary-600 dark:text-primary-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Manage your subscription →
-                  </a>
+                    {loadingPortal ? "Loading..." : "Manage your subscription →"}
+                  </button>
                 </p>
               </div>
             )}
