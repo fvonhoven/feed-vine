@@ -12,6 +12,7 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const isActive = (path: string) => location.pathname === path
 
@@ -34,22 +35,26 @@ export default function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-3">
-              {/* Mobile menu button */}
-              {showSidebar && (
-                <button
-                  onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="lg:hidden p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  aria-label="Toggle sidebar"
-                >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    {sidebarOpen ? (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    ) : (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    )}
-                  </svg>
-                </button>
-              )}
+              {/* Mobile menu button - shows on all pages on mobile */}
+              <button
+                onClick={() => {
+                  if (showSidebar) {
+                    setSidebarOpen(!sidebarOpen)
+                  } else {
+                    setMobileMenuOpen(!mobileMenuOpen)
+                  }
+                }}
+                className="md:hidden p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                aria-label="Toggle menu"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  {sidebarOpen || mobileMenuOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
 
               <div className="flex-shrink-0 flex items-center">
                 <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
@@ -117,51 +122,57 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
 
-        {/* Mobile navigation menu */}
-        <div className="md:hidden border-t border-gray-200 dark:border-gray-700">
-          <div className="px-2 pt-2 pb-3 space-y-1">
-            <Link
-              to="/"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive("/")
-                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-            >
-              Articles
-            </Link>
-            <Link
-              to="/discover"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive("/discover")
-                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-            >
-              Discover
-            </Link>
-            <Link
-              to="/feeds"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive("/feeds")
-                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-            >
-              Feeds
-            </Link>
-            <Link
-              to="/collections"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive("/collections")
-                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-            >
-              Collections
-            </Link>
+        {/* Mobile navigation menu - collapsible */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-gray-200 dark:border-gray-700">
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              <Link
+                to="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  isActive("/")
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                Articles
+              </Link>
+              <Link
+                to="/discover"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  isActive("/discover")
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                Discover
+              </Link>
+              <Link
+                to="/feeds"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  isActive("/feeds")
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                Feeds
+              </Link>
+              <Link
+                to="/collections"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  isActive("/collections")
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                Collections
+              </Link>
+            </div>
           </div>
-        </div>
+        )}
       </nav>
 
       <div className="flex h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] relative">
@@ -181,7 +192,7 @@ export default function Layout({ children }: LayoutProps) {
         )}
 
         {/* Main content */}
-        <main className={`flex-1 overflow-y-auto ${showSidebar ? "" : "max-w-7xl mx-auto w-full"} py-4 sm:py-6 px-4 sm:px-6 lg:px-8`}>
+        <main className={`flex-1 overflow-y-auto ${showSidebar ? "" : "max-w-7xl mx-auto w-full"} py-3 sm:py-6 px-3 sm:px-6 lg:px-8`}>
           {children}
         </main>
       </div>

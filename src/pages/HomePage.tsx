@@ -298,21 +298,21 @@ export default function HomePage() {
   }
 
   return (
-    <div className="px-4 sm:px-0">
+    <div className="px-0">
       {showShortcutsHelp && <KeyboardShortcutsHelp shortcuts={shortcuts} onClose={() => setShowShortcutsHelp(false)} />}
 
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">All Articles</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            {articles?.length || 0} articles
-            {showUnreadOnly && " (unread only)"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">All Articles</h1>
+            <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+              {articles?.length || 0} articles
+              {showUnreadOnly && " (unread only)"}
+            </p>
+          </div>
           <button
             onClick={() => setShowShortcutsHelp(true)}
-            className="relative p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors group"
+            className="relative p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors group flex-shrink-0"
             title="Keyboard shortcuts (?)"
           >
             <FaRegKeyboard className="w-5 h-5" />
@@ -320,13 +320,15 @@ export default function HomePage() {
               ?
             </span>
           </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleRefreshAllFeeds}
             disabled={isRefreshingAll || isDemoMode}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 text-xs sm:text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors min-h-[44px]"
             title="Refresh all feeds"
           >
-            <svg className={`w-4 h-4 mr-2 ${isRefreshingAll ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className={`w-4 h-4 mr-1.5 sm:mr-2 ${isRefreshingAll ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -334,11 +336,12 @@ export default function HomePage() {
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            {isRefreshingAll ? "Refreshing..." : "Refresh All"}
+            <span className="hidden xs:inline">{isRefreshingAll ? "Refreshing..." : "Refresh All"}</span>
+            <span className="xs:hidden">{isRefreshingAll ? "..." : "Refresh"}</span>
           </button>
           <button
             onClick={() => setShowUnreadOnly(!showUnreadOnly)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors min-h-[44px] ${
               showUnreadOnly
                 ? "bg-primary-600 text-white hover:bg-primary-700"
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
