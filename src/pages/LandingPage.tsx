@@ -73,12 +73,17 @@ export default function LandingPage() {
             A modern, Feedly-like feed aggregator that helps you stay on top of your favorite content. Track what you've read, save articles for
             later, and organize feeds into collections.
           </p>
+          <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4 mb-6 max-w-2xl mx-auto">
+            <p className="text-sm text-primary-800 dark:text-primary-200">
+              🚀 <strong>Currently in Private Beta</strong> - Join the waitlist to get early access when we launch!
+            </p>
+          </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/auth"
               className="px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl"
             >
-              Get Started Free
+              Join Waitlist
             </Link>
             <button
               onClick={() => {
@@ -89,7 +94,7 @@ export default function LandingPage() {
               Learn More
             </button>
           </div>
-          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">No credit card required</p>
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Be among the first to try FeedVine</p>
         </div>
 
         {/* Screenshot/Demo */}
@@ -216,13 +221,13 @@ export default function LandingPage() {
 
       {/* CTA Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">Ready to Get Organized?</h2>
-        <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">Join thousands of users who stay on top of their content with FeedVine</p>
+        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">Ready to Get Early Access?</h2>
+        <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">Join the waitlist and be among the first to experience FeedVine</p>
         <Link
           to="/auth"
           className="inline-block px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl"
         >
-          Start Free Today
+          Join Waitlist
         </Link>
       </div>
 
@@ -338,7 +343,7 @@ const pricingTiers = [
     annualPrice: 0,
     popular: false,
     features: ["1 RSS feed", "1 category", "Read/unread tracking", "Basic filters"],
-    cta: "Start Free",
+    cta: "Join Waitlist",
   },
   {
     name: "Pro",
@@ -346,7 +351,7 @@ const pricingTiers = [
     annualPrice: 5,
     popular: false,
     features: ["Everything in Free, plus:", "5 feeds & 3 categories", "Save articles", "1 collection", "Export to RSS"],
-    cta: "Go Pro",
+    cta: "Join Waitlist",
   },
   {
     name: "Plus",
@@ -354,7 +359,7 @@ const pricingTiers = [
     annualPrice: 9,
     popular: true,
     features: ["Everything in Pro, plus:", "15 feeds & 10 categories", "5 collections", "Advanced filters", "Keyboard shortcuts"],
-    cta: "Go Plus",
+    cta: "Join Waitlist",
   },
   {
     name: "Premium",
@@ -362,6 +367,6 @@ const pricingTiers = [
     annualPrice: 15,
     popular: false,
     features: ["Everything in Plus, plus:", "25 feeds & categories", "25 collections", "API Access"],
-    cta: "Go Premium",
+    cta: "Join Waitlist",
   },
 ]
