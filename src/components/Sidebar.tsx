@@ -1,7 +1,8 @@
 import { Link, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
-import type { Category, Feed } from "../types/database"
+import type { Category, Feed, MarketplaceSubscription, FeedCollection } from "../types/database"
+import { useAuth } from "../hooks/useAuth"
 
 interface SidebarProps {
   isOpen: boolean
@@ -35,6 +36,32 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
       if (error) throw error
       return data as Feed[]
     },
+  })
+
+  const { user } = useAuth()
+
+  const { data: subscribedCollections } = useQuery({
+    queryKey: ["sidebar-subscriptions"],
+    queryFn: async () => {
+      if (!user || isDemoMode) return []
+      
+      const { data, error } = await supabase
+        .from("marketplace_subscriptions")
+        .select(`
+          collection:feed_collections (
+            id,
+            name,
+            slug
+          )
+        `)
+        .eq("subscriber_id", user.id)
+      
+      if (error) throw error
+      
+      // Flatten the structure
+      return data.map((item: any) => item.collection) as Pick<FeedCollection, "id" | "name" | "slug">[]
+    },
+    enabled: !!user && !isDemoMode
   })
 
   const isActive = (path: string) => location.pathname === path
@@ -140,6 +167,27 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
                 {!isCollapsed && "Collections"}
               </span>
             </Link>
+            <Link
+              to="/marketplace"
+              className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
+                isActive("/marketplace")
+                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+              title={isCollapsed ? "Marketplace" : ""}
+            >
+              <span className="flex items-center">
+                <svg className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
+                </svg>
+                {!isCollapsed && "Marketplace"}
+              </span>
+            </Link>
 
             <Link
               to="/api-keys"
@@ -163,6 +211,23 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
               </span>
             </Link>
           </nav>
+
+          {!isCollapsed && subscribedCollections && subscribedCollections.length > 0 && (
+            <>
+              <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-3">Subscriptions</h2>
+              <nav className="space-y-1">
+                {subscribedCollections.map(collection => (
+                  <Link
+                    key={collection.id}
+                    to={`/collection/${collection.id}`} 
+                    className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                  >
+                    <span className="truncate">{collection.name}</span>
+                  </Link>
+                ))}
+              </nav>
+            </>
+          )}
 
           {!isCollapsed && <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-3">Categories</h2>}
           {!isCollapsed && (
@@ -299,6 +364,28 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
               </Link>
 
               <Link
+                to="/marketplace"
+                onClick={onClose}
+                className={`flex items-center justify-between px-3 py-2 text-sm rounded-md ${
+                  isActive("/marketplace")
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <span className="flex items-center">
+                  <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                  Marketplace
+                </span>
+              </Link>
+
+              <Link
                 to="/api-keys"
                 onClick={onClose}
                 className={`flex items-center justify-between px-3 py-2 text-sm rounded-md ${
@@ -320,6 +407,24 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
                 </span>
               </Link>
             </nav>
+
+            {subscribedCollections && subscribedCollections.length > 0 && (
+              <>
+                <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-3">Subscriptions</h2>
+                <nav className="space-y-1">
+                  {subscribedCollections.map(collection => (
+                    <Link
+                      key={collection.id}
+                      to={`/collection/${collection.id}`}
+                      onClick={onClose}
+                      className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                    >
+                      <span className="truncate">{collection.name}</span>
+                    </Link>
+                  ))}
+                </nav>
+              </>
+            )}
 
             <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-3">Categories</h2>
             <nav className="space-y-2">

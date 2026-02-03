@@ -8,6 +8,8 @@ import DiscoverPage from "./pages/DiscoverPage"
 import FeedsPage from "./pages/FeedsPage"
 import FeedArticlesPage from "./pages/FeedArticlesPage"
 import CollectionsPage from "./pages/CollectionsPage"
+import CollectionArticlesPage from "./pages/CollectionArticlesPage"
+import MarketplacePage from "./pages/MarketplacePage"
 import SettingsPage from "./pages/SettingsPage"
 import ApiKeysPage from "./pages/ApiKeysPage"
 import PricingPage from "./pages/PricingPage"
@@ -52,6 +54,8 @@ function App() {
           <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/feeds" element={<FeedsPage />} />
           <Route path="/feed/:feedId" element={<FeedArticlesPage />} />
+          <Route path="/collection/:collectionId" element={<CollectionArticlesPage />} />
+          <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/settings" element={<SettingsPage />} />

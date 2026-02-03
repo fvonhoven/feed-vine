@@ -59,6 +59,18 @@ export async function checkIpRateLimit(req: Request, endpoint: string, config?: 
   const ip = getClientIp(req)
   const rateLimitConfig = config || RATE_LIMIT_CONFIGS.default
 
+  // Skip rate limiting for localhost/development
+  // Common localhost IPs: 127.0.0.1, ::1, ::ffff:127.0.0.1
+  if (ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1" || ip === "localhost" || ip === "unknown") {
+    const now = new Date()
+    return {
+      allowed: true,
+      limit: 999999,
+      remaining: 999999,
+      resetAt: new Date(now.getTime() + rateLimitConfig.windowMs),
+    }
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   const supabase = createClient(supabaseUrl, supabaseKey)
@@ -93,7 +105,9 @@ export async function checkIpRateLimit(req: Request, endpoint: string, config?: 
     // Check if limit exceeded
     if (requestCount >= rateLimitConfig.maxRequests) {
       const oldestRequest = recentRequests?.[recentRequests.length - 1]
-      const resetAt = oldestRequest ? new Date(new Date(oldestRequest.created_at).getTime() + rateLimitConfig.windowMs) : new Date(now.getTime() + rateLimitConfig.windowMs)
+      const resetAt = oldestRequest
+        ? new Date(new Date(oldestRequest.created_at).getTime() + rateLimitConfig.windowMs)
+        : new Date(now.getTime() + rateLimitConfig.windowMs)
 
       const retryAfter = Math.ceil((resetAt.getTime() - now.getTime()) / 1000)
 
@@ -148,4 +162,3 @@ export function addIpRateLimitHeaders(headers: Record<string, string>, result: R
     ...(result.retryAfter ? { "Retry-After": result.retryAfter.toString() } : {}),
   }
 }
-

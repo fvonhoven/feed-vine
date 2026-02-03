@@ -16,8 +16,8 @@ export default function Layout({ children }: LayoutProps) {
 
   const isActive = (path: string) => location.pathname === path
 
-  // Check if we're on a page that should show the sidebar
-  const showSidebar = location.pathname === "/" || location.pathname === "/saved" || location.pathname.startsWith("/feed/")
+  // Show sidebar on all authenticated pages as requested
+  const showSidebar = true
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

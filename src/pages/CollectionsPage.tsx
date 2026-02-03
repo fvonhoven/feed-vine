@@ -5,8 +5,10 @@ import type { FeedCollection, Feed } from "../types/database"
 import toast from "react-hot-toast"
 import { useSubscription } from "../hooks/useSubscription"
 import { Link } from "react-router-dom"
+import { useAuth } from "../hooks/useAuth"
 
 export default function CollectionsPage() {
+  const { user } = useAuth()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newCollection, setNewCollection] = useState({
     name: "",
@@ -14,9 +16,19 @@ export default function CollectionsPage() {
     description: "",
     is_public: true,
     output_format: "rss" as "rss" | "json" | "both",
+    marketplace_listed: false,
+    tags: "", // State mainly for the input, will be parsed to array
   })
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
   const [selectedFeedsForNewCollection, setSelectedFeedsForNewCollection] = useState<string[]>([])
+  const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({
+    name: "",
+    description: "",
+    is_public: true,
+    marketplace_listed: false,
+    tags: ""
+  })
   const queryClient = useQueryClient()
   const { getLimit } = useSubscription()
 
@@ -81,7 +93,18 @@ export default function CollectionsPage() {
         .from("feed_collections")
         .insert({
           user_id: user.id,
-          ...data.collection,
+          name: data.collection.name,
+          slug: data.collection.slug,
+          description: data.collection.description,
+          is_public: data.collection.is_public,
+          output_format: data.collection.output_format,
+          marketplace_listed: data.collection.marketplace_listed,
+          tags: data.collection.tags
+            ? data.collection.tags
+                .split(",")
+                .map(t => t.trim())
+                .filter(Boolean)
+            : [],
         })
         .select()
         .single()
@@ -104,6 +127,8 @@ export default function CollectionsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feed-collections"] })
+      queryClient.invalidateQueries({ queryKey: ["marketplace-collections"] })
+      queryClient.invalidateQueries({ queryKey: ["sidebar-subscriptions"] })
       toast.success("Collection created!")
       setShowCreateForm(false)
       setNewCollection({
@@ -112,6 +137,8 @@ export default function CollectionsPage() {
         description: "",
         is_public: true,
         output_format: "rss",
+        marketplace_listed: false,
+        tags: "",
       })
       setSelectedFeedsForNewCollection([])
     },
@@ -173,11 +200,47 @@ export default function CollectionsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feed-collections"] })
+      queryClient.invalidateQueries({ queryKey: ["marketplace-collections"] })
+      queryClient.invalidateQueries({ queryKey: ["sidebar-subscriptions"] })
       toast.success("Collection deleted!")
     },
     onError: (error: Error) => {
       toast.error(error.message)
     },
+  })
+
+  const updateCollectionMutation = useMutation({
+    mutationFn: async (data: { id: string; updates: any }) => {
+      if (isDemoMode) throw new Error("Demo mode: Connect Supabase to update collections")
+      
+      const { error } = await supabase
+        .from("feed_collections")
+        .update({
+          name: data.updates.name,
+          description: data.updates.description,
+          is_public: data.updates.is_public,
+          marketplace_listed: data.updates.marketplace_listed,
+          tags: data.updates.tags
+            ? data.updates.tags
+                .split(",")
+                .map((t: string) => t.trim())
+                .filter(Boolean)
+            : [],
+        })
+        .eq("id", data.id)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["feed-collections"] })
+      queryClient.invalidateQueries({ queryKey: ["marketplace-collections"] })
+      queryClient.invalidateQueries({ queryKey: ["sidebar-subscriptions"] })
+      toast.success("Collection updated!")
+      setEditingCollectionId(null)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    }
   })
 
   const handleCreateCollection = (e: React.FormEvent) => {
@@ -219,7 +282,7 @@ export default function CollectionsPage() {
     )
   }
 
-  const currentCollectionCount = collections?.length || 0
+  const currentCollectionCount = collections?.filter(c => c.user_id === user?.id).length || 0
   const maxCollections = getLimit("maxCollections")
   const isAtLimit = maxCollections !== -1 && currentCollectionCount >= maxCollections
 
@@ -322,6 +385,35 @@ export default function CollectionsPage() {
               </select>
             </div>
 
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Marketplace Settings</h3>
+              
+              <div className="flex items-center gap-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={newCollection.marketplace_listed}
+                    onChange={e => setNewCollection({ ...newCollection, marketplace_listed: e.target.checked })}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">List in Marketplace (allow others to subscribe)</span>
+                </label>
+              </div>
+
+              {newCollection.marketplace_listed && (
+                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tags (comma separated)</label>
+                  <input
+                    type="text"
+                    value={newCollection.tags}
+                    onChange={e => setNewCollection({ ...newCollection, tags: e.target.value })}
+                    placeholder="tech, ai, news"
+                    className="w-full px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                  />
+                </div>
+              )}
+            </div>
+
             {/* Feed Selection */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -381,11 +473,21 @@ export default function CollectionsPage() {
         </div>
       ) : collections && collections.length > 0 ? (
         <div className="space-y-4">
-          {collections.map(collection => (
+          {collections.map(collection => {
+            const isOwner = user?.id === collection.user_id
+            
+            return (
             <div key={collection.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{collection.name}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    {collection.name}
+                    {!isOwner && (
+                      <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 rounded">
+                        Seeded
+                      </span>
+                    )}
+                  </h3>
                   {collection.description && <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{collection.description}</p>}
                   <div className="mt-2 flex items-center gap-2">
                     <span
@@ -400,22 +502,117 @@ export default function CollectionsPage() {
                     <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded">
                       {collection.output_format.toUpperCase()}
                     </span>
+                    {collection.marketplace_listed && (
+                       <span className="inline-block px-2 py-1 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded">
+                        Marketplace
+                      </span>
+                    )}
                   </div>
+                  {collection.marketplace_listed && collection.tags && collection.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {collection.tags.map(tag => (
+                        <span key={tag} className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">#{tag}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={() => deleteCollectionMutation.mutate(collection.id)}
-                  className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
+                
+                {isOwner && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingCollectionId(editingCollectionId === collection.id ? null : collection.id)
+                        setEditForm({
+                          name: collection.name,
+                          description: collection.description || "",
+                          is_public: collection.is_public,
+                          marketplace_listed: collection.marketplace_listed || false,
+                          tags: collection.tags?.join(", ") || ""
+                        })
+                      }}
+                      className="p-1 px-2 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      {editingCollectionId === collection.id ? "Cancel" : "Edit Settings"}
+                    </button>
+                    <button
+                      onClick={() => deleteCollectionMutation.mutate(collection.id)}
+                      className="p-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                      title="Delete Collection"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {editingCollectionId === collection.id && (
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        className="w-full px-3 py-1.5 text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Tags (comma separated)</label>
+                      <input
+                        type="text"
+                        value={editForm.tags}
+                        onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
+                        className="w-full px-3 py-1.5 text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        placeholder="tech, news, ai"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                    <textarea
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                      className="w-full px-3 py-1.5 text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      rows={2}
+                    />
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={editForm.is_public}
+                        onChange={(e) => setEditForm({ ...editForm, is_public: e.target.checked })}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="ml-2 text-xs text-gray-700 dark:text-gray-300">Public</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={editForm.marketplace_listed}
+                        onChange={(e) => setEditForm({ ...editForm, marketplace_listed: e.target.checked })}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="ml-2 text-xs text-gray-700 dark:text-gray-300">List in Marketplace</span>
+                    </label>
+                  </div>
+                  <button
+                    onClick={() => updateCollectionMutation.mutate({ id: collection.id, updates: editForm })}
+                    disabled={updateCollectionMutation.isPending}
+                    className="w-full py-1.5 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {updateCollectionMutation.isPending ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              )}
 
               {/* Feed URLs */}
               <div className="mb-4 space-y-2">
@@ -423,7 +620,7 @@ export default function CollectionsPage() {
                 {(collection.output_format === "rss" || collection.output_format === "both") && (
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded text-gray-900 dark:text-white overflow-x-auto">
-                      {import.meta.env.VITE_SUPABASE_URL}/functions/v1/serve-collection/{collection.slug}.rss
+                      {import.meta.env.VITE_SUPABASE_URL}/functions/v1/serve-collection/${collection.slug}.rss
                     </code>
                     <button
                       onClick={() => copyFeedURL(collection, "rss")}
@@ -436,7 +633,7 @@ export default function CollectionsPage() {
                 {(collection.output_format === "json" || collection.output_format === "both") && (
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded text-gray-900 dark:text-white overflow-x-auto">
-                      {import.meta.env.VITE_SUPABASE_URL}/functions/v1/serve-collection/{collection.slug}.json
+                      {import.meta.env.VITE_SUPABASE_URL}/functions/v1/serve-collection/${collection.slug}.json
                     </code>
                     <button
                       onClick={() => copyFeedURL(collection, "json")}
@@ -458,17 +655,19 @@ export default function CollectionsPage() {
                     {collection.sources.map((source: any) => (
                       <div key={source.feed.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 px-3 py-2 rounded">
                         <span className="text-sm text-gray-900 dark:text-white">{source.feed.title}</span>
-                        <button
-                          onClick={() =>
-                            removeFeedFromCollectionMutation.mutate({
-                              collectionId: collection.id,
-                              feedId: source.feed.id,
-                            })
-                          }
-                          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
-                        >
-                          Remove
-                        </button>
+                        {isOwner && (
+                          <button
+                            onClick={() =>
+                              removeFeedFromCollectionMutation.mutate({
+                                collectionId: collection.id,
+                                feedId: source.feed.id,
+                              })
+                            }
+                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -476,39 +675,42 @@ export default function CollectionsPage() {
                   <p className="text-sm text-gray-500 dark:text-gray-400">No feeds added yet</p>
                 )}
 
-                {/* Add feed to collection */}
-                <div className="mt-3">
-                  <button
-                    onClick={() => setSelectedCollectionId(selectedCollectionId === collection.id ? null : collection.id)}
-                    className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
-                  >
-                    {selectedCollectionId === collection.id ? "Cancel" : "+ Add Feed"}
-                  </button>
+                {/* Add feed to collection - only for owner */}
+                {isOwner && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() => setSelectedCollectionId(selectedCollectionId === collection.id ? null : collection.id)}
+                      className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                    >
+                      {selectedCollectionId === collection.id ? "Cancel" : "+ Add Feed"}
+                    </button>
 
-                  {selectedCollectionId === collection.id && (
-                    <div className="mt-2 space-y-2">
-                      {feeds
-                        ?.filter(feed => !collection.sources?.some((s: any) => s.feed.id === feed.id))
-                        .map(feed => (
-                          <button
-                            key={feed.id}
-                            onClick={() =>
-                              addFeedToCollectionMutation.mutate({
-                                collectionId: collection.id,
-                                feedId: feed.id,
-                              })
-                            }
-                            className="block w-full text-left px-3 py-2 text-sm bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white rounded hover:bg-gray-200 dark:hover:bg-gray-800"
-                          >
-                            {feed.title}
-                          </button>
-                        ))}
-                    </div>
-                  )}
-                </div>
+                    {selectedCollectionId === collection.id && (
+                      <div className="mt-2 space-y-2">
+                        {feeds
+                          ?.filter(feed => !collection.sources?.some((s: any) => s.feed.id === feed.id))
+                          .map(feed => (
+                            <button
+                              key={feed.id}
+                              onClick={() =>
+                                addFeedToCollectionMutation.mutate({
+                                  collectionId: collection.id,
+                                  feedId: feed.id,
+                                })
+                              }
+                              className="block w-full text-left px-3 py-2 text-sm bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white rounded hover:bg-gray-200 dark:hover:bg-gray-800"
+                            >
+                              {feed.title}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-12 text-center">

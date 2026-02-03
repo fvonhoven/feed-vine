@@ -168,6 +168,9 @@ export interface Database {
           description: string | null
           is_public: boolean
           output_format: "rss" | "json" | "both"
+          marketplace_listed: boolean
+          tags: string[] | null
+          subscribers_count: number
           created_at: string
           updated_at: string
         }
@@ -179,6 +182,9 @@ export interface Database {
           description?: string | null
           is_public?: boolean
           output_format?: "rss" | "json" | "both"
+          marketplace_listed?: boolean
+          tags?: string[] | null
+          subscribers_count?: number
           created_at?: string
           updated_at?: string
         }
@@ -190,6 +196,9 @@ export interface Database {
           description?: string | null
           is_public?: boolean
           output_format?: "rss" | "json" | "both"
+          marketplace_listed?: boolean
+          tags?: string[] | null
+          subscribers_count?: number
           created_at?: string
           updated_at?: string
         }
@@ -271,6 +280,34 @@ export interface Database {
         }
         Relationships: []
       }
+      marketplace_subscriptions: {
+        Row: {
+          id: string
+          subscriber_id: string
+          collection_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          subscriber_id: string
+          collection_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          subscriber_id?: string
+          collection_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_subscriptions_collection_id_fkey"
+            columns: ["collection_id"]
+            referencedRelation: "feed_collections"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -294,6 +331,7 @@ export type UserArticle = Database["public"]["Tables"]["user_articles"]["Row"]
 export type FeedCollection = Database["public"]["Tables"]["feed_collections"]["Row"]
 export type FeedCollectionSource = Database["public"]["Tables"]["feed_collection_sources"]["Row"]
 export type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"]
+export type MarketplaceSubscription = Database["public"]["Tables"]["marketplace_subscriptions"]["Row"]
 
 export type ArticleWithFeed = Article & {
   feed: Pick<Feed, "title" | "url">

@@ -15,31 +15,14 @@ export default function AuthPage() {
 
     try {
       if (isSignUp) {
-        // Join waitlist instead of signing up
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/join-waitlist`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email }),
+        // Actual sign up
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
         })
-
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to join waitlist")
-        }
-
-        // Clear form and show success message
-        setEmail("")
-        toast.success(data.message || "Thanks for joining the waitlist!", {
-          duration: 6000,
-        })
-
-        // Switch to login tab after a brief delay
-        setTimeout(() => {
-          setIsSignUp(false)
-        }, 2000)
+        if (error) throw error
+        toast.success("Account created! Please sign in.")
+        setIsSignUp(false)
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -78,16 +61,7 @@ export default function AuthPage() {
               <span className="text-primary-600 dark:text-primary-400">FeedVine</span>
             </Link>
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            {isSignUp ? "Join the waitlist to get early access" : "Sign in to your account"}
-          </p>
-          {isSignUp && (
-            <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4 mt-4">
-              <p className="text-sm text-primary-800 dark:text-primary-200">
-                🚀 We're currently in private beta. Join the waitlist and we'll notify you when we launch!
-              </p>
-            </div>
-          )}
+          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">{isSignUp ? "Create a new account" : "Sign in to your account"}</p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm">
@@ -107,24 +81,22 @@ export default function AuthPage() {
                 placeholder="Email address"
               />
             </div>
-            {!isSignUp && (
-              <div className="mt-4">
-                <label htmlFor="password" className="sr-only">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-800 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm autofill:bg-white autofill:text-gray-900 dark:autofill:bg-gray-800 dark:autofill:text-white"
-                  placeholder="Password"
-                />
-              </div>
-            )}
+            <div className="mt-4">
+              <label htmlFor="password" className="sr-only">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-800 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm autofill:bg-white autofill:text-gray-900 dark:autofill:bg-gray-800 dark:autofill:text-white"
+                placeholder="Password"
+              />
+            </div>
           </div>
 
           <div>
@@ -133,7 +105,7 @@ export default function AuthPage() {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Loading..." : isSignUp ? "Join Waitlist" : "Sign in"}
+              {loading ? "Loading..." : isSignUp ? "Sign up" : "Sign in"}
             </button>
           </div>
 
@@ -145,7 +117,7 @@ export default function AuthPage() {
               }}
               className="text-sm text-primary-600 hover:text-primary-500"
             >
-              {isSignUp ? "Already have an account? Sign in" : "Want early access? Join waitlist"}
+              {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
             </button>
           </div>
         </form>
