@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
-import type { Category, Feed, MarketplaceSubscription, FeedCollection } from "../types/database"
+import type { Category, Feed, FeedCollection } from "../types/database"
 import { useAuth } from "../hooks/useAuth"
 
 interface SidebarProps {
@@ -44,24 +44,26 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
     queryKey: ["sidebar-subscriptions"],
     queryFn: async () => {
       if (!user || isDemoMode) return []
-      
+
       const { data, error } = await supabase
         .from("marketplace_subscriptions")
-        .select(`
+        .select(
+          `
           collection:feed_collections (
             id,
             name,
             slug
           )
-        `)
+        `,
+        )
         .eq("subscriber_id", user.id)
-      
+
       if (error) throw error
-      
+
       // Flatten the structure
       return data.map((item: any) => item.collection) as Pick<FeedCollection, "id" | "name" | "slug">[]
     },
-    enabled: !!user && !isDemoMode
+    enabled: !!user && !isDemoMode,
   })
 
   const isActive = (path: string) => location.pathname === path
@@ -219,7 +221,7 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
                 {subscribedCollections.map(collection => (
                   <Link
                     key={collection.id}
-                    to={`/collection/${collection.id}`} 
+                    to={`/collection/${collection.id}`}
                     className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
                   >
                     <span className="truncate">{collection.name}</span>

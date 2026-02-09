@@ -169,6 +169,7 @@ export interface Database {
           is_public: boolean
           output_format: "rss" | "json" | "both"
           marketplace_listed: boolean
+          is_featured: boolean
           tags: string[] | null
           subscribers_count: number
           created_at: string
@@ -183,6 +184,7 @@ export interface Database {
           is_public?: boolean
           output_format?: "rss" | "json" | "both"
           marketplace_listed?: boolean
+          is_featured?: boolean
           tags?: string[] | null
           subscribers_count?: number
           created_at?: string
@@ -197,6 +199,7 @@ export interface Database {
           is_public?: boolean
           output_format?: "rss" | "json" | "both"
           marketplace_listed?: boolean
+          is_featured?: boolean
           tags?: string[] | null
           subscribers_count?: number
           created_at?: string
@@ -305,7 +308,7 @@ export interface Database {
             columns: ["collection_id"]
             referencedRelation: "feed_collections"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
     }
@@ -346,6 +349,16 @@ export type FeedWithCategory = Feed & {
 }
 
 export type FeedCollectionWithSources = FeedCollection & {
+  sources?: Array<{
+    feed: Pick<Feed, "id" | "title" | "url">
+  }>
+}
+
+export type MarketplaceCollection = FeedCollection & {
+  feed_count?: number
+  creator_name?: string
+  creator_email?: string
+  is_featured?: boolean
   sources?: Array<{
     feed: Pick<Feed, "id" | "title" | "url">
   }>
