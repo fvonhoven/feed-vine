@@ -363,3 +363,38 @@ export type MarketplaceCollection = FeedCollection & {
     feed: Pick<Feed, "id" | "title" | "url">
   }>
 }
+
+// Webhook types for Zapier/Make integration
+export type WebhookEventType = "new_article" | "feed_error" | "collection_updated"
+
+export interface Webhook {
+  id: string
+  user_id: string
+  name: string
+  url: string
+  secret?: string | null
+  event_types: WebhookEventType[]
+  collection_id?: string | null
+  feed_id?: string | null
+  is_active: boolean
+  last_triggered_at?: string | null
+  last_status_code?: number | null
+  last_error?: string | null
+  failure_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface WebhookDelivery {
+  id: string
+  webhook_id: string
+  event_type: string
+  payload: Record<string, unknown>
+  status: "pending" | "success" | "failed"
+  status_code?: number | null
+  response_body?: string | null
+  error_message?: string | null
+  created_at: string
+  delivered_at?: string | null
+  retry_count: number
+}

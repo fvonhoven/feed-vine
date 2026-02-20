@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { parseFeed } from "https://deno.land/x/rss@0.5.6/mod.ts"
+// Webhook utilities are dynamically imported to prevent breaking feed fetching if there's an issue
+// import { getWebhooksForEvent, fireWebhook, WebhookPayload } from "../_shared/webhooks.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -191,6 +193,7 @@ serve(async req => {
         let skippedCount = 0
         let errorCount = 0
         let lastError: any = null
+        const insertedArticles: Array<{ title: string; url: string; description: string | null; category: string }> = []
 
         // Only insert articles if this is a real feed (not a temporary URL fetch)
         if (feed.id !== "temp") {
@@ -227,11 +230,56 @@ serve(async req => {
               }
             } else {
               insertedCount++
+              insertedArticles.push({ ...article, category })
               console.log(`Inserted "${article.title}" as: ${category}`)
             }
           }
 
           console.log(`Feed ${feed.id}: Inserted ${insertedCount}, skipped ${skippedCount}, errors ${errorCount}`)
+
+          // Fire webhooks for new articles (dynamic import to avoid breaking feed fetching)
+          if (insertedArticles.length > 0) {
+            try {
+              const { getWebhooksForEvent, fireWebhook } = await import("../_shared/webhooks.ts")
+              const webhooks = await getWebhooksForEvent(supabaseClient, "new_article", { feedId: feed.id })
+              console.log(`Found ${webhooks.length} webhooks to fire for feed ${feed.id}`)
+
+              for (const webhook of webhooks) {
+                const payload = {
+                  event: "new_article",
+                  timestamp: new Date().toISOString(),
+                  data: {
+                    feed: {
+                      id: feed.id,
+                      title: feed.title,
+                      url: feed.url,
+                    },
+                    articles: insertedArticles.map(a => ({
+                      title: a.title,
+                      url: a.url,
+                      description: a.description,
+                      category: a.category,
+                    })),
+                    count: insertedArticles.length,
+                  },
+                }
+
+                // Fire webhook asynchronously (don't wait)
+                fireWebhook(supabaseClient, webhook, payload)
+                  .then(result => {
+                    if (result.success) {
+                      console.log(`Webhook ${webhook.id} fired successfully`)
+                    } else {
+                      console.error(`Webhook ${webhook.id} failed:`, result.error)
+                    }
+                  })
+                  .catch(err => console.error(`Webhook ${webhook.id} error:`, err))
+              }
+            } catch (webhookError) {
+              console.error("Error firing webhooks:", webhookError)
+              // Don't fail the whole operation if webhooks fail
+            }
+          }
 
           // Update feed status
           await supabaseClient

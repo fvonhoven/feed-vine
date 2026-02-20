@@ -126,26 +126,46 @@ export default function SettingsPage() {
         setChangingPlan(false)
       }
     } else {
-      // For upgrades, proceed with immediate checkout
-      const priceId = getPlanPriceId(newPlanId.toUpperCase() as any, interval)
-      if (!priceId) {
-        toast.error("Price ID not configured. Please contact support.")
-        return
-      }
+      // For upgrades, check if user already has a subscription
+      const hasExistingSubscription = subscription?.stripe_subscription_id
 
       setChangingPlan(true)
 
       try {
-        const { data, error } = await supabase.functions.invoke("create-checkout-session", {
-          body: { priceId },
-        })
+        if (hasExistingSubscription) {
+          // User has existing subscription - update it with proration
+          const { data, error } = await supabase.functions.invoke("upgrade-subscription", {
+            body: { newPlanId, interval },
+          })
 
-        if (error) throw error
+          if (error) throw error
 
-        if (data?.url) {
-          window.location.href = data.url
+          if (data?.success) {
+            toast.success(data.message || "Successfully upgraded! Your account has been updated.")
+            // Refresh subscription data
+            queryClient.invalidateQueries({ queryKey: ["subscription"] })
+          } else {
+            throw new Error(data?.error || "Failed to upgrade subscription")
+          }
         } else {
-          throw new Error("No checkout URL returned")
+          // No existing subscription - create new checkout session
+          const priceId = getPlanPriceId(newPlanId.toUpperCase() as any, interval)
+          if (!priceId) {
+            toast.error("Price ID not configured. Please contact support.")
+            return
+          }
+
+          const { data, error } = await supabase.functions.invoke("create-checkout-session", {
+            body: { priceId },
+          })
+
+          if (error) throw error
+
+          if (data?.url) {
+            window.location.href = data.url
+          } else {
+            throw new Error("No checkout URL returned")
+          }
         }
       } catch (error: any) {
         console.error("Plan change error:", error)

@@ -212,6 +212,23 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
                 {!isCollapsed && "API Keys"}
               </span>
             </Link>
+
+            <Link
+              to="/webhooks"
+              className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
+                isActive("/webhooks")
+                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+              title={isCollapsed ? "Webhooks" : ""}
+            >
+              <span className="flex items-center">
+                <svg className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                {!isCollapsed && "Webhooks"}
+              </span>
+            </Link>
           </nav>
 
           {!isCollapsed && subscribedCollections && subscribedCollections.length > 0 && (
@@ -406,6 +423,23 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
                     />
                   </svg>
                   API Keys
+                </span>
+              </Link>
+
+              <Link
+                to="/webhooks"
+                onClick={onClose}
+                className={`flex items-center justify-between px-3 py-2 text-sm rounded-md ${
+                  isActive("/webhooks")
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <span className="flex items-center">
+                  <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Webhooks
                 </span>
               </Link>
             </nav>
