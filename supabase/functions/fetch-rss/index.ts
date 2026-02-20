@@ -112,13 +112,83 @@ serve(async req => {
     let feedUrl = url.searchParams.get("url")
 
     // Also check POST body for parameters
+    let discoverUrl: string | null = url.searchParams.get("discoverUrl")
     if (req.method === "POST") {
       try {
         const body = await req.json()
         feedId = body.feedId || feedId
         feedUrl = body.url || feedUrl
+        discoverUrl = body.discoverUrl || discoverUrl
       } catch {
         // Ignore JSON parse errors, use query params
+      }
+    }
+
+    // Discovery mode: find RSS feed URLs from a website URL server-side (no CORS proxy needed)
+    if (discoverUrl) {
+      try {
+        const response = await fetch(discoverUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (compatible; FeedVine/1.0; +https://feedvine.app)",
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          },
+          redirect: "follow",
+        })
+
+        if (!response.ok) {
+          return new Response(JSON.stringify({ success: false, error: `HTTP ${response.status}`, discoveredFeeds: [] }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          })
+        }
+
+        const content = await response.text()
+        const contentType = response.headers.get("content-type") || ""
+
+        // If the URL itself is RSS/Atom/XML, return it directly — no need to scrape HTML
+        if (
+          contentType.includes("xml") ||
+          contentType.includes("rss") ||
+          contentType.includes("atom") ||
+          content.trim().startsWith("<?xml") ||
+          content.includes("<rss") ||
+          content.includes("<feed xmlns")
+        ) {
+          return new Response(
+            JSON.stringify({ success: true, isDirectFeed: true, discoveredFeeds: [{ url: discoverUrl, title: null, type: "application/rss+xml" }] }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+          )
+        }
+
+        // Parse HTML <link rel="alternate"> tags with regex (no DOM parser in Deno)
+        const discoveredFeeds: Array<{ url: string; title: string | null; type: string }> = []
+        const linkTagRegex = /<link\b([^>]+)>/gi
+        let match
+        while ((match = linkTagRegex.exec(content)) !== null) {
+          const attrs = match[1]
+          if (!/rel=["']alternate["']/i.test(attrs)) continue
+          const typeMatch = attrs.match(/type=["']([^"']+)["']/i)
+          if (!typeMatch) continue
+          const feedType = typeMatch[1]
+          if (!feedType.includes("rss") && !feedType.includes("atom") && !feedType.includes("xml")) continue
+          const hrefMatch = attrs.match(/href=["']([^"']+)["']/i)
+          if (!hrefMatch) continue
+          const titleMatch = attrs.match(/title=["']([^"']+)["']/i)
+          const feedHref = hrefMatch[1]
+          const baseUrl = new URL(discoverUrl)
+          const resolvedUrl = feedHref.startsWith("http") ? feedHref : new URL(feedHref, baseUrl.origin).href
+          discoveredFeeds.push({ url: resolvedUrl, title: titleMatch ? titleMatch[1] : null, type: feedType })
+        }
+
+        return new Response(JSON.stringify({ success: true, isDirectFeed: false, discoveredFeeds }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        })
+      } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message, discoveredFeeds: [] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        })
       }
     }
 

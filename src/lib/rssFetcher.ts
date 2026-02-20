@@ -66,89 +66,24 @@ export async function fetchRSSFeedServerSide(feedUrl: string): Promise<RSSItem[]
 
 /**
  * Auto-discover RSS/Atom feeds from a website URL
- * Looks for <link> tags with rel="alternate" and type="application/rss+xml" or "application/atom+xml"
+ * Routes through the fetch-rss Edge Function to avoid CORS and third-party proxy issues
  */
 export async function discoverRSSFeeds(websiteUrl: string): Promise<DiscoveredFeed[]> {
+  console.log(`Discovering RSS feeds from: ${websiteUrl}`)
   try {
-    console.log(`Discovering RSS feeds from: ${websiteUrl}`)
-
-    // Ensure URL is valid
-    const url = new URL(websiteUrl)
-
-    // Always use CORS proxy to avoid CSP violations
-    console.log("Using CORS proxy to fetch HTML...")
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(websiteUrl)}`
-    const response = await fetch(proxyUrl)
-
-    if (!response.ok) {
-      throw new Error(`Proxy HTTP error! status: ${response.status}`)
-    }
-
-    const data = await response.json()
-    const htmlText = data.contents
-
-    // Parse HTML to find RSS feed links
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(htmlText, "text/html")
-
-    const feeds: DiscoveredFeed[] = []
-
-    // Look for RSS/Atom feed links in <link> tags
-    const linkTags = doc.querySelectorAll('link[rel="alternate"]')
-
-    linkTags.forEach(link => {
-      const type = link.getAttribute("type")
-      const href = link.getAttribute("href")
-      const title = link.getAttribute("title")
-
-      if (href && (type === "application/rss+xml" || type === "application/atom+xml" || type === "application/xml")) {
-        // Resolve relative URLs
-        const feedUrl = new URL(href, url.origin).href
-
-        feeds.push({
-          url: feedUrl,
-          title: title || undefined,
-          type: type,
-        })
-      }
+    const { data, error } = await supabase.functions.invoke("fetch-rss", {
+      body: { discoverUrl: websiteUrl },
     })
-
-    // If no feeds found in <link> tags, try common RSS feed paths
-    if (feeds.length === 0) {
-      console.log("No feeds found in <link> tags, trying common paths...")
-      const commonPaths = ["/feed", "/rss", "/feed.xml", "/rss.xml", "/atom.xml", "/index.xml", "/blog/feed", "/blog/rss"]
-
-      for (const path of commonPaths) {
-        const testUrl = new URL(path, url.origin).href
-        try {
-          // Test if the URL returns valid RSS/Atom
-          const testResponse = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(testUrl)}`)
-          if (testResponse.ok) {
-            const testData = await testResponse.json()
-            const testDoc = parser.parseFromString(testData.contents, "text/xml")
-
-            // Check if it's valid RSS/Atom
-            if (testDoc.querySelector("rss, feed, rdf\\:RDF")) {
-              feeds.push({
-                url: testUrl,
-                title: undefined,
-                type: "application/rss+xml",
-              })
-              break // Found one, stop searching
-            }
-          }
-        } catch (error) {
-          // Continue to next path
-          continue
-        }
-      }
+    if (error || !data?.success) {
+      console.warn("Discovery via Edge Function failed:", error || data?.error)
+      return []
     }
-
-    console.log(`Found ${feeds.length} RSS feed(s)`)
-    return feeds
+    const discovered: Array<{ url: string; title: string | null; type: string }> = data.discoveredFeeds || []
+    console.log(`Found ${discovered.length} RSS feed(s)`)
+    return discovered.map(f => ({ url: f.url, title: f.title ?? undefined, type: f.type }))
   } catch (error) {
     console.error("Error discovering RSS feeds:", error)
-    throw error
+    return []
   }
 }
 
