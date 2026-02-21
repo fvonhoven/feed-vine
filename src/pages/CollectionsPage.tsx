@@ -21,13 +21,28 @@ export default function CollectionsPage() {
   })
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
   const [selectedFeedsForNewCollection, setSelectedFeedsForNewCollection] = useState<string[]>([])
+  const [expandedUrls, setExpandedUrls] = useState<Set<string>>(new Set())
+  const [expandedFeeds, setExpandedFeeds] = useState<Set<string>>(new Set())
+
+  const toggleUrlsCollapse = (id: string) =>
+    setExpandedUrls(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  const toggleFeedsCollapse = (id: string) =>
+    setExpandedFeeds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({
     name: "",
     description: "",
     is_public: true,
     marketplace_listed: false,
-    tags: ""
+    tags: "",
   })
   const queryClient = useQueryClient()
   const { getLimit } = useSubscription()
@@ -212,7 +227,7 @@ export default function CollectionsPage() {
   const updateCollectionMutation = useMutation({
     mutationFn: async (data: { id: string; updates: any }) => {
       if (isDemoMode) throw new Error("Demo mode: Connect Supabase to update collections")
-      
+
       const { error } = await supabase
         .from("feed_collections")
         .update({
@@ -240,7 +255,7 @@ export default function CollectionsPage() {
     },
     onError: (error: Error) => {
       toast.error(error.message)
-    }
+    },
   })
 
   const handleCreateCollection = (e: React.FormEvent) => {
@@ -387,7 +402,7 @@ export default function CollectionsPage() {
 
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white">Marketplace Settings</h3>
-              
+
               <div className="flex items-center gap-4">
                 <label className="flex items-center">
                   <input
@@ -401,7 +416,7 @@ export default function CollectionsPage() {
               </div>
 
               {newCollection.marketplace_listed && (
-                 <div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tags (comma separated)</label>
                   <input
                     type="text"
@@ -475,240 +490,270 @@ export default function CollectionsPage() {
         <div className="space-y-4">
           {collections.map(collection => {
             const isOwner = user?.id === collection.user_id
-            
+
             return (
-            <div key={collection.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {collection.name}
-                    {!isOwner && (
-                      <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 rounded">
-                        Seeded
+              <div key={collection.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      {collection.name}
+                      {!isOwner && (
+                        <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 rounded">
+                          Seeded
+                        </span>
+                      )}
+                    </h3>
+                    {collection.description && <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{collection.description}</p>}
+                    <div className="mt-2 flex items-center gap-2">
+                      <span
+                        className={`inline-block px-2 py-1 text-xs font-medium rounded ${
+                          collection.is_public
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                        }`}
+                      >
+                        {collection.is_public ? "Public" : "Private"}
                       </span>
-                    )}
-                  </h3>
-                  {collection.description && <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{collection.description}</p>}
-                  <div className="mt-2 flex items-center gap-2">
-                    <span
-                      className={`inline-block px-2 py-1 text-xs font-medium rounded ${
-                        collection.is_public
-                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      {collection.is_public ? "Public" : "Private"}
-                    </span>
-                    <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded">
-                      {collection.output_format.toUpperCase()}
-                    </span>
-                    {collection.marketplace_listed && (
-                       <span className="inline-block px-2 py-1 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded">
-                        Marketplace
+                      <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded">
+                        {collection.output_format === "both" ? "RSS + JSON" : collection.output_format.toUpperCase()}
                       </span>
+                      {collection.marketplace_listed && (
+                        <span className="inline-block px-2 py-1 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded">
+                          Marketplace
+                        </span>
+                      )}
+                    </div>
+                    {collection.marketplace_listed && collection.tags && collection.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {collection.tags.map(tag => (
+                          <span key={tag} className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  {collection.marketplace_listed && collection.tags && collection.tags.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {collection.tags.map(tag => (
-                        <span key={tag} className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">#{tag}</span>
-                      ))}
+
+                  {isOwner && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingCollectionId(editingCollectionId === collection.id ? null : collection.id)
+                          setEditForm({
+                            name: collection.name,
+                            description: collection.description || "",
+                            is_public: collection.is_public,
+                            marketplace_listed: collection.marketplace_listed || false,
+                            tags: collection.tags?.join(", ") || "",
+                          })
+                        }}
+                        className="p-1 px-2 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        {editingCollectionId === collection.id ? "Cancel" : "Edit Settings"}
+                      </button>
+                      <button
+                        onClick={() => deleteCollectionMutation.mutate(collection.id)}
+                        className="p-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                        title="Delete Collection"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
                     </div>
                   )}
                 </div>
-                
-                {isOwner && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingCollectionId(editingCollectionId === collection.id ? null : collection.id)
-                        setEditForm({
-                          name: collection.name,
-                          description: collection.description || "",
-                          is_public: collection.is_public,
-                          marketplace_listed: collection.marketplace_listed || false,
-                          tags: collection.tags?.join(", ") || ""
-                        })
-                      }}
-                      className="p-1 px-2 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                    >
-                      {editingCollectionId === collection.id ? "Cancel" : "Edit Settings"}
-                    </button>
-                    <button
-                      onClick={() => deleteCollectionMutation.mutate(collection.id)}
-                      className="p-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                      title="Delete Collection"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+
+                {editingCollectionId === collection.id && (
+                  <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                        <input
+                          type="text"
+                          value={editForm.name}
+                          onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                          className="w-full px-3 py-1.5 text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                         />
-                      </svg>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Tags (comma separated)</label>
+                        <input
+                          type="text"
+                          value={editForm.tags}
+                          onChange={e => setEditForm({ ...editForm, tags: e.target.value })}
+                          className="w-full px-3 py-1.5 text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          placeholder="tech, news, ai"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                      <textarea
+                        value={editForm.description}
+                        onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                        className="w-full px-3 py-1.5 text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        rows={2}
+                      />
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={editForm.is_public}
+                          onChange={e => setEditForm({ ...editForm, is_public: e.target.checked })}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span className="ml-2 text-xs text-gray-700 dark:text-gray-300">Public</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={editForm.marketplace_listed}
+                          onChange={e => setEditForm({ ...editForm, marketplace_listed: e.target.checked })}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span className="ml-2 text-xs text-gray-700 dark:text-gray-300">List in Marketplace</span>
+                      </label>
+                    </div>
+                    <button
+                      onClick={() => updateCollectionMutation.mutate({ id: collection.id, updates: editForm })}
+                      disabled={updateCollectionMutation.isPending}
+                      className="w-full py-1.5 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 disabled:opacity-50"
+                    >
+                      {updateCollectionMutation.isPending ? "Saving..." : "Save Changes"}
                     </button>
                   </div>
                 )}
-              </div>
 
-              {editingCollectionId === collection.id && (
-                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
-                      <input
-                        type="text"
-                        value={editForm.name}
-                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                        className="w-full px-3 py-1.5 text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Tags (comma separated)</label>
-                      <input
-                        type="text"
-                        value={editForm.tags}
-                        onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
-                        className="w-full px-3 py-1.5 text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                        placeholder="tech, news, ai"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
-                    <textarea
-                      value={editForm.description}
-                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                      className="w-full px-3 py-1.5 text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      rows={2}
-                    />
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={editForm.is_public}
-                        onChange={(e) => setEditForm({ ...editForm, is_public: e.target.checked })}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="ml-2 text-xs text-gray-700 dark:text-gray-300">Public</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={editForm.marketplace_listed}
-                        onChange={(e) => setEditForm({ ...editForm, marketplace_listed: e.target.checked })}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="ml-2 text-xs text-gray-700 dark:text-gray-300">List in Marketplace</span>
-                    </label>
-                  </div>
+                {/* Feed URLs */}
+                <div className="mb-4 space-y-2">
                   <button
-                    onClick={() => updateCollectionMutation.mutate({ id: collection.id, updates: editForm })}
-                    disabled={updateCollectionMutation.isPending}
-                    className="w-full py-1.5 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 disabled:opacity-50"
+                    onClick={() => toggleUrlsCollapse(collection.id)}
+                    className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white w-full text-left"
                   >
-                    {updateCollectionMutation.isPending ? "Saving..." : "Save Changes"}
+                    <svg
+                      className={`w-3.5 h-3.5 transition-transform shrink-0 ${expandedUrls.has(collection.id) ? "" : "-rotate-90"}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Feed URLs:
                   </button>
+                  {expandedUrls.has(collection.id) && (collection.output_format === "rss" || collection.output_format === "both") && (
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded text-gray-900 dark:text-white overflow-x-auto">
+                        {import.meta.env.VITE_SUPABASE_URL}/functions/v1/serve-collection/${collection.slug}.rss
+                      </code>
+                      <button
+                        onClick={() => copyFeedURL(collection, "rss")}
+                        className="px-3 py-2 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                      >
+                        Copy RSS
+                      </button>
+                    </div>
+                  )}
+                  {expandedUrls.has(collection.id) && (collection.output_format === "json" || collection.output_format === "both") && (
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded text-gray-900 dark:text-white overflow-x-auto">
+                        {import.meta.env.VITE_SUPABASE_URL}/functions/v1/serve-collection/${collection.slug}.json
+                      </code>
+                      <button
+                        onClick={() => copyFeedURL(collection, "json")}
+                        className="px-3 py-2 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                      >
+                        Copy JSON
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
 
-              {/* Feed URLs */}
-              <div className="mb-4 space-y-2">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Feed URLs:</h4>
-                {(collection.output_format === "rss" || collection.output_format === "both") && (
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded text-gray-900 dark:text-white overflow-x-auto">
-                      {import.meta.env.VITE_SUPABASE_URL}/functions/v1/serve-collection/${collection.slug}.rss
-                    </code>
-                    <button
-                      onClick={() => copyFeedURL(collection, "rss")}
-                      className="px-3 py-2 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                {/* Feeds in collection */}
+                <div>
+                  <button
+                    onClick={() => toggleFeedsCollapse(collection.id)}
+                    className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white w-full text-left mb-2"
+                  >
+                    <svg
+                      className={`w-3.5 h-3.5 transition-transform shrink-0 ${expandedFeeds.has(collection.id) ? "" : "-rotate-90"}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                     >
-                      Copy RSS
-                    </button>
-                  </div>
-                )}
-                {(collection.output_format === "json" || collection.output_format === "both") && (
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded text-gray-900 dark:text-white overflow-x-auto">
-                      {import.meta.env.VITE_SUPABASE_URL}/functions/v1/serve-collection/${collection.slug}.json
-                    </code>
-                    <button
-                      onClick={() => copyFeedURL(collection, "json")}
-                      className="px-3 py-2 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                    >
-                      Copy JSON
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Feeds in collection */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Feeds in this collection ({collection.sources?.length || 0}):
-                </h4>
-                {collection.sources && collection.sources.length > 0 ? (
-                  <div className="space-y-2">
-                    {collection.sources.map((source: any) => (
-                      <div key={source.feed.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 px-3 py-2 rounded">
-                        <span className="text-sm text-gray-900 dark:text-white">{source.feed.title}</span>
-                        {isOwner && (
-                          <button
-                            onClick={() =>
-                              removeFeedFromCollectionMutation.mutate({
-                                collectionId: collection.id,
-                                feedId: source.feed.id,
-                              })
-                            }
-                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No feeds added yet</p>
-                )}
-
-                {/* Add feed to collection - only for owner */}
-                {isOwner && (
-                  <div className="mt-3">
-                    <button
-                      onClick={() => setSelectedCollectionId(selectedCollectionId === collection.id ? null : collection.id)}
-                      className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
-                    >
-                      {selectedCollectionId === collection.id ? "Cancel" : "+ Add Feed"}
-                    </button>
-
-                    {selectedCollectionId === collection.id && (
-                      <div className="mt-2 space-y-2">
-                        {feeds
-                          ?.filter(feed => !collection.sources?.some((s: any) => s.feed.id === feed.id))
-                          .map(feed => (
-                            <button
-                              key={feed.id}
-                              onClick={() =>
-                                addFeedToCollectionMutation.mutate({
-                                  collectionId: collection.id,
-                                  feedId: feed.id,
-                                })
-                              }
-                              className="block w-full text-left px-3 py-2 text-sm bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white rounded hover:bg-gray-200 dark:hover:bg-gray-800"
-                            >
-                              {feed.title}
-                            </button>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Feeds in this collection ({collection.sources?.length || 0}):
+                  </button>
+                  {expandedFeeds.has(collection.id) && (
+                    <>
+                      {collection.sources && collection.sources.length > 0 ? (
+                        <div className="space-y-2">
+                          {collection.sources.map((source: any) => (
+                            <div key={source.feed.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 px-3 py-2 rounded">
+                              <span className="text-sm text-gray-900 dark:text-white">{source.feed.title}</span>
+                              {isOwner && (
+                                <button
+                                  onClick={() =>
+                                    removeFeedFromCollectionMutation.mutate({
+                                      collectionId: collection.id,
+                                      feedId: source.feed.id,
+                                    })
+                                  }
+                                  className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
                           ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">No feeds added yet</p>
+                      )}
+
+                      {/* Add feed to collection - only for owner */}
+                      {isOwner && (
+                        <div className="mt-3">
+                          <button
+                            onClick={() => setSelectedCollectionId(selectedCollectionId === collection.id ? null : collection.id)}
+                            className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                          >
+                            {selectedCollectionId === collection.id ? "Cancel" : "+ Add Feed"}
+                          </button>
+
+                          {selectedCollectionId === collection.id && (
+                            <div className="mt-2 space-y-2">
+                              {feeds
+                                ?.filter(feed => !collection.sources?.some((s: any) => s.feed.id === feed.id))
+                                .map(feed => (
+                                  <button
+                                    key={feed.id}
+                                    onClick={() =>
+                                      addFeedToCollectionMutation.mutate({
+                                        collectionId: collection.id,
+                                        feedId: feed.id,
+                                      })
+                                    }
+                                    className="block w-full text-left px-3 py-2 text-sm bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white rounded hover:bg-gray-200 dark:hover:bg-gray-800"
+                                  >
+                                    {feed.title}
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
             )
           })}
         </div>

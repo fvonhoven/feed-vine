@@ -311,6 +311,36 @@ export interface Database {
           },
         ]
       }
+      user_integrations: {
+        Row: {
+          id: string
+          user_id: string
+          provider: string
+          api_key: string
+          publication_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          provider: string
+          api_key: string
+          publication_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          provider?: string
+          api_key?: string
+          publication_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

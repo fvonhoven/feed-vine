@@ -36,6 +36,7 @@ export const PRICING_PLANS = {
       keyboardShortcuts: false,
       prioritySupport: false,
       apiAccess: false,
+      newsletterExport: false,
     },
   },
   PRO: {
@@ -57,6 +58,7 @@ export const PRICING_PLANS = {
       keyboardShortcuts: false,
       prioritySupport: false,
       apiAccess: false,
+      newsletterExport: true,
     },
   },
   PLUS: {
@@ -78,6 +80,7 @@ export const PRICING_PLANS = {
       keyboardShortcuts: true,
       prioritySupport: false,
       apiAccess: false,
+      newsletterExport: true,
     },
   },
   PREMIUM: {
@@ -99,6 +102,7 @@ export const PRICING_PLANS = {
       keyboardShortcuts: true,
       prioritySupport: false,
       apiAccess: true, // ✅ API access enabled for Premium
+      newsletterExport: true,
     },
   },
 } as const

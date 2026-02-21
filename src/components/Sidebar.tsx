@@ -229,6 +229,28 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
                 {!isCollapsed && "Webhooks"}
               </span>
             </Link>
+
+            <Link
+              to="/digest"
+              className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
+                isActive("/digest")
+                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+              title={isCollapsed ? "Newsletter Digest" : ""}
+            >
+              <span className="flex items-center">
+                <svg className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+                {!isCollapsed && "Newsletter"}
+              </span>
+            </Link>
           </nav>
 
           {!isCollapsed && subscribedCollections && subscribedCollections.length > 0 && (

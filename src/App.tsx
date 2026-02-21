@@ -13,6 +13,7 @@ import MarketplacePage from "./pages/MarketplacePage"
 import SettingsPage from "./pages/SettingsPage"
 import ApiKeysPage from "./pages/ApiKeysPage"
 import WebhooksPage from "./pages/WebhooksPage"
+import DigestPage from "./pages/DigestPage"
 import PricingPage from "./pages/PricingPage"
 import TermsPage from "./pages/TermsPage"
 import PrivacyPage from "./pages/PrivacyPage"
@@ -58,6 +59,7 @@ function App() {
           <Route path="/collection/:collectionId" element={<CollectionArticlesPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/collections" element={<CollectionsPage />} />
+          <Route path="/digest" element={<DigestPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/api-keys" element={<ApiKeysPage />} />
