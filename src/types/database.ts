@@ -37,6 +37,7 @@ export interface Database {
           last_fetched: string | null
           status: "active" | "error"
           error_message: string | null
+          full_text_enabled: boolean
           created_at: string
         }
         Insert: {
@@ -48,6 +49,7 @@ export interface Database {
           last_fetched?: string | null
           status?: "active" | "error"
           error_message?: string | null
+          full_text_enabled?: boolean
           created_at?: string
         }
         Update: {
@@ -59,6 +61,7 @@ export interface Database {
           last_fetched?: string | null
           status?: "active" | "error"
           error_message?: string | null
+          full_text_enabled?: boolean
           created_at?: string
         }
         Relationships: [
@@ -82,6 +85,8 @@ export interface Database {
           category: string | null
           published_at: string
           guid: string
+          ai_summary: string | null
+          ai_summary_generated_at: string | null
           created_at: string
         }
         Insert: {
@@ -95,6 +100,8 @@ export interface Database {
           category?: string | null
           published_at: string
           guid: string
+          ai_summary?: string | null
+          ai_summary_generated_at?: string | null
           created_at?: string
         }
         Update: {
@@ -108,6 +115,8 @@ export interface Database {
           category?: string | null
           published_at?: string
           guid?: string
+          ai_summary?: string | null
+          ai_summary_generated_at?: string | null
           created_at?: string
         }
         Relationships: [
@@ -341,6 +350,122 @@ export interface Database {
         }
         Relationships: []
       }
+      feed_filters: {
+        Row: {
+          id: string
+          user_id: string
+          feed_id: string | null
+          filter_type: "include" | "exclude"
+          keywords: string[]
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          feed_id?: string | null
+          filter_type: "include" | "exclude"
+          keywords?: string[]
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          feed_id?: string | null
+          filter_type?: "include" | "exclude"
+          keywords?: string[]
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feed_filters_feed_id_fkey"
+            columns: ["feed_id"]
+            referencedRelation: "feeds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduled_digests: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          schedule: "daily" | "weekly_monday" | "weekly_wednesday" | "weekly_friday"
+          collection_id: string | null
+          platform: "beehiiv" | "mailerlite"
+          max_articles: number
+          digest_title_template: string
+          is_active: boolean
+          last_run_at: string | null
+          next_run_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          schedule: "daily" | "weekly_monday" | "weekly_wednesday" | "weekly_friday"
+          collection_id?: string | null
+          platform: "beehiiv" | "mailerlite"
+          max_articles?: number
+          digest_title_template?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          schedule?: "daily" | "weekly_monday" | "weekly_wednesday" | "weekly_friday"
+          collection_id?: string | null
+          platform?: "beehiiv" | "mailerlite"
+          max_articles?: number
+          digest_title_template?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_digests_collection_id_fkey"
+            columns: ["collection_id"]
+            referencedRelation: "feed_collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_summary_usage: {
+        Row: {
+          id: string
+          user_id: string
+          month: string
+          count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          month: string
+          count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          month?: string
+          count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -358,6 +483,8 @@ export interface Database {
 }
 
 export type Category = Database["public"]["Tables"]["categories"]["Row"]
+export type FeedFilter = Database["public"]["Tables"]["feed_filters"]["Row"]
+export type ScheduledDigest = Database["public"]["Tables"]["scheduled_digests"]["Row"]
 export type Feed = Database["public"]["Tables"]["feeds"]["Row"]
 export type Article = Database["public"]["Tables"]["articles"]["Row"]
 export type UserArticle = Database["public"]["Tables"]["user_articles"]["Row"]

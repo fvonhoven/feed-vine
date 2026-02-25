@@ -1,14 +1,15 @@
 import { useState, useMemo, useCallback } from "react"
-import { useQuery, useMutation } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { format as dateFormat, subDays, subHours } from "date-fns"
 import { supabase, isDemoMode } from "../lib/supabase"
-import type { ArticleWithFeed } from "../types/database"
+import type { ArticleWithFeed, ScheduledDigest } from "../types/database"
 import { useSubscription } from "../hooks/useSubscription"
 import toast from "react-hot-toast"
 import { Link } from "react-router-dom"
 
 type DateRange = "24h" | "7d" | "30d"
 type ExportFormat = "markdown" | "html" | "text"
+type PageTab = "builder" | "schedules"
 
 // ── Output generators ────────────────────────────────────────────────────────
 
@@ -295,9 +296,347 @@ function Preview({
   )
 }
 
+// ── Schedule Tab ─────────────────────────────────────────────────────────────
+
+const SCHEDULE_LABELS: Record<string, string> = {
+  daily: "Daily (9 AM UTC)",
+  weekly_monday: "Weekly — Monday",
+  weekly_wednesday: "Weekly — Wednesday",
+  weekly_friday: "Weekly — Friday",
+}
+
+function ScheduleTab({ collections }: { collections: Array<{ id: string; name: string }> | undefined }) {
+  const qc = useQueryClient()
+  const { hasFeature } = useSubscription()
+  const canSchedule = hasFeature("scheduledDigest")
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({
+    name: "",
+    schedule: "weekly_monday",
+    collection_id: "",
+    platform: "beehiiv",
+    max_articles: 10,
+    digest_title_template: "{name} – {date}",
+  })
+
+  const { data: schedules, isLoading } = useQuery({
+    queryKey: ["scheduled-digests"],
+    queryFn: async () => {
+      if (isDemoMode) return []
+      const { data, error } = await supabase.from("scheduled_digests").select("*").order("created_at", { ascending: false })
+      if (error) throw error
+      return data as ScheduledDigest[]
+    },
+    enabled: !isDemoMode && canSchedule,
+  })
+
+  const { data: beehiivConnected } = useQuery({
+    queryKey: ["integration-beehiiv"],
+    queryFn: async () => {
+      if (isDemoMode) return false
+      const { data } = await supabase.from("user_integrations").select("id").eq("provider", "beehiiv").maybeSingle()
+      return !!data
+    },
+    enabled: !isDemoMode && canSchedule,
+  })
+
+  const { data: mailerLiteConnected } = useQuery({
+    queryKey: ["integration-mailerlite"],
+    queryFn: async () => {
+      if (isDemoMode) return false
+      const { data } = await supabase.from("user_integrations").select("id").eq("provider", "mailerlite").maybeSingle()
+      return !!data
+    },
+    enabled: !isDemoMode && canSchedule,
+  })
+
+  const neitherConnected = beehiivConnected === false && mailerLiteConnected === false
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const now = new Date()
+      // compute initial next_run_at
+      const dayMap: Record<string, number> = { weekly_monday: 1, weekly_wednesday: 3, weekly_friday: 5 }
+      const next = new Date(now)
+      next.setUTCHours(9, 0, 0, 0)
+      if (form.schedule === "daily") {
+        if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
+      } else {
+        const target = dayMap[form.schedule]
+        const cur = next.getUTCDay()
+        let diff = (target - cur + 7) % 7
+        if (diff === 0) diff = 7
+        next.setUTCDate(next.getUTCDate() + diff)
+      }
+      const { error } = await supabase.from("scheduled_digests").insert({
+        user_id: user.id,
+        name: form.name,
+        schedule: form.schedule as ScheduledDigest["schedule"],
+        collection_id: form.collection_id || null,
+        platform: form.platform as ScheduledDigest["platform"],
+        max_articles: form.max_articles,
+        digest_title_template: form.digest_title_template,
+        next_run_at: next.toISOString(),
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      toast.success("Schedule created!")
+      qc.invalidateQueries({ queryKey: ["scheduled-digests"] })
+      setShowForm(false)
+      setForm({
+        name: "",
+        schedule: "weekly_monday",
+        collection_id: "",
+        platform: "beehiiv",
+        max_articles: 10,
+        digest_title_template: "{name} – {date}",
+      })
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to create schedule"),
+  })
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase.from("scheduled_digests").update({ is_active }).eq("id", id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["scheduled-digests"] }),
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("scheduled_digests").delete().eq("id", id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      toast.success("Schedule deleted")
+      qc.invalidateQueries({ queryKey: ["scheduled-digests"] })
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  if (!canSchedule) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-4xl mb-3">⏰</div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Scheduled Auto-Draft</h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">Automatically create newsletter drafts on a schedule. Available on Creator+ plans.</p>
+        <Link
+          to="/pricing"
+          className="inline-flex items-center px-5 py-2.5 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+        >
+          Upgrade to Creator →
+        </Link>
+      </div>
+    )
+  }
+
+  const inputCls =
+    "mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+  const labelCls = "block text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide"
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Scheduled Auto-Drafts</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            Auto-create newsletter drafts in Beehiiv or MailerLite on a recurring schedule.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowForm(v => !v)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          New Schedule
+        </button>
+      </div>
+
+      {/* Integration status banner */}
+      <div
+        className={`rounded-lg border p-4 ${neitherConnected ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800" : "bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700"}`}
+      >
+        <div className="flex flex-wrap items-start gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">Newsletter Platform Connections</p>
+            <div className="flex flex-wrap gap-3">
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${beehiivConnected ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"}`}
+              >
+                {beehiivConnected ? "✅" : "⬜"} 🐝 Beehiiv {beehiivConnected ? "Connected" : "Not connected"}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${mailerLiteConnected ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"}`}
+              >
+                {mailerLiteConnected ? "✅" : "⬜"} 💚 MailerLite {mailerLiteConnected ? "Connected" : "Not connected"}
+              </span>
+            </div>
+            {neitherConnected && (
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+                You need to connect at least one platform before schedules can send drafts.
+              </p>
+            )}
+          </div>
+          <Link
+            to="/settings"
+            className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-colors"
+          >
+            Manage in Settings →
+          </Link>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 space-y-4">
+          <h3 className="font-semibold text-gray-900 dark:text-white text-sm">New Schedule</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Name</label>
+              <input
+                className={inputCls}
+                placeholder="My Weekly Digest"
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Frequency</label>
+              <select className={inputCls} value={form.schedule} onChange={e => setForm(f => ({ ...f, schedule: e.target.value }))}>
+                {Object.entries(SCHEDULE_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Platform</label>
+              <select className={inputCls} value={form.platform} onChange={e => setForm(f => ({ ...f, platform: e.target.value }))}>
+                <option value="beehiiv">🐝 Beehiiv</option>
+                <option value="mailerlite">💚 MailerLite</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Source Collection</label>
+              <select className={inputCls} value={form.collection_id} onChange={e => setForm(f => ({ ...f, collection_id: e.target.value }))}>
+                <option value="">All Feeds</option>
+                {collections?.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Max Articles</label>
+              <select className={inputCls} value={form.max_articles} onChange={e => setForm(f => ({ ...f, max_articles: Number(e.target.value) }))}>
+                {[5, 10, 15, 20].map(n => (
+                  <option key={n} value={n}>
+                    {n} articles
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Title Template</label>
+              <input
+                className={inputCls}
+                value={form.digest_title_template}
+                onChange={e => setForm(f => ({ ...f, digest_title_template: e.target.value }))}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Use {"{name}"} and {"{date}"} as placeholders
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={() => createMutation.mutate()}
+              disabled={!form.name || createMutation.isPending}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-40 transition-colors"
+            >
+              {createMutation.isPending ? "Creating…" : "Create Schedule"}
+            </button>
+            <button
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="text-center py-8 text-gray-400 text-sm">Loading schedules…</div>
+      ) : !schedules?.length ? (
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+          <div className="text-3xl mb-2">⏰</div>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No schedules yet. Click "New Schedule" to automate your digests.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {schedules.map(s => (
+            <div key={s.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-900 dark:text-white text-sm">{s.name}</span>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.is_active ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"}`}
+                  >
+                    {s.is_active ? "Active" : "Paused"}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {SCHEDULE_LABELS[s.schedule] ?? s.schedule} · {s.platform === "beehiiv" ? "🐝 Beehiiv" : "💚 MailerLite"} · {s.max_articles}{" "}
+                  articles
+                </p>
+                {s.next_run_at && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    Next: {dateFormat(new Date(s.next_run_at), "MMM d, yyyy 'at' h:mm a")} UTC
+                  </p>
+                )}
+                {s.last_run_at && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Last run: {dateFormat(new Date(s.last_run_at), "MMM d, yyyy")}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => toggleActiveMutation.mutate({ id: s.id, is_active: !s.is_active })}
+                  className="text-xs px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {s.is_active ? "Pause" : "Resume"}
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete schedule "${s.name}"?`)) deleteMutation.mutate(s.id)
+                  }}
+                  className="text-xs px-3 py-1.5 border border-red-200 dark:border-red-900 rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export default function DigestPage() {
+  const [activeTab, setActiveTab] = useState<PageTab>("builder")
   const [dateRange, setDateRange] = useState<DateRange>("7d")
   const [collectionId, setCollectionId] = useState("all")
   const [limit, setLimit] = useState(10)
@@ -507,38 +846,66 @@ export default function DigestPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Newsletter Digest Builder</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Newsletter Digest</h1>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Curate your top articles and export a formatted digest for Beehiiv, Substack, ConvertKit, or Ghost.
+          Curate your top articles and export a formatted digest, or set up automated scheduled drafts.
         </p>
       </div>
-      <Controls
-        dateRange={dateRange}
-        setDateRange={setDateRange}
-        collectionId={collectionId}
-        setCollectionId={setCollectionId}
-        collections={collections}
-        limit={limit}
-        setLimit={setLimit}
-        digestTitle={digestTitle}
-        setDigestTitle={setDigestTitle}
-      />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <ArticleList articles={articles} isLoading={isLoading} selectedIds={selectedIds} onToggle={toggleArticle} onSelectAll={handleSelectAll} />
-        <Preview
-          output={output}
-          exportFormat={exportFormat}
-          setExportFormat={setExportFormat}
-          selectedCount={selectedArticles.length}
-          onCopy={handleCopy}
-          hasBeehiiv={!!beehiivIntegration}
-          onSendToBeehiiv={() => sendToBeehiivMutation.mutate()}
-          isSendingToBeehiiv={sendToBeehiivMutation.isPending}
-          hasMailerLite={!!mailerLiteIntegration}
-          onSendToMailerLite={() => sendToMailerLiteMutation.mutate()}
-          isSendingToMailerLite={sendToMailerLiteMutation.isPending}
-        />
+      {/* Tab switcher */}
+      <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
+        {(
+          [
+            ["builder", "📄 Digest Builder"],
+            ["schedules", "⏰ Schedules"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === id
+                ? "border-primary-600 text-primary-600 dark:text-primary-400"
+                : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
+
+      {activeTab === "schedules" ? (
+        <ScheduleTab collections={collections} />
+      ) : (
+        <>
+          <Controls
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            collectionId={collectionId}
+            setCollectionId={setCollectionId}
+            collections={collections}
+            limit={limit}
+            setLimit={setLimit}
+            digestTitle={digestTitle}
+            setDigestTitle={setDigestTitle}
+          />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <ArticleList articles={articles} isLoading={isLoading} selectedIds={selectedIds} onToggle={toggleArticle} onSelectAll={handleSelectAll} />
+            <Preview
+              output={output}
+              exportFormat={exportFormat}
+              setExportFormat={setExportFormat}
+              selectedCount={selectedArticles.length}
+              onCopy={handleCopy}
+              hasBeehiiv={!!beehiivIntegration}
+              onSendToBeehiiv={() => sendToBeehiivMutation.mutate()}
+              isSendingToBeehiiv={sendToBeehiivMutation.isPending}
+              hasMailerLite={!!mailerLiteIntegration}
+              onSendToMailerLite={() => sendToMailerLiteMutation.mutate()}
+              isSendingToMailerLite={sendToMailerLiteMutation.isPending}
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }

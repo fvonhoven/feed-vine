@@ -8,6 +8,7 @@ import toast from "react-hot-toast"
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts"
 import { KeyboardShortcutsHelp } from "../components/KeyboardShortcutsHelp"
 import { FaRegKeyboard } from "react-icons/fa"
+import { useFeedFilters, applyFeedFilters } from "../hooks/useFeedFilters"
 
 export default function HomePage() {
   const [keyword, setKeyword] = useState("")
@@ -98,6 +99,10 @@ export default function HomePage() {
     },
   })
 
+  // Apply keyword filters (Creator+ feature — no-op for Free/Starter)
+  const { filters } = useFeedFilters()
+  const filteredArticles = applyFeedFilters(articles ?? [], filters)
+
   // Mutation to toggle read status
   const toggleReadMutation = useMutation({
     mutationFn: async ({ articleId, isRead }: { articleId: string; isRead: boolean }) => {
@@ -157,6 +162,55 @@ export default function HomePage() {
     },
   })
 
+  // Mutation to mark all visible articles as read
+  const markAllAsReadMutation = useMutation({
+    mutationFn: async () => {
+      if (isDemoMode) throw new Error("Demo mode: Connect Supabase to use this feature")
+
+      const { data: user } = await supabase.auth.getUser()
+      if (!user.user) throw new Error("Not authenticated")
+
+      // Mark all currently visible (filtered) articles as read
+      const unreadArticles = (articles || []).filter(a => !a.user_article?.is_read)
+      if (unreadArticles.length === 0) return { count: 0 }
+
+      const now = new Date().toISOString()
+      const { error } = await supabase.from("user_articles").upsert(
+        unreadArticles.map(a => ({
+          user_id: user.user!.id,
+          article_id: a.id,
+          is_read: true,
+          read_at: now,
+        })),
+        { onConflict: "user_id,article_id" },
+      )
+      if (error) throw error
+      return { count: unreadArticles.length }
+    },
+    onSuccess: result => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] })
+      if (result.count === 0) {
+        toast("All articles are already read ✓")
+      } else {
+        toast.success(`Marked ${result.count} article${result.count === 1 ? "" : "s"} as read`)
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to mark all as read")
+    },
+  })
+
+  const handleMarkAllAsRead = () => {
+    const unreadCount = (articles || []).filter(a => !a.user_article?.is_read).length
+    if (unreadCount === 0) {
+      toast("All articles are already read ✓")
+      return
+    }
+    if (window.confirm(`Mark all ${unreadCount} unread article${unreadCount === 1 ? "" : "s"} as read?`)) {
+      markAllAsReadMutation.mutate()
+    }
+  }
+
   const handleToggleRead = (articleId: string, isRead: boolean) => {
     toggleReadMutation.mutate({ articleId, isRead })
   }
@@ -182,7 +236,7 @@ export default function HomePage() {
         key: "j",
         description: "Next article",
         action: () => {
-          if (articles && selectedArticleIndex < articles.length - 1) {
+          if (filteredArticles && selectedArticleIndex < filteredArticles.length - 1) {
             setSelectedArticleIndex(prev => prev + 1)
           }
         },
@@ -200,8 +254,8 @@ export default function HomePage() {
         key: "m",
         description: "Mark as read/unread",
         action: () => {
-          if (articles && articles[selectedArticleIndex]) {
-            const article = articles[selectedArticleIndex]
+          if (filteredArticles && filteredArticles[selectedArticleIndex]) {
+            const article = filteredArticles[selectedArticleIndex]
             const isRead = article.user_article?.is_read || false
             handleToggleRead(article.id, !isRead)
           }
@@ -211,8 +265,8 @@ export default function HomePage() {
         key: "s",
         description: "Save/unsave article",
         action: () => {
-          if (articles && articles[selectedArticleIndex]) {
-            const article = articles[selectedArticleIndex]
+          if (filteredArticles && filteredArticles[selectedArticleIndex]) {
+            const article = filteredArticles[selectedArticleIndex]
             const isSaved = article.user_article?.is_saved || false
             handleToggleSave(article.id, !isSaved)
           }
@@ -222,9 +276,9 @@ export default function HomePage() {
         key: "o",
         description: "Open article",
         action: () => {
-          if (articles && articles[selectedArticleIndex]) {
-            window.open(articles[selectedArticleIndex].url, "_blank")
-            handleToggleRead(articles[selectedArticleIndex].id, true)
+          if (filteredArticles && filteredArticles[selectedArticleIndex]) {
+            window.open(filteredArticles[selectedArticleIndex].url, "_blank")
+            handleToggleRead(filteredArticles[selectedArticleIndex].id, true)
           }
         },
       },
@@ -306,7 +360,7 @@ export default function HomePage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">All Articles</h1>
             <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-              {articles?.length || 0} articles
+              {filteredArticles.length} articles
               {showUnreadOnly && " (unread only)"}
             </p>
           </div>
@@ -349,6 +403,19 @@ export default function HomePage() {
           >
             {showUnreadOnly ? "Show All" : "Unread Only"}
           </button>
+          {articles && articles.some(a => !a.user_article?.is_read) && (
+            <button
+              onClick={handleMarkAllAsRead}
+              disabled={markAllAsReadMutation.isPending || isDemoMode}
+              className="inline-flex items-center px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 text-xs sm:text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors min-h-[44px]"
+              title="Mark all visible articles as read"
+            >
+              <svg className="w-4 h-4 mr-1.5 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {markAllAsReadMutation.isPending ? "Marking..." : "Mark All Read"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -365,9 +432,9 @@ export default function HomePage() {
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
         </div>
-      ) : articles && articles.length > 0 ? (
+      ) : filteredArticles.length > 0 ? (
         <div className="space-y-4">
-          {articles.map((article, index) => (
+          {filteredArticles.map((article, index) => (
             <div
               key={article.id}
               ref={el => (articleRefs.current[index] = el)}

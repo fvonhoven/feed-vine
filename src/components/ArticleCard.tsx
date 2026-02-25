@@ -1,6 +1,8 @@
 import { formatDistanceToNow } from "date-fns"
+import { useState } from "react"
 import type { ArticleWithStatus } from "../types/database"
 import { useSubscription } from "../hooks/useSubscription"
+import { supabase } from "../lib/supabase"
 import toast from "react-hot-toast"
 
 interface ArticleCardProps {
@@ -27,11 +29,22 @@ function stripHtml(html: string | null | undefined): string {
   return text
 }
 
+function readingTime(content: string | null | undefined, description: string | null | undefined): number {
+  const text = stripHtml(content || description)
+  const words = text.trim().split(/\s+/).filter(Boolean).length
+  return Math.max(1, Math.ceil(words / 200))
+}
+
 export default function ArticleCard({ article, onToggleRead, onToggleSave }: ArticleCardProps) {
   const isRead = article.user_article?.is_read || false
   const isSaved = article.user_article?.is_saved || false
   const { hasFeature } = useSubscription()
   const canSaveArticles = hasFeature("savedArticles")
+  const canSummarize = hasFeature("aiSummaries")
+
+  const [aiSummary, setAiSummary] = useState<string | null>(article.ai_summary ?? null)
+  const [summarizing, setSummarizing] = useState(false)
+  const [showSummary, setShowSummary] = useState(!!article.ai_summary)
 
   const handleArticleClick = () => {
     if (!isRead && onToggleRead) {
@@ -61,6 +74,46 @@ export default function ArticleCard({ article, onToggleRead, onToggleSave }: Art
     }
   }
 
+  const handleSummarize = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!canSummarize) {
+      toast.error("AI summaries require Creator plan or higher")
+      return
+    }
+
+    // Toggle off if summary already shown
+    if (aiSummary) {
+      setShowSummary(prev => !prev)
+      return
+    }
+
+    setSummarizing(true)
+    try {
+      const { data, error } = await supabase.functions.invoke("summarize-article", {
+        body: { articleId: article.id },
+      })
+      if (error) {
+        // Try to extract the actual error message from the function response body
+        let message = error.message
+        try {
+          const body = await (error as any).context?.json?.()
+          if (body?.error) message = body.error
+        } catch {
+          // ignore parse error, use default message
+        }
+        throw new Error(message)
+      }
+      setAiSummary(data.summary)
+      setShowSummary(true)
+    } catch (err: any) {
+      toast.error(err.message || "Failed to summarize article")
+    } finally {
+      setSummarizing(false)
+    }
+  }
+
   return (
     <article
       className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow p-5 border border-gray-200 dark:border-gray-700 ${
@@ -77,17 +130,65 @@ export default function ArticleCard({ article, onToggleRead, onToggleSave }: Art
             >
               {article.title}
             </h2>
-            {article.description && <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">{stripHtml(article.description)}</p>}
+            {(article.content || article.description) && (
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-3">
+                {stripHtml(article.content && article.content.length > 200 ? article.content : article.description)}
+              </p>
+            )}
           </a>
 
           <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-500">
             <span className="font-medium text-primary-600 dark:text-primary-400">{article.feed.title}</span>
             <span>•</span>
             <time dateTime={article.published_at}>{formatDistanceToNow(new Date(article.published_at), { addSuffix: true })}</time>
+            <span>•</span>
+            <span>{readingTime(article.content, article.description)} min read</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* AI Summarize button */}
+          <button
+            onClick={handleSummarize}
+            disabled={summarizing}
+            className={`p-2 rounded-md transition-colors ${
+              showSummary && aiSummary
+                ? "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20"
+                : canSummarize
+                  ? "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  : "text-gray-300 dark:text-gray-600 opacity-50"
+            } ${summarizing ? "cursor-wait" : ""}`}
+            title={
+              !canSummarize
+                ? "AI summaries require Creator plan or higher"
+                : showSummary && aiSummary
+                  ? "Hide AI summary"
+                  : aiSummary
+                    ? "Show AI summary"
+                    : "Summarize with AI"
+            }
+          >
+            {summarizing ? (
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
+              </svg>
+            )}
+          </button>
+
           <button
             onClick={handleToggleRead}
             className={`p-2 rounded-md transition-colors ${
@@ -124,6 +225,23 @@ export default function ArticleCard({ article, onToggleRead, onToggleSave }: Art
           </button>
         </div>
       </div>
+
+      {/* AI Summary panel */}
+      {showSummary && aiSummary && (
+        <div className="mt-3 pt-3 border-t border-purple-100 dark:border-purple-900/30">
+          <div className="flex items-start gap-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg px-3 py-2">
+            <svg className="w-4 h-4 text-purple-500 dark:text-purple-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+              />
+            </svg>
+            <p className="text-sm text-purple-800 dark:text-purple-200 leading-relaxed">{aiSummary}</p>
+          </div>
+        </div>
+      )}
     </article>
   )
 }

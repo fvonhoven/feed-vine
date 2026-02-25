@@ -6,6 +6,7 @@ import toast from "react-hot-toast"
 import { formatDistanceToNow } from "date-fns"
 import { fetchAndSaveArticles, discoverRSSFeeds, refreshAllFeeds } from "../lib/rssFetcher"
 import { useSubscription } from "../hooks/useSubscription"
+import { useFeedFilters } from "../hooks/useFeedFilters"
 import { Link } from "react-router-dom"
 
 export default function FeedManager() {
@@ -21,14 +22,36 @@ export default function FeedManager() {
   const [isRefreshingAll, setIsRefreshingAll] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [bulkImportFile, setBulkImportFile] = useState<File | null>(null)
+  const [showOpmlImport, setShowOpmlImport] = useState(false)
+  const [opmlImportFile, setOpmlImportFile] = useState<File | null>(null)
   const [showCategoryManager, setShowCategoryManager] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
   const [newCategoryColor, setNewCategoryColor] = useState("#3B82F6")
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingCategoryName, setEditingCategoryName] = useState("")
   const [editingCategoryColor, setEditingCategoryColor] = useState("")
+  const [expandedFilterFeedId, setExpandedFilterFeedId] = useState<string | null>(null)
+  const [filterIncludeInput, setFilterIncludeInput] = useState("")
+  const [filterExcludeInput, setFilterExcludeInput] = useState("")
   const queryClient = useQueryClient()
-  const { getLimit } = useSubscription()
+  const { getLimit, hasFeature } = useSubscription()
+  const { filters, getFiltersForFeed, addKeyword, removeKeyword } = useFeedFilters()
+
+  const canUseFilters = hasFeature("advancedFilters")
+
+  const toggleFilterPanel = (feedId: string) => {
+    setExpandedFilterFeedId(prev => (prev === feedId ? null : feedId))
+    setFilterIncludeInput("")
+    setFilterExcludeInput("")
+  }
+
+  const handleAddKeyword = (feedId: string, filterType: "include" | "exclude") => {
+    const keyword = filterType === "include" ? filterIncludeInput : filterExcludeInput
+    if (!keyword.trim()) return
+    addKeyword({ feedId, filterType, keyword })
+    if (filterType === "include") setFilterIncludeInput("")
+    else setFilterExcludeInput("")
+  }
 
   const { data: feeds, isLoading } = useQuery({
     queryKey: ["feeds"],
@@ -291,6 +314,22 @@ export default function FeedManager() {
       toast.error(error.message || "Failed to remove feed")
       setDeletingFeedId(null)
       setFeedToDelete(null)
+    },
+  })
+
+  const toggleFullTextMutation = useMutation({
+    mutationFn: async ({ feedId, enabled }: { feedId: string; enabled: boolean }) => {
+      if (isDemoMode) throw new Error("Demo mode: Connect Supabase to use this feature")
+      const { error } = await supabase.from("feeds").update({ full_text_enabled: enabled }).eq("id", feedId)
+      if (error) throw error
+      return enabled
+    },
+    onSuccess: enabled => {
+      queryClient.invalidateQueries({ queryKey: ["feeds"] })
+      toast.success(enabled ? "Full-text fetch enabled for this feed" : "Full-text fetch disabled")
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update feed")
     },
   })
 
@@ -649,6 +688,169 @@ export default function FeedManager() {
     }
   }
 
+  // OPML import mutation
+  const opmlImportMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (isDemoMode) {
+        throw new Error("Demo mode: Connect Supabase to import feeds")
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+
+      const text = await file.text()
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(text, "application/xml")
+
+      if (doc.querySelector("parsererror")) {
+        throw new Error("Invalid OPML file — could not parse XML")
+      }
+
+      // Collect all outline elements that are RSS feeds (have xmlUrl attribute)
+      const feedOutlines = Array.from(doc.querySelectorAll("outline[xmlUrl]"))
+
+      if (feedOutlines.length === 0) {
+        throw new Error("No RSS feeds found in OPML file")
+      }
+
+      // Build a map of category name -> category DB id (create missing ones)
+      const categoryMap: Record<string, string> = {}
+      // Pre-load existing categories
+      const { data: existingCats } = await supabase.from("categories").select("id, name").eq("user_id", user.id)
+      for (const cat of existingCats || []) {
+        categoryMap[cat.name.toLowerCase()] = cat.id
+      }
+
+      // Helper: get or create a category by name
+      const getOrCreateCategory = async (name: string): Promise<string | null> => {
+        if (!name) return null
+        const key = name.toLowerCase()
+        if (categoryMap[key]) return categoryMap[key]
+        const { data, error } = await supabase.from("categories").insert({ user_id: user.id, name, color: "#3B82F6" }).select("id").single()
+        if (error) return null
+        categoryMap[key] = data.id
+        return data.id
+      }
+
+      // Check plan limits
+      const currentFeedCount = feeds?.length || 0
+      const maxFeeds = getLimit("maxFeeds")
+      const availableSlots = maxFeeds - currentFeedCount
+      if (feedOutlines.length > availableSlots) {
+        throw new Error(`Cannot import ${feedOutlines.length} feeds. You have ${availableSlots} slot${availableSlots === 1 ? "" : "s"} available.`)
+      }
+
+      // Parse each outline
+      const feedsToInsert: { user_id: string; url: string; title: string; status: "active"; category_id: string | null }[] = []
+      for (const outline of feedOutlines) {
+        const url = outline.getAttribute("xmlUrl") || ""
+        const title = outline.getAttribute("title") || outline.getAttribute("text") || new URL(url).hostname
+        if (!url) continue
+
+        // Parent outline may represent the category folder
+        const parentEl = outline.parentElement
+        const parentTitle = parentEl?.getAttribute("title") || parentEl?.getAttribute("text") || ""
+        const isParentFolder = parentEl?.tagName === "outline" && !parentEl.getAttribute("xmlUrl")
+        const categoryName = isParentFolder ? parentTitle : ""
+        const categoryId = categoryName ? await getOrCreateCategory(categoryName) : null
+
+        feedsToInsert.push({ user_id: user.id, url, title, status: "active", category_id: categoryId })
+      }
+
+      // Batch insert (ignore duplicates via ON CONFLICT DO NOTHING)
+      const { data, error } = await supabase.from("feeds").upsert(feedsToInsert, { onConflict: "user_id,url", ignoreDuplicates: true }).select()
+
+      if (error) throw error
+      return { feeds: data || [], count: (data || []).length, total: feedsToInsert.length }
+    },
+    onSuccess: async result => {
+      queryClient.invalidateQueries({ queryKey: ["feeds"] })
+      queryClient.invalidateQueries({ queryKey: ["categories"] })
+      setOpmlImportFile(null)
+      setShowOpmlImport(false)
+      const skipped = result.total - result.count
+      const msg =
+        skipped > 0
+          ? `Imported ${result.count} feeds (${skipped} already existed).`
+          : `Successfully imported ${result.count} feed${result.count === 1 ? "" : "s"}!`
+      toast.success(msg)
+
+      if (result.feeds.length > 0) {
+        toast.loading("Fetching articles from imported feeds...")
+        let totalArticles = 0
+        for (const feed of result.feeds) {
+          try {
+            const count = await fetchAndSaveArticles(feed.id, feed.url)
+            totalArticles += count
+          } catch {}
+        }
+        queryClient.invalidateQueries({ queryKey: ["articles"] })
+        toast.dismiss()
+        toast.success(`Fetched ${totalArticles} articles!`)
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to import OPML")
+    },
+  })
+
+  const handleOpmlImport = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (opmlImportFile) {
+      opmlImportMutation.mutate(opmlImportFile)
+    }
+  }
+
+  // OPML export
+  const exportOPML = () => {
+    if (!feeds || feeds.length === 0) {
+      toast.error("No feeds to export")
+      return
+    }
+
+    // Group by category
+    const catMap: Record<string, { name: string; feeds: Feed[] }> = {}
+    const uncategorized: Feed[] = []
+
+    for (const feed of feeds) {
+      if (feed.category_id) {
+        if (!catMap[feed.category_id]) {
+          const cat = categories?.find(c => c.id === feed.category_id)
+          catMap[feed.category_id] = { name: cat?.name || "Category", feeds: [] }
+        }
+        catMap[feed.category_id].feeds.push(feed)
+      } else {
+        uncategorized.push(feed)
+      }
+    }
+
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+
+    let body = ""
+    for (const group of Object.values(catMap)) {
+      body += `    <outline text="${esc(group.name)}" title="${esc(group.name)}">\n`
+      for (const f of group.feeds) {
+        body += `      <outline type="rss" text="${esc(f.title)}" title="${esc(f.title)}" xmlUrl="${esc(f.url)}" htmlUrl="${esc(f.url)}"/>\n`
+      }
+      body += `    </outline>\n`
+    }
+    for (const f of uncategorized) {
+      body += `    <outline type="rss" text="${esc(f.title)}" title="${esc(f.title)}" xmlUrl="${esc(f.url)}" htmlUrl="${esc(f.url)}"/>\n`
+    }
+
+    const opml = `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="1.0">\n  <head><title>FeedVine Feeds</title></head>\n  <body>\n${body}  </body>\n</opml>`
+    const blob = new Blob([opml], { type: "application/xml" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "feedvine-feeds.opml"
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success(`Exported ${feeds.length} feeds as OPML`)
+  }
+
   const downloadSampleCSV = () => {
     const sampleCSV = `title,url
 TechCrunch,https://techcrunch.com
@@ -675,14 +877,36 @@ Example Feed,https://feeds.feedburner.com/example`
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">Add New Feed</h2>
-          <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
+          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 flex-wrap">
             <button
               type="button"
-              onClick={() => setShowBulkImport(!showBulkImport)}
+              onClick={() => {
+                setShowBulkImport(!showBulkImport)
+                setShowOpmlImport(false)
+              }}
               className="text-xs sm:text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
             >
-              {showBulkImport ? "Single Import" : "Bulk Import CSV"}
+              {showBulkImport ? "Single Import" : "CSV Import"}
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowOpmlImport(!showOpmlImport)
+                setShowBulkImport(false)
+              }}
+              className="text-xs sm:text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
+            >
+              {showOpmlImport ? "Single Import" : "OPML Import"}
+            </button>
+            {feeds && feeds.length > 0 && (
+              <button
+                type="button"
+                onClick={exportOPML}
+                className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium"
+              >
+                Export OPML
+              </button>
+            )}
             <span className={`text-xs sm:text-sm ${isAtLimit ? "text-red-600 dark:text-red-400 font-semibold" : "text-gray-500 dark:text-gray-400"}`}>
               {currentFeedCount} / {maxFeeds} feeds
             </span>
@@ -699,7 +923,7 @@ Example Feed,https://feeds.feedburner.com/example`
           </div>
         )}
 
-        {!showBulkImport ? (
+        {!showBulkImport && !showOpmlImport ? (
           <form onSubmit={handleAddFeed} className="flex flex-col sm:flex-row gap-3">
             <input
               type="url"
@@ -718,7 +942,7 @@ Example Feed,https://feeds.feedburner.com/example`
               {addFeedMutation.isPending ? "Adding..." : "Add Feed"}
             </button>
           </form>
-        ) : (
+        ) : showBulkImport ? (
           <div className="space-y-4">
             <div className="p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
               <h3 className="text-xs sm:text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">CSV Format</h3>
@@ -766,6 +990,50 @@ Example Feed,https://feeds.feedburner.com/example`
                   onClick={() => {
                     setShowBulkImport(false)
                     setBulkImportFile(null)
+                  }}
+                  className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 min-h-[44px]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-3 sm:p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+              <h3 className="text-xs sm:text-sm font-medium text-green-900 dark:text-green-100 mb-2">OPML Import</h3>
+              <p className="text-xs sm:text-sm text-green-800 dark:text-green-200">
+                Upload an <strong>.opml</strong> file exported from Feedly, Inoreader, NetNewsWire, or any other RSS reader. Folder names become
+                categories automatically.
+              </p>
+            </div>
+            <form onSubmit={handleOpmlImport} className="space-y-3">
+              <div>
+                <label htmlFor="opml-file" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select OPML File
+                </label>
+                <input
+                  id="opml-file"
+                  type="file"
+                  accept=".opml,.xml,application/xml,text/xml"
+                  onChange={e => setOpmlImportFile(e.target.files?.[0] || null)}
+                  className="block w-full text-xs sm:text-sm text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                  disabled={isAtLimit}
+                />
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  disabled={!opmlImportFile || opmlImportMutation.isPending || isAtLimit}
+                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                >
+                  {opmlImportMutation.isPending ? "Importing..." : "Import OPML"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowOpmlImport(false)
+                    setOpmlImportFile(null)
                   }}
                   className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 min-h-[44px]"
                 >
@@ -1000,6 +1268,26 @@ Example Feed,https://feeds.feedburner.com/example`
                   <div className="relative">
                     {/* Action buttons - top right on mobile, right side on desktop */}
                     <div className="absolute top-0 right-0 flex items-center gap-1 sm:gap-2">
+                      {/* Full-text fetch toggle */}
+                      <button
+                        onClick={() => toggleFullTextMutation.mutate({ feedId: feed.id, enabled: !feed.full_text_enabled })}
+                        disabled={toggleFullTextMutation.isPending}
+                        className={`p-2 rounded transition-colors disabled:opacity-50 border ${
+                          feed.full_text_enabled
+                            ? "border-primary-400 dark:border-primary-500 text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30"
+                            : "border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                        }`}
+                        title={feed.full_text_enabled ? "Full-text fetch ON — click to disable" : "Enable full-text fetch for this feed"}
+                      >
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                      </button>
                       {feed.status === "error" && (
                         <button
                           onClick={() => validateFeedMutation.mutate(feed)}
@@ -1103,6 +1391,43 @@ Example Feed,https://feeds.feedburner.com/example`
                             </option>
                           ))}
                         </select>
+                        {/* Keyword filter toggle */}
+                        {canUseFilters ? (
+                          <button
+                            onClick={() => toggleFilterPanel(feed.id)}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border transition-colors min-h-[32px] ${
+                              expandedFilterFeedId === feed.id
+                                ? "border-primary-400 text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20"
+                                : filters.some(f => f.feed_id === feed.id)
+                                  ? "border-primary-300 text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-700"
+                                  : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                            }`}
+                            title="Manage keyword filters for this feed"
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"
+                              />
+                            </svg>
+                            Filters
+                            {(() => {
+                              const { include, exclude } = getFiltersForFeed(feed.id)
+                              const count = include.reduce((s, f) => s + f.keywords.length, 0) + exclude.reduce((s, f) => s + f.keywords.length, 0)
+                              return count > 0 ? <span className="ml-0.5 font-semibold">({count})</span> : null
+                            })()}
+                          </button>
+                        ) : (
+                          <Link
+                            to="/settings"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 min-h-[32px]"
+                            title="Upgrade to Creator to use keyword filters"
+                          >
+                            🔒 Filters
+                          </Link>
+                        )}
                       </div>
                       {feed.error_message && (
                         <div className="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
@@ -1110,6 +1435,99 @@ Example Feed,https://feeds.feedburner.com/example`
                         </div>
                       )}
                     </div>
+                    {/* Keyword filter panel */}
+                    {expandedFilterFeedId === feed.id &&
+                      (() => {
+                        const { include: includeFilters, exclude: excludeFilters } = getFiltersForFeed(feed.id)
+                        return (
+                          <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-3 py-3 space-y-3">
+                            {/* Include keywords */}
+                            <div>
+                              <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1.5">✅ Show only articles containing…</p>
+                              <div className="flex flex-wrap gap-1 mb-2">
+                                {includeFilters.flatMap(f =>
+                                  f.keywords.map(kw => (
+                                    <span
+                                      key={`${f.id}-${kw}`}
+                                      className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700"
+                                    >
+                                      {kw}
+                                      <button
+                                        onClick={() => removeKeyword({ filterId: f.id, keyword: kw })}
+                                        className="ml-0.5 text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-200"
+                                        title="Remove keyword"
+                                      >
+                                        ×
+                                      </button>
+                                    </span>
+                                  )),
+                                )}
+                                {includeFilters.length === 0 && (
+                                  <span className="text-xs text-gray-400 dark:text-gray-500 italic">No include keywords — showing all articles</span>
+                                )}
+                              </div>
+                              <div className="flex gap-1">
+                                <input
+                                  type="text"
+                                  value={filterIncludeInput}
+                                  onChange={e => setFilterIncludeInput(e.target.value)}
+                                  onKeyDown={e => e.key === "Enter" && handleAddKeyword(feed.id, "include")}
+                                  placeholder="Add keyword…"
+                                  className="flex-1 px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-green-400"
+                                />
+                                <button
+                                  onClick={() => handleAddKeyword(feed.id, "include")}
+                                  className="px-2 py-1 text-xs rounded bg-green-600 hover:bg-green-700 text-white font-medium"
+                                >
+                                  Add
+                                </button>
+                              </div>
+                            </div>
+                            {/* Exclude keywords */}
+                            <div>
+                              <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1.5">🚫 Hide articles containing…</p>
+                              <div className="flex flex-wrap gap-1 mb-2">
+                                {excludeFilters.flatMap(f =>
+                                  f.keywords.map(kw => (
+                                    <span
+                                      key={`${f.id}-${kw}`}
+                                      className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-700"
+                                    >
+                                      {kw}
+                                      <button
+                                        onClick={() => removeKeyword({ filterId: f.id, keyword: kw })}
+                                        className="ml-0.5 text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-200"
+                                        title="Remove keyword"
+                                      >
+                                        ×
+                                      </button>
+                                    </span>
+                                  )),
+                                )}
+                                {excludeFilters.length === 0 && (
+                                  <span className="text-xs text-gray-400 dark:text-gray-500 italic">No exclude keywords — hiding nothing</span>
+                                )}
+                              </div>
+                              <div className="flex gap-1">
+                                <input
+                                  type="text"
+                                  value={filterExcludeInput}
+                                  onChange={e => setFilterExcludeInput(e.target.value)}
+                                  onKeyDown={e => e.key === "Enter" && handleAddKeyword(feed.id, "exclude")}
+                                  placeholder="Add keyword…"
+                                  className="flex-1 px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-red-400"
+                                />
+                                <button
+                                  onClick={() => handleAddKeyword(feed.id, "exclude")}
+                                  className="px-2 py-1 text-xs rounded bg-red-600 hover:bg-red-700 text-white font-medium"
+                                >
+                                  Add
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
                   </div>
                 )}
               </li>

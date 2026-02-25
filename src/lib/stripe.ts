@@ -16,6 +16,7 @@ export const getStripe = () => {
 }
 
 // Pricing plans configuration
+// Internal plan IDs (pro/plus/premium) match database values — display names are shown to users
 export const PRICING_PLANS = {
   FREE: {
     id: "free",
@@ -25,84 +26,112 @@ export const PRICING_PLANS = {
     monthlyPriceId: null,
     annualPriceId: null,
     features: {
-      maxFeeds: 1,
-      maxCategories: 1,
+      maxFeeds: 5,
+      maxCategories: 2,
       maxCollections: 0,
+      maxWebhooks: 0,
+      maxAiSummaries: 0,
       readTracking: true,
       basicFilters: true,
       savedArticles: false,
       advancedFilters: false,
       exportRSS: false,
       keyboardShortcuts: false,
+      articleSearch: false,
+      fullTextFetch: false,
+      webhooks: false,
+      aiSummaries: false,
+      newsletterExport: false,
+      scheduledDigest: false,
       prioritySupport: false,
       apiAccess: false,
-      newsletterExport: false,
     },
   },
   PRO: {
     id: "pro",
-    name: "Pro",
-    monthlyPrice: 6, // Increased from $5 (20% increase)
-    annualPrice: 5, // Original price as annual discount
+    name: "Starter",
+    monthlyPrice: 6,
+    annualPrice: 5, // $60/year — 17% savings
     monthlyPriceId: import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID,
     annualPriceId: import.meta.env.VITE_STRIPE_PRO_ANNUAL_PRICE_ID,
     features: {
-      maxFeeds: 5,
-      maxCategories: 3,
+      maxFeeds: 25,
+      maxCategories: 10,
       maxCollections: 1,
+      maxWebhooks: 0,
+      maxAiSummaries: 0,
       readTracking: true,
       basicFilters: true,
       savedArticles: true,
       advancedFilters: false,
       exportRSS: true,
-      keyboardShortcuts: false,
+      keyboardShortcuts: true,
+      articleSearch: true,
+      fullTextFetch: false,
+      webhooks: false,
+      aiSummaries: false,
+      newsletterExport: false,
+      scheduledDigest: false,
       prioritySupport: false,
       apiAccess: false,
-      newsletterExport: true,
     },
   },
   PLUS: {
     id: "plus",
-    name: "Plus",
-    monthlyPrice: 12,
-    annualPrice: 9, // 25% savings: $12 * 12 = $144/year, $9 * 12 = $108/year
+    name: "Creator",
+    monthlyPrice: 14,
+    annualPrice: 11, // $132/year — 21% savings
     monthlyPriceId: import.meta.env.VITE_STRIPE_PLUS_MONTHLY_PRICE_ID,
     annualPriceId: import.meta.env.VITE_STRIPE_PLUS_ANNUAL_PRICE_ID,
     features: {
-      maxFeeds: 15,
-      maxCategories: 10,
+      maxFeeds: 100,
+      maxCategories: 25,
       maxCollections: 5,
+      maxWebhooks: 5,
+      maxAiSummaries: 200,
       readTracking: true,
       basicFilters: true,
       savedArticles: true,
       advancedFilters: true,
       exportRSS: true,
       keyboardShortcuts: true,
+      articleSearch: true,
+      fullTextFetch: true,
+      webhooks: true,
+      aiSummaries: true,
+      newsletterExport: true,
+      scheduledDigest: true,
       prioritySupport: false,
       apiAccess: false,
-      newsletterExport: true,
     },
   },
   PREMIUM: {
     id: "premium",
-    name: "Premium",
-    monthlyPrice: 20,
-    annualPrice: 15, // 25% savings: $20 * 12 = $240/year, $15 * 12 = $180/year
+    name: "Builder",
+    monthlyPrice: 24,
+    annualPrice: 19, // $228/year — 21% savings
     monthlyPriceId: import.meta.env.VITE_STRIPE_PREMIUM_MONTHLY_PRICE_ID,
     annualPriceId: import.meta.env.VITE_STRIPE_PREMIUM_ANNUAL_PRICE_ID,
     features: {
-      maxFeeds: 25,
-      maxCategories: 25,
-      maxCollections: 25,
+      maxFeeds: -1, // -1 = unlimited
+      maxCategories: -1,
+      maxCollections: -1,
+      maxWebhooks: -1,
+      maxAiSummaries: -1,
       readTracking: true,
       basicFilters: true,
       savedArticles: true,
       advancedFilters: true,
       exportRSS: true,
       keyboardShortcuts: true,
-      prioritySupport: false,
-      apiAccess: true, // ✅ API access enabled for Premium
+      articleSearch: true,
+      fullTextFetch: true,
+      webhooks: true,
+      aiSummaries: true,
       newsletterExport: true,
+      scheduledDigest: true,
+      prioritySupport: true,
+      apiAccess: true,
     },
   },
 } as const
@@ -117,7 +146,7 @@ export function hasFeatureAccess(userPlan: PlanId, feature: keyof PlanFeatures):
 }
 
 // Helper to get plan limits
-export function getPlanLimit(userPlan: PlanId, limit: "maxFeeds" | "maxCategories" | "maxCollections"): number {
+export function getPlanLimit(userPlan: PlanId, limit: "maxFeeds" | "maxCategories" | "maxCollections" | "maxWebhooks" | "maxAiSummaries"): number {
   return PRICING_PLANS[userPlan].features[limit]
 }
 
@@ -145,38 +174,58 @@ export function getPlanFeaturesArray(planId: PlanId): string[] {
   const features = PRICING_PLANS[planId].features
   const featureList: string[] = []
 
-  if (features.maxFeeds > 0) {
+  if (features.maxFeeds === -1) {
+    featureList.push("Unlimited feeds")
+  } else if (features.maxFeeds > 0) {
     featureList.push(`Up to ${features.maxFeeds} feed${features.maxFeeds > 1 ? "s" : ""}`)
   }
-  if (features.maxCategories > 0) {
+  if (features.maxCategories === -1) {
+    featureList.push("Unlimited categories")
+  } else if (features.maxCategories > 0) {
     featureList.push(`Up to ${features.maxCategories} categor${features.maxCategories > 1 ? "ies" : "y"}`)
   }
-  if (features.maxCollections > 0) {
+  if (features.maxCollections === -1) {
+    featureList.push("Unlimited collections")
+  } else if (features.maxCollections > 0) {
     featureList.push(`Up to ${features.maxCollections} collection${features.maxCollections > 1 ? "s" : ""}`)
   }
   if (features.readTracking) {
     featureList.push("Read tracking")
   }
-  if (features.basicFilters) {
-    featureList.push("Basic filters")
-  }
   if (features.savedArticles) {
-    featureList.push("Save articles")
+    featureList.push("Save articles for later")
   }
-  if (features.advancedFilters) {
-    featureList.push("Advanced filters")
-  }
-  if (features.exportRSS) {
-    featureList.push("Export RSS feed")
+  if (features.articleSearch) {
+    featureList.push("Article search")
   }
   if (features.keyboardShortcuts) {
     featureList.push("Keyboard shortcuts")
   }
-  if (features.prioritySupport) {
-    featureList.push("Priority support")
+  if (features.exportRSS) {
+    featureList.push("OPML import & export")
+  }
+  if (features.fullTextFetch) {
+    featureList.push("Full-text article fetch")
+  }
+  if (features.webhooks) {
+    const webhookLabel = features.maxWebhooks === -1 ? "Unlimited webhooks (Zapier/Make)" : `Webhooks – up to ${features.maxWebhooks}`
+    featureList.push(webhookLabel)
+  }
+  if (features.aiSummaries) {
+    const aiLabel = features.maxAiSummaries === -1 ? "Unlimited AI summaries" : `AI summaries – ${features.maxAiSummaries}/month`
+    featureList.push(aiLabel)
+  }
+  if (features.newsletterExport) {
+    featureList.push("Newsletter export (Beehiiv & MailerLite)")
+  }
+  if (features.scheduledDigest) {
+    featureList.push("Scheduled auto-draft digests")
   }
   if (features.apiAccess) {
-    featureList.push("API access")
+    featureList.push("Public REST API access")
+  }
+  if (features.prioritySupport) {
+    featureList.push("Priority support")
   }
 
   return featureList

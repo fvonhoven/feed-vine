@@ -1,0 +1,3 @@
+[functions.summarize-article]
+verify_jwt = false
+

@@ -13,6 +13,7 @@ interface Feed {
   id: string
   url: string
   title: string
+  full_text_enabled: boolean
 }
 
 /**
@@ -52,7 +53,7 @@ Example response: AI News, Tools, Opinion, Uncategorized`
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-3-5-haiku-20241022", // Use Haiku for fast, cheap batch categorization
+        model: "claude-haiku-4-5-20251001", // Use Haiku for fast, cheap batch categorization
         max_tokens: 200,
         messages: [
           {
@@ -196,15 +197,15 @@ serve(async req => {
 
     if (feedId) {
       // Fetch specific feed by ID
-      const { data, error } = await supabaseClient.from("feeds").select("id, url, title").eq("id", feedId).single()
+      const { data, error } = await supabaseClient.from("feeds").select("id, url, title, full_text_enabled").eq("id", feedId).single()
       if (error) throw error
       feeds = [data]
     } else if (feedUrl) {
       // Fetch from a URL directly (for discovery/testing)
-      feeds = [{ id: "temp", url: feedUrl, title: "Temporary Feed" }]
+      feeds = [{ id: "temp", url: feedUrl, title: "Temporary Feed", full_text_enabled: false }]
     } else {
       // Get all active feeds (cron job mode)
-      const { data, error: feedsError } = await supabaseClient.from("feeds").select("id, url, title").eq("status", "active")
+      const { data, error: feedsError } = await supabaseClient.from("feeds").select("id, url, title, full_text_enabled").eq("status", "active")
       if (feedsError) throw feedsError
       feeds = data as Feed[]
     }
@@ -302,6 +303,40 @@ serve(async req => {
               insertedCount++
               insertedArticles.push({ ...article, category })
               console.log(`Inserted "${article.title}" as: ${category}`)
+
+              // Full-text fetch: if enabled for this feed and content is short, enrich the article
+              if (feed.full_text_enabled && article.url && (!article.description || article.description.length < 500)) {
+                try {
+                  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
+                  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+                  const ftRes = await fetch(`${supabaseUrl}/functions/v1/fetch-full-text`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${serviceKey}`,
+                    },
+                    body: JSON.stringify({ url: article.url }),
+                  })
+                  const ftData = await ftRes.json()
+                  if (ftData.success && ftData.content) {
+                    // Find the newly inserted article by guid to get its id
+                    const { data: inserted } = await supabaseClient
+                      .from("articles")
+                      .select("id")
+                      .eq("feed_id", feed.id)
+                      .eq("guid", article.guid)
+                      .single()
+                    if (inserted?.id) {
+                      await supabaseClient.from("articles").update({ content: ftData.content }).eq("id", inserted.id)
+                      console.log(`Full-text fetched for "${article.title}" (${ftData.content.length} chars)`)
+                    }
+                  } else {
+                    console.warn(`Full-text fetch failed for "${article.title}": ${ftData.error}`)
+                  }
+                } catch (ftError) {
+                  console.warn(`Full-text fetch error for "${article.title}":`, ftError)
+                }
+              }
             }
           }
 

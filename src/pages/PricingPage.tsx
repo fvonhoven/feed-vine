@@ -70,7 +70,13 @@ export default function PricingPage() {
     <div className="px-4 sm:px-0">
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Choose Your Plan</h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400 mb-6">Start free, upgrade when you need more features</p>
+        <p className="text-lg text-gray-600 dark:text-gray-400 mb-2">Start free, upgrade when you need more power</p>
+        {billingInterval === "annual" && (
+          <p className="text-sm font-semibold text-green-600 dark:text-green-400 mb-6">
+            🎉 Annual plans include a 30-day free trial — card required, cancel anytime
+          </p>
+        )}
+        {billingInterval === "monthly" && <div className="mb-6" />}
 
         {/* Billing Toggle */}
         <div className="inline-flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
@@ -94,7 +100,7 @@ export default function PricingPage() {
           >
             Annual
             <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-full">
-              Save up to 25%
+              30 days free + save 25%
             </span>
           </button>
         </div>
@@ -125,199 +131,164 @@ export default function PricingPage() {
                 </div>
               ) : isPopular ? (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-primary-500 text-white text-xs font-semibold px-4 py-1 rounded-full">MOST POPULAR</span>
+                  <span className="bg-primary-500 text-white text-xs font-semibold px-4 py-1 rounded-full">
+                    {billingInterval === "annual" ? "⭐ MOST POPULAR" : "MOST POPULAR"}
+                  </span>
                 </div>
               ) : null}
 
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{plan.name}</h3>
                 <div className="mb-4">
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-5xl font-bold text-gray-900 dark:text-white">${price}</span>
-                    <span className="text-gray-600 dark:text-gray-400">/{billingInterval === "monthly" ? "mo" : "mo"}</span>
-                  </div>
-                  {billingInterval === "annual" && plan.monthlyPrice > 0 && (
-                    <div className="mt-2">
-                      <span className="text-sm text-gray-500 dark:text-gray-400 line-through">${plan.monthlyPrice}/mo</span>
-                      <span className="ml-2 text-sm font-semibold text-green-600 dark:text-green-400">Save {savings}%</span>
-                    </div>
-                  )}
-                  {billingInterval === "annual" && plan.annualPrice > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${price * 12}/year</p>
+                  {billingInterval === "annual" && plan.annualPrice > 0 ? (
+                    <>
+                      <p className="text-sm font-semibold text-green-600 dark:text-green-400 mb-1">30 days free, then</p>
+                      <div className="flex items-baseline justify-center gap-1">
+                        <span className="text-5xl font-bold text-gray-900 dark:text-white">${price}</span>
+                        <span className="text-gray-600 dark:text-gray-400">/mo</span>
+                      </div>
+                      <div className="mt-2">
+                        <span className="text-sm text-gray-500 dark:text-gray-400 line-through">${plan.monthlyPrice}/mo</span>
+                        <span className="ml-2 text-sm font-semibold text-green-600 dark:text-green-400">Save {savings}%</span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${price * 12}/year after trial</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline justify-center gap-1">
+                        <span className="text-5xl font-bold text-gray-900 dark:text-white">${price}</span>
+                        <span className="text-gray-600 dark:text-gray-400">/mo</span>
+                      </div>
+                      {plan.monthlyPrice > 0 && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">No free trial on monthly</p>}
+                    </>
                   )}
                 </div>
               </div>
 
-              <ul className="space-y-4 mb-8">
-                {/* FREE - Show all features */}
+              <ul className="space-y-3 mb-8 text-sm">
+                {/* FREE */}
                 {key === "FREE" && (
                   <>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">{plan.features.maxFeeds} RSS feed</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">{plan.features.maxCategories} category</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">Read/unread tracking</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">Basic filters</span>
-                    </li>
+                    {[
+                      `${plan.features.maxFeeds} RSS feeds`,
+                      `${plan.features.maxCategories} categories`,
+                      "Read/unread tracking",
+                      "Basic filters",
+                    ].map(f => (
+                      <li key={f} className="flex items-start gap-2">
+                        <svg className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-gray-600 dark:text-gray-400">{f}</span>
+                      </li>
+                    ))}
                   </>
                 )}
 
-                {/* PRO - Everything in Free, plus new features */}
+                {/* STARTER (PRO) */}
                 {key === "PRO" && (
                   <>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400 font-semibold">Everything in Free, plus:</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">{plan.features.maxFeeds} RSS feeds</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">{plan.features.maxCategories} categories</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">Save articles</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">1 feed collection</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">Export to RSS</span>
-                    </li>
+                    {[
+                      { label: "Everything in Free, plus:", bold: true },
+                      { label: `${plan.features.maxFeeds} RSS feeds` },
+                      { label: `${plan.features.maxCategories} categories` },
+                      { label: `${plan.features.maxCollections} collection` },
+                      { label: "Save articles for later" },
+                      { label: "Article search" },
+                      { label: "Keyboard shortcuts" },
+                      { label: "OPML import & export" },
+                    ].map(({ label, bold }) => (
+                      <li key={label} className="flex items-start gap-2">
+                        <svg className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className={`text-gray-600 dark:text-gray-400${bold ? " font-semibold" : ""}`}>{label}</span>
+                      </li>
+                    ))}
                   </>
                 )}
 
-                {/* PLUS - Everything in Pro, plus new features */}
+                {/* CREATOR (PLUS) */}
                 {key === "PLUS" && (
                   <>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400 font-semibold">Everything in Pro, plus:</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">{plan.features.maxFeeds} RSS feeds</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">{plan.features.maxCategories} categories</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">{plan.features.maxCollections} collections</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">Advanced filters</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">Keyboard shortcuts</span>
-                    </li>
+                    {[
+                      { label: "Everything in Starter, plus:", bold: true },
+                      { label: `${plan.features.maxFeeds} RSS feeds` },
+                      { label: `${plan.features.maxCollections} collections` },
+                      { label: "Full-text article fetch" },
+                      { label: "AI summaries — 200/month" },
+                      { label: "Webhooks (Zapier/Make) — up to 5" },
+                      { label: "Newsletter export (Beehiiv & MailerLite)" },
+                      { label: "Scheduled auto-draft digests" },
+                    ].map(({ label, bold }) => (
+                      <li key={label} className="flex items-start gap-2">
+                        <svg className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className={`text-gray-600 dark:text-gray-400${bold ? " font-semibold" : ""}`}>{label}</span>
+                      </li>
+                    ))}
                   </>
                 )}
 
-                {/* PREMIUM - Everything in Plus, plus new features */}
+                {/* BUILDER (PREMIUM) */}
                 {key === "PREMIUM" && (
                   <>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400 font-semibold">Everything in Plus, plus:</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">{plan.features.maxFeeds} RSS feeds</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">{plan.features.maxCategories} categories</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400">{plan.features.maxCollections} collections</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-gray-600 dark:text-gray-400 font-semibold">API Access</span>
-                    </li>
+                    {[
+                      { label: "Everything in Creator, plus:", bold: true },
+                      { label: "Unlimited feeds & categories" },
+                      { label: "Unlimited collections" },
+                      { label: "Unlimited AI summaries" },
+                      { label: "Unlimited webhooks" },
+                      { label: "Public REST API access" },
+                      { label: "Priority support" },
+                    ].map(({ label, bold }) => (
+                      <li key={label} className="flex items-start gap-2">
+                        <svg className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className={`text-gray-600 dark:text-gray-400${bold ? " font-semibold" : ""}`}>{label}</span>
+                      </li>
+                    ))}
                   </>
                 )}
               </ul>
 
               <div className="mt-auto">
-                <button
-                  onClick={() => handleSubscribe(key.toLowerCase(), billingInterval)}
-                  disabled={loading === key.toLowerCase() || isCurrentPlan}
-                  className={`w-full px-6 py-3 rounded-lg font-semibold transition-colors ${
-                    isCurrentPlan
-                      ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 cursor-not-allowed"
-                      : isPopular
+                {key !== "FREE" && !isCurrentPlan && (
+                  <button
+                    onClick={() => handleSubscribe(key.toLowerCase(), billingInterval)}
+                    disabled={loading === key.toLowerCase()}
+                    className={`w-full px-6 py-3 rounded-lg font-semibold transition-colors mb-2 ${
+                      isPopular
                         ? "bg-primary-600 hover:bg-primary-700 text-white"
-                        : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {loading === key.toLowerCase()
-                    ? "Loading..."
-                    : isCurrentPlan
-                      ? "Current Plan"
-                      : `Get ${plan.name} ${billingInterval === "annual" ? "Annual" : "Monthly"}`}
-                </button>
+                        : "bg-gray-800 dark:bg-gray-200 hover:bg-gray-700 dark:hover:bg-gray-300 text-white dark:text-gray-900"
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {loading === key.toLowerCase()
+                      ? "Loading..."
+                      : billingInterval === "annual"
+                        ? `Start Free Trial — ${plan.name}`
+                        : `Subscribe Monthly — ${plan.name}`}
+                  </button>
+                )}
+                {key !== "FREE" && !isCurrentPlan && billingInterval === "annual" && (
+                  <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+                    Or{" "}
+                    <button onClick={() => setBillingInterval("monthly")} className="underline hover:text-gray-600 dark:hover:text-gray-300">
+                      pay monthly at ${plan.monthlyPrice}/mo
+                    </button>{" "}
+                    — no trial
+                  </p>
+                )}
+                {(key === "FREE" || isCurrentPlan) && (
+                  <button
+                    disabled
+                    className="w-full px-6 py-3 rounded-lg font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 cursor-not-allowed"
+                  >
+                    {isCurrentPlan ? "Current Plan" : "Free — No card needed"}
+                  </button>
+                )}
               </div>
             </div>
           )
@@ -325,7 +296,7 @@ export default function PricingPage() {
       </div>
 
       <div className="mt-12 text-center">
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
           By subscribing, you agree to our{" "}
           <Link to="/terms" className="text-primary-600 hover:text-primary-700 underline">
             Terms of Service
@@ -335,7 +306,9 @@ export default function PricingPage() {
             Privacy Policy
           </Link>
         </p>
-        <p className="text-xs text-gray-500 dark:text-gray-500">Cancel anytime.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-500">
+          Annual plans include a 30-day free trial. Cancel before trial ends and you won't be charged. No questions asked.
+        </p>
       </div>
     </div>
   )

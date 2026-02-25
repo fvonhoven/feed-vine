@@ -273,8 +273,27 @@ export async function fetchAndSaveArticles(feedId: string, feedUrl: string): Pro
     })
 
     if (error) {
-      console.error("Edge function error:", error)
-      throw new Error(error.message || "Failed to fetch feed from server")
+      // Extract actual response body from FunctionsHttpError for better diagnostics
+      let detail = error.message
+      try {
+        // FunctionsHttpError has a `context` property with the raw Response
+        const ctx = (error as any).context as Response | undefined
+        if (ctx) {
+          console.error("Edge function HTTP status:", ctx.status)
+          const bodyText = await ctx.clone().text()
+          console.error("Edge function raw response:", bodyText)
+          try {
+            const bodyJson = JSON.parse(bodyText)
+            detail = bodyJson.error || bodyJson.message || bodyText
+          } catch {
+            detail = bodyText
+          }
+        }
+      } catch {
+        // ignore secondary error
+      }
+      console.error("Edge function error:", error, "detail:", detail)
+      throw new Error(detail || "Failed to fetch feed from server")
     }
 
     if (!data.success || !data.results || data.results.length === 0) {

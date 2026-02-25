@@ -4,6 +4,7 @@ import { supabase, isDemoMode } from "../lib/supabase"
 import type { ArticleWithStatus, Feed } from "../types/database"
 import ArticleCard from "../components/ArticleCard"
 import toast from "react-hot-toast"
+import { useFeedFilters, applyFeedFilters } from "../hooks/useFeedFilters"
 
 export default function FeedArticlesPage() {
   const { feedId } = useParams<{ feedId: string }>()
@@ -55,6 +56,10 @@ export default function FeedArticlesPage() {
     },
     enabled: !!feedId,
   })
+
+  // Apply keyword filters (Creator+ feature — no-op for Free/Starter)
+  const { filters } = useFeedFilters()
+  const filteredArticles = applyFeedFilters(articles ?? [], filters)
 
   // Toggle read mutation
   const toggleReadMutation = useMutation({
@@ -128,16 +133,16 @@ export default function FeedArticlesPage() {
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{feed?.title || "Feed Articles"}</h1>
         {feed?.url && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{feed.url}</p>}
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{articles?.length || 0} articles</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{filteredArticles.length} articles</p>
       </div>
 
-      {articles?.length === 0 ? (
+      {filteredArticles.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-12 text-center">
           <p className="text-gray-500 dark:text-gray-400">No articles found for this feed.</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {articles?.map(article => (
+          {filteredArticles.map(article => (
             <ArticleCard
               key={article.id}
               article={article}
