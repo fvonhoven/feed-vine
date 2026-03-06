@@ -342,6 +342,51 @@ serve(async req => {
 
           console.log(`Feed ${feed.id}: Inserted ${insertedCount}, skipped ${skippedCount}, errors ${errorCount}`)
 
+          // Fire Slack delivery for new articles
+          if (insertedArticles.length > 0) {
+            try {
+              const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
+              const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+              fetch(`${supabaseUrl}/functions/v1/slack-deliver`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${serviceKey}`,
+                },
+                body: JSON.stringify({
+                  feed_id: feed.id,
+                  feed_title: feed.title,
+                  articles: insertedArticles.map(a => ({
+                    title: a.title,
+                    url: a.url,
+                    description: a.description,
+                    category: a.category,
+                  })),
+                }),
+              }).catch(err => console.error("Slack deliver call failed:", err))
+
+              fetch(`${supabaseUrl}/functions/v1/discord-deliver`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${serviceKey}`,
+                },
+                body: JSON.stringify({
+                  feed_id: feed.id,
+                  feed_title: feed.title,
+                  articles: insertedArticles.map(a => ({
+                    title: a.title,
+                    url: a.url,
+                    description: a.description,
+                    category: a.category,
+                  })),
+                }),
+              }).catch(err => console.error("Discord deliver call failed:", err))
+            } catch (botErr) {
+              console.error("Error triggering bot delivery:", botErr)
+            }
+          }
+
           // Fire webhooks for new articles (dynamic import to avoid breaking feed fetching)
           if (insertedArticles.length > 0) {
             try {

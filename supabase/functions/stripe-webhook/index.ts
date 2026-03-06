@@ -128,12 +128,24 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
 
   const premiumPrices = [Deno.env.get("STRIPE_PREMIUM_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_PREMIUM_ANNUAL_PRICE_ID")].filter(Boolean)
 
+  const teamPrices = [Deno.env.get("STRIPE_TEAM_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_ANNUAL_PRICE_ID")].filter(Boolean)
+  const teamProPrices = [Deno.env.get("STRIPE_TEAM_PRO_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_PRO_ANNUAL_PRICE_ID")].filter(Boolean)
+  const teamBusinessPrices = [Deno.env.get("STRIPE_TEAM_BUSINESS_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_BUSINESS_ANNUAL_PRICE_ID")].filter(
+    Boolean,
+  )
+
   if (proPrices.includes(priceId)) {
     planId = "pro"
   } else if (plusPrices.includes(priceId)) {
     planId = "plus"
   } else if (premiumPrices.includes(priceId)) {
     planId = "premium"
+  } else if (teamPrices.includes(priceId)) {
+    planId = "team"
+  } else if (teamProPrices.includes(priceId)) {
+    planId = "team_pro"
+  } else if (teamBusinessPrices.includes(priceId)) {
+    planId = "team_business"
   }
 
   console.log("Mapped to plan:", planId)
@@ -196,6 +208,11 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
   const proPrices = [Deno.env.get("STRIPE_PRO_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_PRO_ANNUAL_PRICE_ID")].filter(Boolean)
   const plusPrices = [Deno.env.get("STRIPE_PLUS_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_PLUS_ANNUAL_PRICE_ID")].filter(Boolean)
   const premiumPrices = [Deno.env.get("STRIPE_PREMIUM_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_PREMIUM_ANNUAL_PRICE_ID")].filter(Boolean)
+  const teamPrices = [Deno.env.get("STRIPE_TEAM_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_ANNUAL_PRICE_ID")].filter(Boolean)
+  const teamProPrices = [Deno.env.get("STRIPE_TEAM_PRO_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_PRO_ANNUAL_PRICE_ID")].filter(Boolean)
+  const teamBusinessPrices = [Deno.env.get("STRIPE_TEAM_BUSINESS_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_BUSINESS_ANNUAL_PRICE_ID")].filter(
+    Boolean,
+  )
 
   if (proPrices.includes(priceId)) {
     planId = "pro"
@@ -203,6 +220,12 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
     planId = "plus"
   } else if (premiumPrices.includes(priceId)) {
     planId = "premium"
+  } else if (teamPrices.includes(priceId)) {
+    planId = "team"
+  } else if (teamProPrices.includes(priceId)) {
+    planId = "team_pro"
+  } else if (teamBusinessPrices.includes(priceId)) {
+    planId = "team_business"
   }
 
   console.log("Mapped to plan:", planId)
@@ -272,12 +295,24 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
 
   const premiumPrices = [Deno.env.get("STRIPE_PREMIUM_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_PREMIUM_ANNUAL_PRICE_ID")].filter(Boolean)
 
+  const teamPrices = [Deno.env.get("STRIPE_TEAM_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_ANNUAL_PRICE_ID")].filter(Boolean)
+  const teamProPrices = [Deno.env.get("STRIPE_TEAM_PRO_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_PRO_ANNUAL_PRICE_ID")].filter(Boolean)
+  const teamBusinessPrices = [Deno.env.get("STRIPE_TEAM_BUSINESS_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_BUSINESS_ANNUAL_PRICE_ID")].filter(
+    Boolean,
+  )
+
   if (proPrices.includes(priceId)) {
     planId = "pro"
   } else if (plusPrices.includes(priceId)) {
     planId = "plus"
   } else if (premiumPrices.includes(priceId)) {
     planId = "premium"
+  } else if (teamPrices.includes(priceId)) {
+    planId = "team"
+  } else if (teamProPrices.includes(priceId)) {
+    planId = "team_pro"
+  } else if (teamBusinessPrices.includes(priceId)) {
+    planId = "team_business"
   }
 
   const dbStatus = mapStripeStatusToDb(subscription.status)

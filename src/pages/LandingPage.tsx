@@ -67,23 +67,17 @@ export default function LandingPage() {
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
             <span className="text-primary-600 dark:text-primary-400">FeedVine</span>
             <br />
-            Your RSS Feeds, Beautifully Organized
+            The RSS Reader That Does More
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
-            A modern, Feedly-like feed aggregator that helps you stay on top of your favorite content. Track what you've read, save articles for
-            later, and organize feeds into collections.
+            AI summaries, newsletter auto-drafts to Beehiiv & MailerLite, Slack & Discord bots, team workspaces, public API, and a feed marketplace — all in one modern RSS reader.
           </p>
-          <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4 mb-6 max-w-2xl mx-auto">
-            <p className="text-sm text-primary-800 dark:text-primary-200">
-              🚀 <strong>Currently in Private Beta</strong> - Join the waitlist to get early access when we launch!
-            </p>
-          </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/auth"
               className="px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl"
             >
-              Join Waitlist
+              Get Started Free
             </Link>
             <button
               onClick={() => {
@@ -91,10 +85,10 @@ export default function LandingPage() {
               }}
               className="px-8 py-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white border-2 border-gray-200 dark:border-gray-700 rounded-lg text-lg font-semibold transition-colors"
             >
-              Learn More
+              See All Features
             </button>
           </div>
-          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Be among the first to try FeedVine</p>
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Free forever plan available — no credit card required</p>
         </div>
 
         {/* Screenshot/Demo */}
@@ -135,22 +129,36 @@ export default function LandingPage() {
 
       {/* Features Section */}
       <div id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">Everything You Need</h2>
-        <p className="text-center text-sm text-gray-500 dark:text-gray-500 mb-12">Features vary by plan - see pricing below</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {features.map((feature, index) => (
-            <div
-              key={index}
-              className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow"
-            >
-              <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center mb-4">
-                <span className="text-2xl">{feature.icon}</span>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{feature.title}</h3>
-              <p className="text-gray-600 dark:text-gray-400">{feature.description}</p>
+        <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">Everything You Need to Own Your Content</h2>
+        <p className="text-center text-gray-600 dark:text-gray-400 mb-16 max-w-2xl mx-auto">
+          From casual reading to powering your team's newsletter workflow — FeedVine scales with you.
+        </p>
+
+        {featureSections.map((section, sIndex) => (
+          <div key={sIndex} className="mb-16 last:mb-0">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-2xl">{section.icon}</span>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{section.title}</h3>
             </div>
-          ))}
-        </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 ml-10">{section.tier}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {section.features.map((feature, fIndex) => (
+                <div
+                  key={fIndex}
+                  className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl mt-0.5">{feature.icon}</span>
+                    <div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-1">{feature.title}</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{feature.description}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Pricing Section */}
@@ -160,7 +168,7 @@ export default function LandingPage() {
           <p className="text-center text-gray-600 dark:text-gray-400 mb-4">Start free, upgrade when you need more</p>
           <p className="text-center text-sm text-green-600 dark:text-green-400 mb-12">💰 Save up to 25% with annual billing</p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {pricingTiers.map((tier, index) => (
               <div
                 key={index}
@@ -216,18 +224,73 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+
+          {/* Team Plans */}
+          <div className="mt-16">
+            <h3 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-2">🏢 For Teams</h3>
+            <p className="text-center text-gray-600 dark:text-gray-400 mb-10">Collaborative workspaces for content teams</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              {teamPricingTiers.map((tier, index) => (
+                <div
+                  key={index}
+                  className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 flex flex-col transition-all hover:shadow-2xl hover:scale-105 ${
+                    tier.popular
+                      ? "border-purple-500 ring-4 ring-purple-100 dark:ring-purple-900/30"
+                      : "border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700"
+                  }`}
+                >
+                  {tier.popular && <span className="bg-purple-500 text-white text-xs font-semibold px-3 py-1 rounded-full">MOST POPULAR</span>}
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-4">{tier.name}</h3>
+                  <p className="text-sm text-purple-600 dark:text-purple-400 font-medium mt-1">Up to {tier.seats} seats</p>
+                  <div className="mt-4 mb-6">
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-4xl font-bold text-gray-900 dark:text-white">${tier.annualPrice}</span>
+                      <span className="text-gray-600 dark:text-gray-400">/mo</span>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-sm text-gray-500 dark:text-gray-400 line-through">${tier.price}/mo</span>
+                      <span className="ml-2 text-sm font-semibold text-green-600 dark:text-green-400">
+                        Save {Math.round(((tier.price - tier.annualPrice) / tier.price) * 100)}%
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${(tier.annualPrice * 12).toFixed(2)}/year</p>
+                  </div>
+                  <ul className="space-y-3 mb-8">
+                    {tier.features.map((feature, idx) => (
+                      <li key={idx} className="flex items-start">
+                        <svg className="w-5 h-5 text-purple-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className={`text-gray-600 dark:text-gray-400 ${feature.includes("Everything in") ? "font-semibold" : ""}`}>
+                          {feature}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-auto">
+                    <Link
+                      to="/auth"
+                      className="block text-center px-6 py-3 rounded-lg font-semibold transition-colors bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      {tier.cta}
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* CTA Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">Ready to Get Early Access?</h2>
-        <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">Join the waitlist and be among the first to experience FeedVine</p>
+        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">Ready to Take Control of Your Content?</h2>
+        <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">Start for free — upgrade when you need AI, digests, or team features</p>
         <Link
           to="/auth"
           className="inline-block px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl"
         >
-          Join Waitlist
+          Get Started Free
         </Link>
       </div>
 
@@ -303,36 +366,64 @@ export default function LandingPage() {
   )
 }
 
-const features = [
+const featureSections = [
   {
-    icon: "✓",
-    title: "Read/Unread Tracking",
-    description: "Never lose track of what you've read. Articles auto-mark as read when you click them.",
+    icon: "📖",
+    title: "Core Reading Experience",
+    tier: "Included in every plan, even Free",
+    features: [
+      { icon: "✓", title: "Read / Unread Tracking", description: "Articles auto-mark as read. Easily filter to see only what's new." },
+      { icon: "🔍", title: "Search & Filters", description: "Full-text search, date range, source, and unread-only filters." },
+      { icon: "📱", title: "Installable PWA", description: "Add FeedVine to your home screen on any device — works offline too." },
+      { icon: "📊", title: "Usage Analytics", description: "Personal reading stats, streak tracking, and feed health dashboard." },
+      { icon: "🕐", title: "Reading Time Estimates", description: "See how long each article will take before you dive in." },
+      { icon: "🎓", title: "Guided Onboarding", description: "A step-by-step wizard to add your first feeds and create a collection." },
+    ],
   },
   {
     icon: "⭐",
-    title: "Save for Later",
-    description: "Bookmark important articles and access them anytime from your Saved page.",
+    title: "Organize & Share",
+    tier: "Starter plan and above",
+    features: [
+      { icon: "💾", title: "Save for Later", description: "Bookmark articles and find them instantly from your Saved page." },
+      { icon: "📂", title: "Collections & Marketplace", description: "Curate public collections and discover feeds shared by others." },
+      { icon: "⌨️", title: "Keyboard Shortcuts", description: "Navigate with j/k, mark read with m, save with s — power-user speed." },
+      { icon: "📤", title: "OPML Import & Export", description: "Bring your feeds from any reader, or export them to back up." },
+    ],
   },
   {
-    icon: "📁",
-    title: "Organize with Categories",
-    description: "Group your feeds into categories like Tech, AI, News, and more.",
+    icon: "🤖",
+    title: "AI & Automation",
+    tier: "Creator plan and above",
+    features: [
+      { icon: "🧠", title: "AI Article Summaries", description: "One-click summaries powered by AI so you can scan faster." },
+      { icon: "📰", title: "Newsletter Digest Export", description: "Auto-draft digests to Beehiiv or MailerLite in one click." },
+      { icon: "⏰", title: "Scheduled Auto-Digests", description: "Set hourly, daily, or weekly schedules and digests draft themselves." },
+      { icon: "📜", title: "Digest History", description: "Every digest you send or copy is saved — re-copy or review any time." },
+      { icon: "🔕", title: "Quiet Hours", description: "Pause digest delivery overnight or on weekends, per your timezone." },
+      { icon: "🔗", title: "Webhooks & Zapier", description: "Push new articles to Zapier, Make, or any HTTP endpoint." },
+    ],
   },
   {
-    icon: "🔍",
-    title: "Powerful Filters",
-    description: "Search by keyword, filter by source, date range, or show only unread articles.",
+    icon: "🛠️",
+    title: "Developer & Power User",
+    tier: "Builder plan and above",
+    features: [
+      { icon: "🔌", title: "Public REST API", description: "Programmatic access to feeds, articles, and collections." },
+      { icon: "♾️", title: "Unlimited Everything", description: "No caps on feeds, categories, collections, webhooks, or AI summaries." },
+      { icon: "🎯", title: "Priority Email Support", description: "Faster response times — your tickets go to the front of the queue." },
+    ],
   },
   {
-    icon: "⌨️",
-    title: "Keyboard Shortcuts",
-    description: "Navigate like a pro with j/k navigation, m to mark read, s to save, and more.",
-  },
-  {
-    icon: "🔗",
-    title: "Export & Integrate",
-    description: "Export your feed for Zapier, IFTTT, or any RSS reader. Automate your workflow.",
+    icon: "👥",
+    title: "Team & Enterprise",
+    tier: "Team plans only",
+    features: [
+      { icon: "🏢", title: "Team Workspaces", description: "Invite members, assign admin or member roles, manage from one dashboard." },
+      { icon: "📁", title: "Shared Team Collections", description: "Collaborate on curated feed collections across your organization." },
+      { icon: "💬", title: "Slack Bot", description: "Get new articles delivered to Slack channels. Subscribe per channel." },
+      { icon: "🎮", title: "Discord Bot", description: "Same real-time delivery to Discord servers with /feedvine commands." },
+    ],
   },
 ]
 
@@ -342,31 +433,108 @@ const pricingTiers = [
     price: 0,
     annualPrice: 0,
     popular: false,
-    features: ["1 RSS feed", "1 category", "Read/unread tracking", "Basic filters"],
-    cta: "Join Waitlist",
+    features: [
+      "5 RSS feeds & 2 categories",
+      "Read / unread tracking",
+      "Search & basic filters",
+      "Usage analytics dashboard",
+      "Installable PWA",
+    ],
+    cta: "Get Started Free",
   },
   {
-    name: "Pro",
+    name: "Starter",
     price: 6,
     annualPrice: 5,
     popular: false,
-    features: ["Everything in Free, plus:", "5 feeds & 3 categories", "Save articles", "1 collection", "Export to RSS"],
-    cta: "Join Waitlist",
+    features: [
+      "Everything in Free, plus:",
+      "25 feeds & 10 categories",
+      "Save articles for later",
+      "1 public collection",
+      "OPML import & export",
+      "Keyboard shortcuts",
+      "Full-text article search",
+    ],
+    cta: "Start Free Trial",
   },
   {
-    name: "Plus",
-    price: 12,
-    annualPrice: 9,
+    name: "Creator",
+    price: 14,
+    annualPrice: 11,
     popular: true,
-    features: ["Everything in Pro, plus:", "15 feeds & 10 categories", "5 collections", "Advanced filters", "Keyboard shortcuts"],
-    cta: "Join Waitlist",
+    features: [
+      "Everything in Starter, plus:",
+      "100 feeds & 25 categories",
+      "200 AI summaries / mo",
+      "Newsletter export (Beehiiv, MailerLite)",
+      "Scheduled auto-digests",
+      "Digest history & quiet hours",
+      "5 webhooks (Zapier / Make)",
+      "Advanced keyword filters",
+    ],
+    cta: "Start Free Trial",
   },
   {
-    name: "Premium",
-    price: 20,
-    annualPrice: 15,
+    name: "Builder",
+    price: 24,
+    annualPrice: 19,
     popular: false,
-    features: ["Everything in Plus, plus:", "25 feeds & categories", "25 collections", "API Access"],
-    cta: "Join Waitlist",
+    features: [
+      "Everything in Creator, plus:",
+      "Unlimited feeds, categories & collections",
+      "Unlimited AI summaries",
+      "Unlimited webhooks",
+      "Public REST API access",
+      "Priority email support",
+    ],
+    cta: "Start Free Trial",
+  },
+]
+
+const teamPricingTiers = [
+  {
+    name: "Team Starter",
+    price: 99,
+    annualPrice: 79,
+    seats: 5,
+    popular: false,
+    features: [
+      "Everything in Builder, plus:",
+      "5-seat team workspace",
+      "Admin & member roles",
+      "Shared team collections",
+      "Slack bot integration",
+      "Discord bot integration",
+    ],
+    cta: "Start Free Trial",
+  },
+  {
+    name: "Team Pro",
+    price: 199,
+    annualPrice: 159,
+    seats: 15,
+    popular: true,
+    features: [
+      "Everything in Team Starter, plus:",
+      "15-seat team workspace",
+      "Priority email support",
+      "Best value for growing teams",
+    ],
+    cta: "Start Free Trial",
+  },
+  {
+    name: "Team Business",
+    price: 349,
+    annualPrice: 279,
+    seats: 30,
+    popular: false,
+    features: [
+      "Everything in Team Pro, plus:",
+      "30-seat team workspace",
+      "Lowest per-seat cost",
+      "Priority email support",
+    ],
+    cta: "Start Free Trial",
   },
 ]

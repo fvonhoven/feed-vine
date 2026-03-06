@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
 import type { FeedCollection, Feed } from "../types/database"
@@ -6,9 +6,11 @@ import toast from "react-hot-toast"
 import { useSubscription } from "../hooks/useSubscription"
 import { Link } from "react-router-dom"
 import { useAuth } from "../hooks/useAuth"
+import { useTeam } from "../hooks/useTeam"
 
 export default function CollectionsPage() {
   const { user } = useAuth()
+  const { team, myRole } = useTeam()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newCollection, setNewCollection] = useState({
     name: "",
@@ -17,7 +19,8 @@ export default function CollectionsPage() {
     is_public: true,
     output_format: "rss" as "rss" | "json" | "both",
     marketplace_listed: false,
-    tags: "", // State mainly for the input, will be parsed to array
+    tags: "",
+    is_team: false,
   })
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
   const [selectedFeedsForNewCollection, setSelectedFeedsForNewCollection] = useState<string[]>([])
@@ -48,12 +51,13 @@ export default function CollectionsPage() {
   const { getLimit } = useSubscription()
 
   const { data: collections, isLoading: collectionsLoading } = useQuery({
-    queryKey: ["feed-collections"],
+    queryKey: ["feed-collections", team?.id],
     queryFn: async () => {
       if (isDemoMode) {
         return []
       }
 
+      // RLS handles visibility — personal collections by ownership, team collections by membership
       const { data, error } = await supabase
         .from("feed_collections")
         .select(
@@ -70,6 +74,10 @@ export default function CollectionsPage() {
       return data
     },
   })
+
+  const personalCollections = useMemo(() => collections?.filter(c => !c.team_id) || [], [collections])
+  const teamCollections = useMemo(() => collections?.filter(c => c.team_id) || [], [collections])
+  const canManageTeamCollections = myRole === "owner" || myRole === "admin"
 
   const { data: feeds } = useQuery({
     queryKey: ["feeds"],
@@ -108,6 +116,7 @@ export default function CollectionsPage() {
         .from("feed_collections")
         .insert({
           user_id: user.id,
+          team_id: data.collection.is_team && team ? team.id : null,
           name: data.collection.name,
           slug: data.collection.slug,
           description: data.collection.description,
@@ -154,6 +163,7 @@ export default function CollectionsPage() {
         output_format: "rss",
         marketplace_listed: false,
         tags: "",
+        is_team: false,
       })
       setSelectedFeedsForNewCollection([])
     },
@@ -375,6 +385,22 @@ export default function CollectionsPage() {
               />
             </div>
 
+            {team && canManageTeamCollections && (
+              <div className="flex items-center gap-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newCollection.is_team}
+                    onChange={e => setNewCollection({ ...newCollection, is_team: e.target.checked })}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                    Shared with team <span className="text-xs text-gray-500">({team.name})</span>
+                  </span>
+                </label>
+              </div>
+            )}
+
             <div className="flex items-center gap-4">
               <label className="flex items-center">
                 <input
@@ -487,17 +513,68 @@ export default function CollectionsPage() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
         </div>
       ) : collections && collections.length > 0 ? (
-        <div className="space-y-4">
-          {collections.map(collection => {
-            const isOwner = user?.id === collection.user_id
+        <div className="space-y-6">
+          {/* Team Collections */}
+          {teamCollections.length > 0 && (
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-3">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                Team Collections ({teamCollections.length})
+              </h2>
+              <div className="space-y-4">
+                {teamCollections.map(collection => {
+                  const isOwner = canManageTeamCollections
+                  return renderCollectionCard(collection, isOwner, true)
+                })}
+              </div>
+            </div>
+          )}
 
+          {/* Personal Collections */}
+          {personalCollections.length > 0 && (
+            <div>
+              {teamCollections.length > 0 && (
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-3">
+                  My Collections ({personalCollections.length})
+                </h2>
+              )}
+              <div className="space-y-4">
+                {personalCollections.map(collection => {
+                  const isOwner = user?.id === collection.user_id
+                  return renderCollectionCard(collection, isOwner, false)
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-12 text-center">
+          <p className="text-gray-500 dark:text-gray-400">No collections yet. Create your first collection to get started!</p>
+        </div>
+      )}
+    </div>
+  )
+
+  function renderCollectionCard(collection: FeedCollection & { sources?: Array<{ feed: { id: string; title: string; url: string } }> }, isOwner: boolean, isTeamCollection: boolean) {
             return (
               <div key={collection.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                       {collection.name}
-                      {!isOwner && (
+                      {isTeamCollection && (
+                        <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded">
+                          Team
+                        </span>
+                      )}
+                      {!isOwner && !isTeamCollection && (
                         <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 rounded">
                           Seeded
                         </span>
@@ -755,13 +832,5 @@ export default function CollectionsPage() {
                 </div>
               </div>
             )
-          })}
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-12 text-center">
-          <p className="text-gray-500 dark:text-gray-400">No collections yet. Create your first collection to get started!</p>
-        </div>
-      )}
-    </div>
-  )
+  }
 }

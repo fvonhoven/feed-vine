@@ -2,14 +2,14 @@ import { useState, useMemo, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { format as dateFormat, subDays, subHours } from "date-fns"
 import { supabase, isDemoMode } from "../lib/supabase"
-import type { ArticleWithFeed, ScheduledDigest } from "../types/database"
+import type { ArticleWithFeed, ScheduledDigest, DigestHistory } from "../types/database"
 import { useSubscription } from "../hooks/useSubscription"
 import toast from "react-hot-toast"
 import { Link } from "react-router-dom"
 
 type DateRange = "24h" | "7d" | "30d"
 type ExportFormat = "markdown" | "html" | "text"
-type PageTab = "builder" | "schedules"
+type PageTab = "builder" | "schedules" | "history"
 
 // ── Output generators ────────────────────────────────────────────────────────
 
@@ -299,6 +299,9 @@ function Preview({
 // ── Schedule Tab ─────────────────────────────────────────────────────────────
 
 const SCHEDULE_LABELS: Record<string, string> = {
+  hourly: "Every hour",
+  every_6h: "Every 6 hours",
+  every_12h: "Every 12 hours",
   daily: "Daily (9 AM UTC)",
   weekly_monday: "Weekly — Monday",
   weekly_wednesday: "Weekly — Wednesday",
@@ -359,18 +362,24 @@ function ScheduleTab({ collections }: { collections: Array<{ id: string; name: s
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
       const now = new Date()
-      // compute initial next_run_at
+      const hourIntervals: Record<string, number> = { hourly: 1, every_6h: 6, every_12h: 12 }
       const dayMap: Record<string, number> = { weekly_monday: 1, weekly_wednesday: 3, weekly_friday: 5 }
-      const next = new Date(now)
-      next.setUTCHours(9, 0, 0, 0)
-      if (form.schedule === "daily") {
-        if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
+      let next: Date
+      if (hourIntervals[form.schedule]) {
+        next = new Date(now.getTime() + hourIntervals[form.schedule] * 3600_000)
+        next.setUTCMinutes(0, 0, 0)
       } else {
-        const target = dayMap[form.schedule]
-        const cur = next.getUTCDay()
-        let diff = (target - cur + 7) % 7
-        if (diff === 0) diff = 7
-        next.setUTCDate(next.getUTCDate() + diff)
+        next = new Date(now)
+        next.setUTCHours(9, 0, 0, 0)
+        if (form.schedule === "daily") {
+          if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
+        } else {
+          const target = dayMap[form.schedule]
+          const cur = next.getUTCDay()
+          let diff = (target - cur + 7) % 7
+          if (diff === 0) diff = 7
+          next.setUTCDate(next.getUTCDate() + diff)
+        }
       }
       const { error } = await supabase.from("scheduled_digests").insert({
         user_id: user.id,
@@ -633,6 +642,180 @@ function ScheduleTab({ collections }: { collections: Array<{ id: string; name: s
   )
 }
 
+// ── Save-to-history helper ───────────────────────────────────────────────────
+
+async function saveDigestToHistory(opts: {
+  title: string
+  contentHtml: string
+  contentMarkdown: string
+  articleIds: string[]
+  collectionId: string
+  destination: "clipboard" | "beehiiv" | "mailerlite"
+}) {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from("digest_history").insert({
+      user_id: user.id,
+      title: opts.title,
+      content_html: opts.contentHtml,
+      content_markdown: opts.contentMarkdown,
+      article_count: opts.articleIds.length,
+      article_ids: opts.articleIds,
+      source: opts.collectionId && opts.collectionId !== "all" ? "collection" : "all_feeds",
+      collection_id: opts.collectionId && opts.collectionId !== "all" ? opts.collectionId : null,
+      destination: opts.destination,
+    })
+  } catch (err) {
+    console.error("[DigestPage] Failed to save digest history:", err)
+  }
+}
+
+// ── History Tab ─────────────────────────────────────────────────────────────
+
+function HistoryTab() {
+  const qc = useQueryClient()
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const { data: history, isLoading } = useQuery({
+    queryKey: ["digest-history"],
+    queryFn: async () => {
+      if (isDemoMode) return []
+      const { data, error } = await supabase.from("digest_history").select("*").order("created_at", { ascending: false }).limit(50)
+      if (error) throw error
+      return data as DigestHistory[]
+    },
+    enabled: !isDemoMode,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("digest_history").delete().eq("id", id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      toast.success("Digest deleted from history")
+      qc.invalidateQueries({ queryKey: ["digest-history"] })
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const destinationLabel: Record<string, string> = {
+    clipboard: "Clipboard",
+    beehiiv: "Beehiiv",
+    mailerlite: "MailerLite",
+  }
+  const destinationColor: Record<string, string> = {
+    clipboard: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+    beehiiv: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+    mailerlite: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  }
+
+  const handleCopyContent = async (entry: DigestHistory) => {
+    const content = entry.content_markdown || entry.content_html || ""
+    try {
+      await navigator.clipboard.writeText(content)
+      toast.success("Copied to clipboard!")
+    } catch {
+      toast.error("Failed to copy")
+    }
+  }
+
+  if (isLoading) {
+    return <div className="text-center py-12 text-gray-400 text-sm">Loading history...</div>
+  }
+
+  if (!history?.length) {
+    return (
+      <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+        <div className="text-3xl mb-2">📜</div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Digest History</h3>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">Digests you send or export will appear here for future reference.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Digest History</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{history.length} past digest{history.length !== 1 ? "s" : ""}</p>
+        </div>
+      </div>
+
+      {history.map(entry => (
+        <div key={entry.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div
+            className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30"
+            onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-gray-900 dark:text-white text-sm truncate">{entry.title}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${destinationColor[entry.destination] || destinationColor.clipboard}`}>
+                  {destinationLabel[entry.destination] || entry.destination}
+                </span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  {entry.article_count} article{entry.article_count !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                {dateFormat(new Date(entry.created_at), "MMM d, yyyy 'at' h:mm a")}
+                {entry.source === "collection" && " · from collection"}
+              </p>
+            </div>
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${expandedId === entry.id ? "" : "-rotate-90"}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+
+          {expandedId === entry.id && (
+            <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+              <textarea
+                readOnly
+                value={entry.content_markdown || entry.content_html || "(no content saved)"}
+                className="w-full h-48 font-mono text-xs p-3 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-md resize-none focus:outline-none"
+              />
+              <div className="flex items-center gap-2 mt-3">
+                <button
+                  onClick={() => handleCopyContent(entry)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 text-white rounded-md text-xs font-medium hover:bg-primary-700 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                  Re-copy
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm("Delete this digest from history?")) deleteMutation.mutate(entry.id)
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 rounded-md text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export default function DigestPage() {
@@ -722,6 +905,14 @@ export default function DigestPage() {
     try {
       await navigator.clipboard.writeText(output)
       toast.success("Copied to clipboard!")
+      await saveDigestToHistory({
+        title: digestTitle,
+        contentHtml: generateHTML(digestTitle, selectedArticles),
+        contentMarkdown: generateMarkdown(digestTitle, selectedArticles),
+        articleIds: selectedArticles.map(a => a.id),
+        collectionId: collectionId,
+        destination: "clipboard",
+      })
     } catch {
       toast.error("Failed to copy — try selecting the text manually.")
     }
@@ -771,8 +962,16 @@ export default function DigestPage() {
       } else {
         toast.success("Draft created in Beehiiv!")
       }
+      saveDigestToHistory({
+        title: digestTitle,
+        contentHtml: generateHTML(digestTitle, selectedArticles),
+        contentMarkdown: generateMarkdown(digestTitle, selectedArticles),
+        articleIds: selectedArticles.map(a => a.id),
+        collectionId: collectionId,
+        destination: "beehiiv",
+      })
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Failed to send to Beehiiv")
     },
   })
@@ -833,8 +1032,16 @@ export default function DigestPage() {
       } else {
         toast.success("Draft created in MailerLite!")
       }
+      saveDigestToHistory({
+        title: digestTitle,
+        contentHtml: generateHTML(digestTitle, selectedArticles),
+        contentMarkdown: generateMarkdown(digestTitle, selectedArticles),
+        articleIds: selectedArticles.map(a => a.id),
+        collectionId: collectionId,
+        destination: "mailerlite",
+      })
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Failed to send to MailerLite")
     },
   })
@@ -857,6 +1064,7 @@ export default function DigestPage() {
           [
             ["builder", "📄 Digest Builder"],
             ["schedules", "⏰ Schedules"],
+            ["history", "📜 History"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -873,7 +1081,9 @@ export default function DigestPage() {
         ))}
       </div>
 
-      {activeTab === "schedules" ? (
+      {activeTab === "history" ? (
+        <HistoryTab />
+      ) : activeTab === "schedules" ? (
         <ScheduleTab collections={collections} />
       ) : (
         <>

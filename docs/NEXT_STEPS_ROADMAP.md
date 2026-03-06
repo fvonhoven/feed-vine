@@ -21,8 +21,16 @@
 | Collections/marketplace        | ❌                 | ❌                 | ❌      | ❌              | ✅                                  |
 | Webhook system                 | ❌                 | ❌                 | ❌      | ❌              | ✅                                  |
 | Public API                     | ❌                 | ✅                 | ✅      | ❌              | ✅ (Builder)                        |
-| Email newsletter subscriptions | ❌                 | ❌                 | ✅      | ✅              | ❌                                  |
-| Team workspaces                | ❌                 | ❌                 | ❌      | ❌              | ❌ → **Planned**                    |
+| Email newsletter subscriptions | ❌                 | ❌                 | ✅      | ✅              | ❌ (deferred)                       |
+| Team workspaces                | ❌                 | ❌                 | ❌      | ❌              | ✅ (Team $99–$349/mo, 3 tiers)      |
+| Shared team collections        | ❌                 | ❌                 | ❌      | ❌              | ✅ (Team plans)                     |
+| Slack bot                      | ❌                 | ❌                 | ❌      | ❌              | ✅ (Team plans)                     |
+| Discord bot                    | ❌                 | ❌                 | ❌      | ❌              | ✅ (Team plans)                     |
+| Digest history                 | ❌                 | ❌                 | ❌      | ❌              | ✅ (Pro+)                           |
+| PWA / installable app          | ❌                 | ❌                 | ❌      | ❌              | ✅                                  |
+| Onboarding wizard              | ❌                 | ❌                 | ❌      | ❌              | ✅                                  |
+| Usage analytics / feed health  | ❌                 | ❌                 | ❌      | ❌              | ✅                                  |
+| Quiet hours / digest controls  | ❌                 | ❌                 | ❌      | ❌              | ✅                                  |
 
 ---
 
@@ -30,11 +38,13 @@
 
 - **Scheduled auto-draft** — Only RSS reader that auto-creates newsletter drafts in Beehiiv + MailerLite
 - **Webhook system** — No competitor offers Zapier/Make-style webhooks
-- **Newsletter digest builder** — One-click export to Beehiiv + MailerLite
+- **Newsletter digest builder** — One-click export to Beehiiv + MailerLite with full digest history
 - **AI summaries at a fair price** — Competitor charges $18/mo; FeedVine includes it at $14/mo (Creator+)
 - **Keyword filters** — On par with Inoreader's flagship feature
-- **Collections & marketplace** — Curated shared feed lists
+- **Collections & marketplace** — Curated shared feed lists + shared team collections
 - **Public API** — Full REST API with hashed key management and rate limiting
+- **Slack & Discord bots** — Interactive slash commands for RSS-to-channel delivery (Team plans)
+- **Team workspaces** — Full B2B offering with 3 tiers, shared collections, and bot integrations
 
 ---
 
@@ -59,15 +69,30 @@
 | 8   | **Keyword filter rules**                       | Power user retention; Creator+               | 2–3 days | ✅ Done |
 | 9   | **Scheduled auto-draft to Beehiiv/MailerLite** | Set-and-forget newsletter workflow; Creator+ | 2–3 days | ✅ Done |
 
-### 🟢 Phase C — Growth & B2B
+### 🟢 Phase C — Growth & B2B ✅ Fully Deployed
 
-| #   | Feature                 | Impact                                      | Effort    | Status     |
-| --- | ----------------------- | ------------------------------------------- | --------- | ---------- |
-| 10  | **Team workspaces**     | Path to $10k MRR; $99/mo team plan, 5 seats | 1–2 weeks | 🔲 Planned |
-| 11  | **Slack bot**           | B2B/team use case                           | 2–3 days  | 🔲 Planned |
-| 12  | **Discord bot**         | Communities                                 | 1–2 days  | 🔲 Planned |
-| 13  | **Digest history**      | Reference past digests                      | 1 day     | 🔲 Planned |
-| 14  | **Email subscriptions** | Feedbin/Readwise differentiator             | 2 days    | 🔲 Planned |
+| #   | Feature                     | Impact                                                           | Effort    | Status      |
+| --- | --------------------------- | ---------------------------------------------------------------- | --------- | ----------- |
+| 10  | **Team workspaces**         | Path to $10k MRR; 3 tiers: $99/5 seats, $199/15, $349/30         | 1–2 weeks | ✅ Done     |
+| 11  | **Shared team collections** | Fixes Team Starter false advertising; core collaboration feature | 3–5 days  | ✅ Done     |
+| 12  | **Slack bot**               | Highest B2B acquisition lever; gate behind Team plan             | 2–3 days  | ✅ Done     |
+| 13  | **Email newsletter inbox**  | Feedbin/Readwise parity; new audience segment; Creator+          | 3–4 days  | ⏸️ Deferred |
+| 14  | **Digest history**          | Reference past digests; low effort, high retention               | 1 day     | ✅ Done     |
+| 15  | **Discord bot**             | Communities                                                      | 1–2 days  | ✅ Done     |
+
+**Deployment details**: All edge functions deployed (`manage-team`, `slack-oauth`, `slack-commands`, `slack-deliver`, `discord-oauth`, `discord-commands`, `discord-deliver`). RLS chain fixed with `SECURITY DEFINER` helpers (`is_team_member`, `is_team_admin`). Migrations 023–029 applied.
+
+### 🔵 Phase D — Retention & Polish ✅ Fully Deployed
+
+| #   | Feature                        | Impact                                           | Effort   | Status      |
+| --- | ------------------------------ | ------------------------------------------------ | -------- | ----------- |
+| 16  | **Email newsletter inbox**     | Feedbin/Readwise parity; moved from Phase C      | 3–4 days | ⏸️ Deferred |
+| 17  | **Mobile PWA / responsive UI** | Installable app, fast loads via service worker   | 1 day    | ✅ Done     |
+| 18  | **Onboarding flow**            | Reduce churn in first 48h; guided setup wizard   | 1 day    | ✅ Done     |
+| 19  | **Usage analytics dashboard**  | Reading stats, streak, top feeds, feed health    | 1–2 days | ✅ Done     |
+| 20  | **Notification preferences**   | Quiet hours, expanded digest frequencies         | 1 day    | ✅ Done     |
+
+**Deployment details**: PWA via `vite-plugin-pwa` with Workbox caching. Onboarding tracks completion in `user_metadata`. Analytics uses server-side Postgres RPCs (`analytics-stats` edge function). Digest schedules expanded to 7 frequencies (hourly through weekly). Quiet hours stored in `user_preferences` table. Migrations 030–031 applied.
 
 ---
 
@@ -77,4 +102,12 @@
 - **AI summaries** are the single highest perceived-value add. Competitor charges $18/mo specifically for this.
 - **Full-text fetch** solves the frustration of feeds that only publish summaries (most enterprise blogs do this).
 - **Scheduled auto-draft** turns the manual digest builder into a zero-effort retention driver.
-- **Team workspaces** is the single biggest revenue lever — shared collections + seat-based billing at $99/mo.
+- **Team workspaces** are live across 3 tiers ($99/$199/$349/mo) with shared team collections for true collaboration.
+- **Slack & Discord bots** deliver articles to team channels with interactive `/feedvine` slash commands — gated behind Team plans.
+- **Digest history** saves every exported or auto-drafted digest for future reference and re-use.
+- **Email newsletter inbox** is deferred — closes the gap vs Feedbin/Readwise Reader but was deprioritized in favor of B2B features.
+- **Phase C infrastructure**: RLS policies use `SECURITY DEFINER` helper functions to avoid multi-level policy chains. Team plan check exempts `get`/`accept` actions so all users can check for pending invites.
+- **PWA**: Manifest + Workbox service worker for app shell caching; network-first strategy for Supabase API calls.
+- **Onboarding**: 4-step wizard (Welcome → Add feeds/OPML → Create collection → Done). Tracks completion in Supabase `user_metadata.onboarding_complete`.
+- **Analytics**: Server-side RPCs for reading stats, streak, top feeds, and feed health. Recharts for the 30-day reads chart.
+- **Quiet hours**: `user_preferences` table stores per-user quiet hours (start/end/timezone). `send-scheduled-digest` skips delivery during quiet hours.

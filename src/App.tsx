@@ -14,12 +14,16 @@ import SettingsPage from "./pages/SettingsPage"
 import ApiKeysPage from "./pages/ApiKeysPage"
 import WebhooksPage from "./pages/WebhooksPage"
 import DigestPage from "./pages/DigestPage"
+import TeamPage from "./pages/TeamPage"
 import SearchPage from "./pages/SearchPage"
 import PricingPage from "./pages/PricingPage"
 import TermsPage from "./pages/TermsPage"
 import PrivacyPage from "./pages/PrivacyPage"
 import AuthPage from "./pages/AuthPage"
 import LandingPage from "./pages/LandingPage"
+import OnboardingPage from "./pages/OnboardingPage"
+import AnalyticsPage from "./pages/AnalyticsPage"
+import InstallPrompt from "./components/InstallPrompt"
 
 function App() {
   const { user, loading } = useAuth()
@@ -48,6 +52,20 @@ function App() {
     )
   }
 
+  const needsOnboarding = !user.user_metadata?.onboarding_complete
+
+  if (needsOnboarding) {
+    return (
+      <>
+        <Routes>
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="*" element={<Navigate to="/onboarding" replace />} />
+        </Routes>
+        <Toaster position="top-right" />
+      </>
+    )
+  }
+
   return (
     <>
       <Layout>
@@ -66,12 +84,15 @@ function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/api-keys" element={<ApiKeysPage />} />
           <Route path="/webhooks" element={<WebhooksPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/team" element={<TeamPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
       <Toaster position="top-right" />
+      <InstallPrompt />
     </>
   )
 }

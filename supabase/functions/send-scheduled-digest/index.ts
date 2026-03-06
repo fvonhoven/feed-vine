@@ -31,13 +31,22 @@ function generateHTML(
 
 function computeNextRunAt(schedule: string): string {
   const now = new Date()
+  const hourIntervals: Record<string, number> = { hourly: 1, every_6h: 6, every_12h: 12 }
   const dayMap: Record<string, number> = { weekly_monday: 1, weekly_wednesday: 3, weekly_friday: 5 }
+
+  if (hourIntervals[schedule]) {
+    const next = new Date(now.getTime() + hourIntervals[schedule] * 3600_000)
+    next.setUTCMinutes(0, 0, 0)
+    return next.toISOString()
+  }
+
   if (schedule === "daily") {
     const next = new Date(now)
     next.setUTCHours(9, 0, 0, 0)
     if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
     return next.toISOString()
   }
+
   const targetDay = dayMap[schedule]
   const next = new Date(now)
   next.setUTCHours(9, 0, 0, 0)
@@ -46,6 +55,39 @@ function computeNextRunAt(schedule: string): string {
   if (daysUntil === 0) daysUntil = 7
   next.setUTCDate(next.getUTCDate() + daysUntil)
   return next.toISOString()
+}
+
+function computeCutoff(schedule: string): string {
+  const hourIntervals: Record<string, number> = { hourly: 1, every_6h: 6, every_12h: 12 }
+  if (hourIntervals[schedule]) {
+    return new Date(Date.now() - hourIntervals[schedule] * 3600_000).toISOString()
+  }
+  if (schedule === "daily") return subHours(new Date(), 24).toISOString()
+  return subDays(new Date(), 7).toISOString()
+}
+
+function isInQuietHours(
+  prefs: { quiet_hours_start: number | null; quiet_hours_end: number | null; quiet_hours_timezone: string } | null
+): boolean {
+  if (!prefs || prefs.quiet_hours_start === null || prefs.quiet_hours_end === null) return false
+  const nowUTC = new Date()
+  const tzOffset = getTimezoneOffsetHours(prefs.quiet_hours_timezone)
+  const localHour = (nowUTC.getUTCHours() + tzOffset + 24) % 24
+  const start = prefs.quiet_hours_start
+  const end = prefs.quiet_hours_end
+  if (start <= end) return localHour >= start && localHour < end
+  return localHour >= start || localHour < end
+}
+
+function getTimezoneOffsetHours(tz: string): number {
+  try {
+    const now = new Date()
+    const utcStr = now.toLocaleString("en-US", { timeZone: "UTC" })
+    const tzStr = now.toLocaleString("en-US", { timeZone: tz })
+    return (new Date(tzStr).getTime() - new Date(utcStr).getTime()) / 3600_000
+  } catch {
+    return 0
+  }
 }
 
 serve(async req => {
@@ -78,8 +120,19 @@ serve(async req => {
 
     for (const schedule of schedules) {
       try {
-        // Determine time window based on schedule type
-        const cutoff = schedule.schedule === "daily" ? subHours(new Date(), 24).toISOString() : subDays(new Date(), 7).toISOString()
+        // Check quiet hours for this user
+        const { data: prefs } = await supabaseAdmin
+          .from("user_preferences")
+          .select("quiet_hours_start, quiet_hours_end, quiet_hours_timezone")
+          .eq("user_id", schedule.user_id)
+          .maybeSingle()
+
+        if (isInQuietHours(prefs)) {
+          results.push({ id: schedule.id, success: true, error: "skipped: quiet hours" })
+          continue
+        }
+
+        const cutoff = computeCutoff(schedule.schedule)
 
         // Fetch articles
         let query = supabaseAdmin
@@ -179,6 +232,23 @@ serve(async req => {
             }
           }
         }
+
+        // Save to digest history
+        const markdownContent = articleList
+          .map(a => `## [${a.title}](${a.url})\n\n${a.description ? a.description.replace(/<[^>]*>/g, "").trim() : ""}\n\n*${a.feed_title} · ${dateFormat(new Date(a.published_at), "MMM d")}*`)
+          .join("\n\n---\n\n")
+
+        await supabaseAdmin.from("digest_history").insert({
+          user_id: schedule.user_id,
+          title: digestTitle,
+          content_html: contentHtml,
+          content_markdown: `# ${digestTitle}\n\n---\n\n${markdownContent}`,
+          article_count: articleList.length,
+          article_ids: articles.map((a: { id: string }) => a.id),
+          source: schedule.collection_id ? "collection" : "all_feeds",
+          collection_id: schedule.collection_id,
+          destination: schedule.platform,
+        })
 
         // Update last_run_at and next_run_at
         await supabaseAdmin

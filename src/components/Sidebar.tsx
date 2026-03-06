@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
 import type { Category, Feed, FeedCollection } from "../types/database"
 import { useAuth } from "../hooks/useAuth"
+import { useSubscription } from "../hooks/useSubscription"
+import { useTeam } from "../hooks/useTeam"
 
 interface SidebarProps {
   isOpen: boolean
@@ -13,6 +15,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: SidebarProps) {
   const location = useLocation()
+  const { hasFeature } = useSubscription()
 
   const { data: categories } = useQuery({
     queryKey: ["categories"],
@@ -39,6 +42,22 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
   })
 
   const { user } = useAuth()
+  const { team } = useTeam()
+
+  const { data: teamCollections } = useQuery({
+    queryKey: ["sidebar-team-collections", team?.id],
+    queryFn: async () => {
+      if (!team || isDemoMode) return []
+      const { data, error } = await supabase
+        .from("feed_collections")
+        .select("id, name, slug")
+        .eq("team_id", team.id)
+        .order("name")
+      if (error) throw error
+      return data as Pick<FeedCollection, "id" | "name" | "slug">[]
+    },
+    enabled: !!team && !isDemoMode,
+  })
 
   const { data: subscribedCollections } = useQuery({
     queryKey: ["sidebar-subscriptions"],
@@ -268,7 +287,66 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
                 {!isCollapsed && "Newsletter"}
               </span>
             </Link>
+
+            <Link
+              to="/analytics"
+              className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
+                isActive("/analytics")
+                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+              title={isCollapsed ? "Analytics" : ""}
+            >
+              <span className="flex items-center">
+                <svg className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                {!isCollapsed && "Analytics"}
+              </span>
+            </Link>
+
+            {hasFeature("teamWorkspaces") && (
+              <Link
+                to="/team"
+                className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
+                  location.pathname === "/team"
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+                title={isCollapsed ? "Team" : ""}
+              >
+                <span className="flex items-center">
+                  <svg className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  {!isCollapsed && "Team"}
+                </span>
+              </Link>
+            )}
           </nav>
+
+          {!isCollapsed && teamCollections && teamCollections.length > 0 && (
+            <>
+              <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-3">Team Collections</h2>
+              <nav className="space-y-1">
+                {teamCollections.map(collection => (
+                  <Link
+                    key={collection.id}
+                    to={`/collection/${collection.id}`}
+                    className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                  >
+                    <span className="truncate">{collection.name}</span>
+                    <span className="text-xs text-blue-500 dark:text-blue-400">team</span>
+                  </Link>
+                ))}
+              </nav>
+            </>
+          )}
 
           {!isCollapsed && subscribedCollections && subscribedCollections.length > 0 && (
             <>
@@ -498,7 +576,67 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
                   Webhooks
                 </span>
               </Link>
+
+              <Link
+                to="/analytics"
+                onClick={onClose}
+                className={`flex items-center justify-between px-3 py-2 text-sm rounded-md ${
+                  isActive("/analytics")
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <span className="flex items-center">
+                  <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Analytics
+                </span>
+              </Link>
+
+              {hasFeature("teamWorkspaces") && (
+                <Link
+                  to="/team"
+                  onClick={onClose}
+                  className={`flex items-center justify-between px-3 py-2 text-sm rounded-md ${
+                    isActive("/team")
+                      ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <span className="flex items-center">
+                    <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                    Team
+                  </span>
+                </Link>
+              )}
             </nav>
+
+            {teamCollections && teamCollections.length > 0 && (
+              <>
+                <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-3">Team Collections</h2>
+                <nav className="space-y-1">
+                  {teamCollections.map(collection => (
+                    <Link
+                      key={collection.id}
+                      to={`/collection/${collection.id}`}
+                      onClick={onClose}
+                      className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                    >
+                      <span className="truncate">{collection.name}</span>
+                      <span className="text-xs text-blue-500 dark:text-blue-400">team</span>
+                    </Link>
+                  ))}
+                </nav>
+              </>
+            )}
 
             {subscribedCollections && subscribedCollections.length > 0 && (
               <>

@@ -45,6 +45,10 @@ export const PRICING_PLANS = {
       scheduledDigest: false,
       prioritySupport: false,
       apiAccess: false,
+      maxTeamMembers: 0,
+      teamWorkspaces: false,
+      slackBot: false,
+      discordBot: false,
     },
   },
   PRO: {
@@ -74,6 +78,10 @@ export const PRICING_PLANS = {
       scheduledDigest: false,
       prioritySupport: false,
       apiAccess: false,
+      maxTeamMembers: 0,
+      teamWorkspaces: false,
+      slackBot: false,
+      discordBot: false,
     },
   },
   PLUS: {
@@ -103,6 +111,10 @@ export const PRICING_PLANS = {
       scheduledDigest: true,
       prioritySupport: false,
       apiAccess: false,
+      maxTeamMembers: 0,
+      teamWorkspaces: false,
+      slackBot: false,
+      discordBot: false,
     },
   },
   PREMIUM: {
@@ -132,6 +144,109 @@ export const PRICING_PLANS = {
       scheduledDigest: true,
       prioritySupport: true,
       apiAccess: true,
+      maxTeamMembers: 0,
+      teamWorkspaces: false,
+      slackBot: false,
+      discordBot: false,
+    },
+  },
+  TEAM: {
+    id: "team",
+    name: "Team Starter",
+    monthlyPrice: 99,
+    annualPrice: 79, // $948/year — 20% savings
+    monthlyPriceId: import.meta.env.VITE_STRIPE_TEAM_MONTHLY_PRICE_ID,
+    annualPriceId: import.meta.env.VITE_STRIPE_TEAM_ANNUAL_PRICE_ID,
+    features: {
+      maxFeeds: -1,
+      maxCategories: -1,
+      maxCollections: -1,
+      maxWebhooks: -1,
+      maxAiSummaries: -1,
+      readTracking: true,
+      basicFilters: true,
+      savedArticles: true,
+      advancedFilters: true,
+      exportRSS: true,
+      keyboardShortcuts: true,
+      articleSearch: true,
+      fullTextFetch: true,
+      webhooks: true,
+      aiSummaries: true,
+      newsletterExport: true,
+      scheduledDigest: true,
+      prioritySupport: true,
+      apiAccess: true,
+      maxTeamMembers: 5,
+      teamWorkspaces: true,
+      slackBot: true,
+      discordBot: true,
+    },
+  },
+  TEAM_PRO: {
+    id: "team_pro",
+    name: "Team Pro",
+    monthlyPrice: 199,
+    annualPrice: 159, // $1,908/year — 20% savings
+    monthlyPriceId: import.meta.env.VITE_STRIPE_TEAM_PRO_MONTHLY_PRICE_ID,
+    annualPriceId: import.meta.env.VITE_STRIPE_TEAM_PRO_ANNUAL_PRICE_ID,
+    features: {
+      maxFeeds: -1,
+      maxCategories: -1,
+      maxCollections: -1,
+      maxWebhooks: -1,
+      maxAiSummaries: -1,
+      readTracking: true,
+      basicFilters: true,
+      savedArticles: true,
+      advancedFilters: true,
+      exportRSS: true,
+      keyboardShortcuts: true,
+      articleSearch: true,
+      fullTextFetch: true,
+      webhooks: true,
+      aiSummaries: true,
+      newsletterExport: true,
+      scheduledDigest: true,
+      prioritySupport: true,
+      apiAccess: true,
+      maxTeamMembers: 15,
+      teamWorkspaces: true,
+      slackBot: true,
+      discordBot: true,
+    },
+  },
+  TEAM_BUSINESS: {
+    id: "team_business",
+    name: "Team Business",
+    monthlyPrice: 349,
+    annualPrice: 279, // $3,348/year — 20% savings
+    monthlyPriceId: import.meta.env.VITE_STRIPE_TEAM_BUSINESS_MONTHLY_PRICE_ID,
+    annualPriceId: import.meta.env.VITE_STRIPE_TEAM_BUSINESS_ANNUAL_PRICE_ID,
+    features: {
+      maxFeeds: -1,
+      maxCategories: -1,
+      maxCollections: -1,
+      maxWebhooks: -1,
+      maxAiSummaries: -1,
+      readTracking: true,
+      basicFilters: true,
+      savedArticles: true,
+      advancedFilters: true,
+      exportRSS: true,
+      keyboardShortcuts: true,
+      articleSearch: true,
+      fullTextFetch: true,
+      webhooks: true,
+      aiSummaries: true,
+      newsletterExport: true,
+      scheduledDigest: true,
+      prioritySupport: true,
+      apiAccess: true,
+      maxTeamMembers: 30,
+      teamWorkspaces: true,
+      slackBot: true,
+      discordBot: true,
     },
   },
 } as const
@@ -146,7 +261,10 @@ export function hasFeatureAccess(userPlan: PlanId, feature: keyof PlanFeatures):
 }
 
 // Helper to get plan limits
-export function getPlanLimit(userPlan: PlanId, limit: "maxFeeds" | "maxCategories" | "maxCollections" | "maxWebhooks" | "maxAiSummaries"): number {
+export function getPlanLimit(
+  userPlan: PlanId,
+  limit: "maxFeeds" | "maxCategories" | "maxCollections" | "maxWebhooks" | "maxAiSummaries" | "maxTeamMembers",
+): number {
   return PRICING_PLANS[userPlan].features[limit]
 }
 
@@ -226,6 +344,15 @@ export function getPlanFeaturesArray(planId: PlanId): string[] {
   }
   if (features.prioritySupport) {
     featureList.push("Priority support")
+  }
+  if (features.teamWorkspaces) {
+    featureList.push(`Team workspace — up to ${features.maxTeamMembers} seats`)
+  }
+  if (features.slackBot) {
+    featureList.push("Slack bot integration")
+  }
+  if (features.discordBot) {
+    featureList.push("Discord bot integration")
   }
 
   return featureList

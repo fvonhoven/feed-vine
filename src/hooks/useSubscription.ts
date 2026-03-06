@@ -63,6 +63,7 @@ export function useSubscription() {
     plan,
     // Helper functions
     hasFeature: (feature: keyof PlanFeatures) => hasFeatureAccess(planId, feature),
-    getLimit: (limit: "maxFeeds" | "maxCategories" | "maxCollections" | "maxWebhooks" | "maxAiSummaries") => getPlanLimit(planId, limit),
+    getLimit: (limit: "maxFeeds" | "maxCategories" | "maxCollections" | "maxWebhooks" | "maxAiSummaries" | "maxTeamMembers") =>
+      getPlanLimit(planId, limit),
   }
 }
