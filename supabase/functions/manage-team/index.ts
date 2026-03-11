@@ -6,6 +6,35 @@ const err = (msg: string, status = 400) =>
 
 const ok = (data: unknown) => new Response(JSON.stringify(data), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 })
 
+const SEAT_LIMITS: Record<string, number> = {
+  team: 5,
+  team_pro: 15,
+  team_business: 30,
+}
+
+/**
+ * Check whether a team has room for another member.
+ * Looks up the team owner's plan and compares current member count against the cap.
+ */
+async function checkSeatLimit(
+  sb: ReturnType<typeof createClient>,
+  teamId: string,
+): Promise<{ allowed: boolean; message: string }> {
+  const { data: team } = await sb.from("teams").select("owner_id").eq("id", teamId).single()
+  if (!team) return { allowed: false, message: "Team not found" }
+
+  const { data: sub } = await sb.from("subscriptions").select("plan_id").eq("user_id", team.owner_id).single()
+  const planId = sub?.plan_id ?? ""
+  const maxSeats = SEAT_LIMITS[planId]
+  if (maxSeats === undefined) return { allowed: false, message: "Team owner does not have a valid Team plan" }
+
+  const { count } = await sb.from("team_members").select("id", { count: "exact", head: true }).eq("team_id", teamId)
+  if ((count ?? 0) >= maxSeats) {
+    return { allowed: false, message: `Team is at its ${maxSeats}-seat limit. Upgrade to add more members.` }
+  }
+  return { allowed: true, message: "" }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders })
 
@@ -80,6 +109,10 @@ Deno.serve(async (req: Request) => {
       if (!email?.trim()) return err("Email is required")
       const { data: m } = await sb.from("team_members").select("role").eq("team_id", team_id).eq("user_id", user.id).single()
       if (!m || !["owner", "admin"].includes(m.role)) return err("Only owner/admin can invite members", 403)
+
+      const seatCheck = await checkSeatLimit(sb, team_id)
+      if (!seatCheck.allowed) return err(seatCheck.message, 403)
+
       const { data: invite, error: iErr } = await sb
         .from("team_invites")
         .upsert({ team_id, invited_by: user.id, email: email.trim().toLowerCase(), role }, { onConflict: "team_id,email" })
@@ -97,6 +130,10 @@ Deno.serve(async (req: Request) => {
         await sb.from("team_invites").update({ status: "expired" }).eq("id", invite.id)
         return err("This invite has expired")
       }
+
+      const seatCheck = await checkSeatLimit(sb, invite.team_id)
+      if (!seatCheck.allowed) return err(seatCheck.message, 403)
+
       await Promise.all([
         sb.from("team_members").upsert({ team_id: invite.team_id, user_id: user.id, role: invite.role }, { onConflict: "team_id,user_id" }),
         sb.from("team_invites").update({ status: "accepted" }).eq("id", invite.id),

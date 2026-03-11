@@ -1,6 +1,44 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
+const DISCORD_PUBLIC_KEY = Deno.env.get("DISCORD_PUBLIC_KEY") ?? ""
+
+/** Convert a hex string to Uint8Array */
+function hexToUint8Array(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16)
+  }
+  return bytes
+}
+
+/** Verify Discord Ed25519 request signature */
+async function verifyDiscordSignature(
+  req: Request,
+  rawBody: string,
+): Promise<boolean> {
+  const signature = req.headers.get("x-signature-ed25519")
+  const timestamp = req.headers.get("x-signature-timestamp")
+
+  if (!signature || !timestamp || !DISCORD_PUBLIC_KEY) return false
+
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      hexToUint8Array(DISCORD_PUBLIC_KEY),
+      { name: "Ed25519", namedCurve: "Ed25519" },
+      false,
+      ["verify"],
+    )
+
+    const message = new TextEncoder().encode(timestamp + rawBody)
+    return await crypto.subtle.verify("Ed25519", key, hexToUint8Array(signature), message)
+  } catch (e) {
+    console.error("Signature verification error:", e)
+    return false
+  }
+}
+
 /**
  * Handles Discord interaction webhook for /feedvine slash commands.
  * Discord requires a response within 3 seconds, so we ACK immediately
@@ -12,7 +50,14 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json()
+    const rawBody = await req.text()
+
+    const isValid = await verifyDiscordSignature(req, rawBody)
+    if (!isValid) {
+      return new Response("Invalid request signature", { status: 401 })
+    }
+
+    const body = JSON.parse(rawBody)
 
     // Discord sends a PING to verify the endpoint
     if (body.type === 1) {

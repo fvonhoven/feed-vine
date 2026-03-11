@@ -70,7 +70,8 @@ export default function LandingPage() {
             The RSS Reader That Does More
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
-            AI summaries, newsletter auto-drafts to Beehiiv & MailerLite, Slack & Discord bots, team workspaces, public API, and a feed marketplace — all in one modern RSS reader.
+            AI summaries, newsletter auto-drafts to Beehiiv & MailerLite, Slack & Discord bots, team workspaces, public API, and a feed marketplace —
+            all in one modern RSS reader.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -433,13 +434,7 @@ const pricingTiers = [
     price: 0,
     annualPrice: 0,
     popular: false,
-    features: [
-      "5 RSS feeds & 2 categories",
-      "Read / unread tracking",
-      "Search & basic filters",
-      "Usage analytics dashboard",
-      "Installable PWA",
-    ],
+    features: ["5 RSS feeds & 2 categories", "Read / unread tracking", "Search & basic filters", "Usage analytics dashboard", "Installable PWA"],
     cta: "Get Started Free",
   },
   {
@@ -515,12 +510,7 @@ const teamPricingTiers = [
     annualPrice: 159,
     seats: 15,
     popular: true,
-    features: [
-      "Everything in Team Starter, plus:",
-      "15-seat team workspace",
-      "Priority email support",
-      "Best value for growing teams",
-    ],
+    features: ["Everything in Team Starter, plus:", "15-seat team workspace", "Priority email support", "Best value for growing teams"],
     cta: "Start Free Trial",
   },
   {
@@ -529,12 +519,7 @@ const teamPricingTiers = [
     annualPrice: 279,
     seats: 30,
     popular: false,
-    features: [
-      "Everything in Team Pro, plus:",
-      "30-seat team workspace",
-      "Lowest per-seat cost",
-      "Priority email support",
-    ],
+    features: ["Everything in Team Pro, plus:", "30-seat team workspace", "Lowest per-seat cost", "Priority email support"],
     cta: "Start Free Trial",
   },
 ]
