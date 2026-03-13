@@ -22,7 +22,7 @@
 | Webhook system                 | ❌                 | ❌                 | ❌      | ❌              | ✅                                  |
 | Public API                     | ❌                 | ✅                 | ✅      | ❌              | ✅ (Builder)                        |
 | Email newsletter subscriptions | ❌                 | ❌                 | ✅      | ✅              | ❌ (deferred)                       |
-| Team workspaces                | ❌                 | ❌                 | ❌      | ❌              | ✅ (Team $99–$349/mo, 3 tiers)      |
+| Team workspaces                | ❌                 | ❌                 | ❌      | ❌              | ✅ (Team $99–$329/mo, 3 tiers)      |
 | Shared team collections        | ❌                 | ❌                 | ❌      | ❌              | ✅ (Team plans)                     |
 | Slack bot                      | ❌                 | ❌                 | ❌      | ❌              | ✅ (Team plans)                     |
 | Discord bot                    | ❌                 | ❌                 | ❌      | ❌              | ✅ (Team plans)                     |
@@ -73,7 +73,7 @@
 
 | #   | Feature                     | Impact                                                           | Effort    | Status      |
 | --- | --------------------------- | ---------------------------------------------------------------- | --------- | ----------- |
-| 10  | **Team workspaces**         | Path to $10k MRR; 3 tiers: $99/5 seats, $199/15, $349/30         | 1–2 weeks | ✅ Done     |
+| 10  | **Team workspaces**         | Path to $10k MRR; 3 tiers: $99/5 seats, $199/15, $329/30         | 1–2 weeks | ✅ Done     |
 | 11  | **Shared team collections** | Fixes Team Starter false advertising; core collaboration feature | 3–5 days  | ✅ Done     |
 | 12  | **Slack bot**               | Highest B2B acquisition lever; gate behind Team plan             | 2–3 days  | ✅ Done     |
 | 13  | **Email newsletter inbox**  | Feedbin/Readwise parity; new audience segment; Creator+          | 3–4 days  | ⏸️ Deferred |
@@ -102,7 +102,7 @@
 - **AI summaries** are the single highest perceived-value add. Competitor charges $18/mo specifically for this.
 - **Full-text fetch** solves the frustration of feeds that only publish summaries (most enterprise blogs do this).
 - **Scheduled auto-draft** turns the manual digest builder into a zero-effort retention driver.
-- **Team workspaces** are live across 3 tiers ($99/$199/$349/mo) with shared team collections for true collaboration.
+- **Team workspaces** are live across 3 tiers ($99/$199/$329/mo) with shared team collections for true collaboration.
 - **Slack & Discord bots** deliver articles to team channels with interactive `/feedvine` slash commands — gated behind Team plans.
 - **Digest history** saves every exported or auto-drafted digest for future reference and re-use.
 - **Email newsletter inbox** is deferred — closes the gap vs Feedbin/Readwise Reader but was deprioritized in favor of B2B features.

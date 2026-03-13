@@ -63,9 +63,9 @@ Team plan products have **not** been created in Stripe yet. Individual plans wor
 
 | Product | Monthly | Annual | Seats | Secrets Needed |
 |---|---|---|---|---|
-| Team Starter | $99/mo | $79/mo ($948/yr) | 5 | `STRIPE_TEAM_MONTHLY_PRICE_ID`, `STRIPE_TEAM_ANNUAL_PRICE_ID` |
-| Team Pro | $199/mo | $159/mo ($1,908/yr) | 15 | `STRIPE_TEAM_PRO_MONTHLY_PRICE_ID`, `STRIPE_TEAM_PRO_ANNUAL_PRICE_ID` |
-| Team Business | $349/mo | $279/mo ($3,348/yr) | 30 | `STRIPE_TEAM_BUSINESS_MONTHLY_PRICE_ID`, `STRIPE_TEAM_BUSINESS_ANNUAL_PRICE_ID` |
+| Team Starter | $99/mo | $69/mo ($828/yr) | 5 | `STRIPE_TEAM_MONTHLY_PRICE_ID`, `STRIPE_TEAM_ANNUAL_PRICE_ID` |
+| Team Pro | $199/mo | $149/mo ($1,788/yr) | 15 | `STRIPE_TEAM_PRO_MONTHLY_PRICE_ID`, `STRIPE_TEAM_PRO_ANNUAL_PRICE_ID` |
+| Team Business | $329/mo | $249/mo ($2,988/yr) | 30 | `STRIPE_TEAM_BUSINESS_MONTHLY_PRICE_ID`, `STRIPE_TEAM_BUSINESS_ANNUAL_PRICE_ID` |
 
 Also add the frontend env vars to `.env`:
 

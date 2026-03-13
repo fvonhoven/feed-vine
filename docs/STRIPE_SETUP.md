@@ -16,39 +16,66 @@ This guide will walk you through setting up Stripe payments for your RSS Aggrega
 
    - Go to **Products** → **Add Product**
 
-   **Pro Plan:**
+   **Starter Plan** (internal ID: `pro`):
 
-   - Name: "FeedVine Pro"
-   - Description: "5 RSS feeds, 3 categories, save articles, 1 feed collection"
+   - Name: "FeedVine Starter"
+   - Description: "25 RSS feeds, 10 categories, save articles, 1 feed collection"
    - Create TWO prices:
      - Monthly: $6/month (recurring monthly) → Copy **Price ID**
      - Annual: $5/month ($60/year billed annually) → Copy **Price ID**
 
-   **Plus Plan:**
+   **Creator Plan** (internal ID: `plus`):
 
-   - Name: "FeedVine Plus"
-   - Description: "15 RSS feeds, 10 categories, 5 feed collections, advanced filters"
+   - Name: "FeedVine Creator"
+   - Description: "100 RSS feeds, 25 categories, 5 feed collections, newsletter export, 200 AI summaries/mo"
    - Create TWO prices:
-     - Monthly: $12/month (recurring monthly) → Copy **Price ID**
-     - Annual: $10/month ($120/year billed annually) → Copy **Price ID**
+     - Monthly: $14/month (recurring monthly) → Copy **Price ID**
+     - Annual: $11/month ($132/year billed annually) → Copy **Price ID**
 
-   **Premium Plan:**
+   **Builder Plan** (internal ID: `premium`):
 
-   - Name: "FeedVine Premium"
-   - Description: "25 RSS feeds, 25 categories, 25 collections, API access (2000 req/hr)"
+   - Name: "FeedVine Builder"
+   - Description: "Unlimited feeds, categories, collections, API access (2000 req/hr), unlimited AI summaries"
    - Create TWO prices:
-     - Monthly: $19/month (recurring monthly) → Copy **Price ID**
-     - Annual: $15/month ($180/year billed annually) → Copy **Price ID**
+     - Monthly: $24/month (recurring monthly) → Copy **Price ID**
+     - Annual: $19/month ($228/year billed annually) → Copy **Price ID**
 
-3. **Save your Price IDs** - you'll need 6 total price IDs (2 per plan)
+   **Team Starter Plan** (internal ID: `team`):
+
+   - Name: "FeedVine Team Starter"
+   - Description: "Everything in Builder + team workspace with 5 seats, shared collections"
+   - Create TWO prices:
+     - Monthly: $99/month (recurring monthly) → Copy **Price ID**
+     - Annual: $69/month ($828/year billed annually) → Copy **Price ID**
+
+   **Team Pro Plan** (internal ID: `team_pro`):
+
+   - Name: "FeedVine Team Pro"
+   - Description: "Everything in Team Starter + 15 seats, priority support"
+   - Create TWO prices:
+     - Monthly: $199/month (recurring monthly) → Copy **Price ID**
+     - Annual: $149/month ($1,788/year billed annually) → Copy **Price ID**
+
+   **Team Business Plan** (internal ID: `team_business`):
+
+   - Name: "FeedVine Team Business"
+   - Description: "Everything in Team Pro + 30 seats, dedicated support"
+   - Create TWO prices:
+     - Monthly: $329/month (recurring monthly) → Copy **Price ID**
+     - Annual: $249/month ($2,988/year billed annually) → Copy **Price ID**
+
+3. **Save your Price IDs** - you'll need 18 total price IDs (2 per plan × 9 plans, minus Free which is free)
 
 **Note:** The Free plan doesn't need a Stripe product since it's free and doesn't require payment.
 
 **Annual Savings:**
 
-- Pro: Save 17% ($12/year)
-- Plus: Save 17% ($24/year)
-- Premium: Save 21% ($48/year)
+- Starter: Save 17% ($12/year)
+- Creator: Save 21% ($36/year)
+- Builder: Save 21% ($60/year)
+- Team Starter: Save 30% ($360/year)
+- Team Pro: Save 25% ($600/year)
+- Team Business: Save 24% ($960/year)
 
 ## Step 2: Get Stripe API Keys
 
@@ -132,8 +159,10 @@ supabase functions deploy stripe-webhook
    - Enter your webhook URL
    - Select events to listen to:
      - `checkout.session.completed`
+     - `customer.subscription.created`
      - `customer.subscription.updated`
      - `customer.subscription.deleted`
+     - `invoice.payment_succeeded`
      - `invoice.payment_failed`
    - Click **Add endpoint**
 
@@ -171,7 +200,7 @@ supabase db push
 
    - Sign in to your app
    - Go to Pricing page
-   - Click "Go Pro", "Go Plus", or "Go Premium"
+   - Click "Start Free Trial" or "Subscribe Monthly" on any paid plan
    - Complete checkout with test card
    - Verify subscription in Supabase `subscriptions` table
    - Check Stripe Dashboard for the subscription

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useAuth } from "../hooks/useAuth"
 import { useSubscription } from "../hooks/useSubscription"
-import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getAnnualSavings, type BillingInterval } from "../lib/stripe"
+import { PRICING_PLANS, PLAN_DISPLAY, INDIVIDUAL_PLAN_KEYS, TEAM_PLAN_KEYS, getPlanPrice, getPlanPriceId, getAnnualSavings, formatPrice, type BillingInterval } from "../lib/stripe"
 import { supabase } from "../lib/supabase"
 import toast from "react-hot-toast"
 import { Link } from "react-router-dom"
@@ -153,7 +153,7 @@ export default function PricingPage() {
                           <span className="text-sm text-gray-500 dark:text-gray-400 line-through">${plan.monthlyPrice}/mo</span>
                           <span className="ml-2 text-sm font-semibold text-green-600 dark:text-green-400">Save {savings}%</span>
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${price * 12}/year after trial</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${formatPrice(price * 12)}/year after trial</p>
                       </>
                     ) : (
                       <>
@@ -353,7 +353,7 @@ export default function PricingPage() {
                           <span className="text-sm text-gray-500 dark:text-gray-400 line-through">${plan.monthlyPrice}/mo</span>
                           <span className="ml-2 text-sm font-semibold text-green-600 dark:text-green-400">Save {savings}%</span>
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${price * 12}/year after trial</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${formatPrice(price * 12)}/year after trial</p>
                       </>
                     ) : (
                       <div className="flex items-baseline justify-center gap-1">

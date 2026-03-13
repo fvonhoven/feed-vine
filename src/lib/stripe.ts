@@ -154,7 +154,7 @@ export const PRICING_PLANS = {
     id: "team",
     name: "Team Starter",
     monthlyPrice: 99,
-    annualPrice: 79, // $948/year — 20% savings
+    annualPrice: 69, // $828/year — 30% savings
     monthlyPriceId: import.meta.env.VITE_STRIPE_TEAM_MONTHLY_PRICE_ID,
     annualPriceId: import.meta.env.VITE_STRIPE_TEAM_ANNUAL_PRICE_ID,
     features: {
@@ -187,7 +187,7 @@ export const PRICING_PLANS = {
     id: "team_pro",
     name: "Team Pro",
     monthlyPrice: 199,
-    annualPrice: 159, // $1,908/year — 20% savings
+    annualPrice: 149, // $1,788/year — 25% savings
     monthlyPriceId: import.meta.env.VITE_STRIPE_TEAM_PRO_MONTHLY_PRICE_ID,
     annualPriceId: import.meta.env.VITE_STRIPE_TEAM_PRO_ANNUAL_PRICE_ID,
     features: {
@@ -219,8 +219,8 @@ export const PRICING_PLANS = {
   TEAM_BUSINESS: {
     id: "team_business",
     name: "Team Business",
-    monthlyPrice: 349,
-    annualPrice: 279, // $3,348/year — 20% savings
+    monthlyPrice: 329,
+    annualPrice: 249, // $2,988/year — 24% savings
     monthlyPriceId: import.meta.env.VITE_STRIPE_TEAM_BUSINESS_MONTHLY_PRICE_ID,
     annualPriceId: import.meta.env.VITE_STRIPE_TEAM_BUSINESS_ANNUAL_PRICE_ID,
     features: {
@@ -285,6 +285,103 @@ export function getAnnualSavings(planId: PlanId): number {
   const monthlyCost = plan.monthlyPrice * 12
   const annualCost = plan.annualPrice * 12
   return Math.round(((monthlyCost - annualCost) / monthlyCost) * 100)
+}
+
+/** Display metadata for pricing cards (landing page + pricing page) */
+export const PLAN_DISPLAY = {
+  FREE: {
+    popular: false,
+    cta: "Get Started Free",
+    highlights: [
+      "5 RSS feeds & 2 categories",
+      "Read / unread tracking",
+      "Search & basic filters",
+      "Usage analytics dashboard",
+      "Installable PWA",
+    ],
+  },
+  PRO: {
+    popular: false,
+    cta: "Start Free Trial",
+    highlights: [
+      "Everything in Free, plus:",
+      "25 feeds & 10 categories",
+      "Save articles for later",
+      "1 public collection",
+      "OPML import & export",
+      "Keyboard shortcuts",
+      "Full-text article search",
+    ],
+  },
+  PLUS: {
+    popular: true,
+    cta: "Start Free Trial",
+    highlights: [
+      "Everything in Starter, plus:",
+      "100 feeds & 25 categories",
+      "200 AI summaries / mo",
+      "Newsletter export (Beehiiv, MailerLite)",
+      "Scheduled auto-digests",
+      "Digest history & quiet hours",
+      "5 webhooks (Zapier / Make)",
+      "Advanced keyword filters",
+    ],
+  },
+  PREMIUM: {
+    popular: false,
+    cta: "Start Free Trial",
+    highlights: [
+      "Everything in Creator, plus:",
+      "Unlimited feeds, categories & collections",
+      "Unlimited AI summaries",
+      "Unlimited webhooks",
+      "Public REST API access",
+      "Priority email support",
+    ],
+  },
+  TEAM: {
+    popular: false,
+    cta: "Start Free Trial",
+    highlights: [
+      "Everything in Builder, plus:",
+      "5-seat team workspace",
+      "Admin & member roles",
+      "Shared team collections",
+      "Slack bot integration",
+      "Discord bot integration",
+    ],
+  },
+  TEAM_PRO: {
+    popular: true,
+    cta: "Start Free Trial",
+    highlights: [
+      "Everything in Team Starter, plus:",
+      "15-seat team workspace",
+      "Priority email support",
+      "Best value for growing teams",
+    ],
+  },
+  TEAM_BUSINESS: {
+    popular: false,
+    cta: "Start Free Trial",
+    highlights: [
+      "Everything in Team Pro, plus:",
+      "30-seat team workspace",
+      "Lowest per-seat cost",
+      "Priority email support",
+    ],
+  },
+} as const
+
+/** Individual plan keys in display order */
+export const INDIVIDUAL_PLAN_KEYS: PlanId[] = ["FREE", "PRO", "PLUS", "PREMIUM"]
+
+/** Team plan keys in display order */
+export const TEAM_PLAN_KEYS: PlanId[] = ["TEAM", "TEAM_PRO", "TEAM_BUSINESS"]
+
+/** Format a dollar amount with comma separators */
+export function formatPrice(amount: number): string {
+  return amount.toLocaleString("en-US")
 }
 
 // Helper to get features as a readable array

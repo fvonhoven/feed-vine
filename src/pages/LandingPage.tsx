@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom"
 
+import { PRICING_PLANS, PLAN_DISPLAY, INDIVIDUAL_PLAN_KEYS, TEAM_PLAN_KEYS, getAnnualSavings, formatPrice } from "../lib/stripe"
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -170,96 +172,41 @@ export default function LandingPage() {
           <p className="text-center text-sm text-green-600 dark:text-green-400 mb-12">💰 Save up to 25% with annual billing</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {pricingTiers.map((tier, index) => (
-              <div
-                key={index}
-                className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 flex flex-col transition-all hover:shadow-2xl hover:scale-105 ${
-                  tier.popular
-                    ? "border-primary-500 ring-4 ring-primary-100 dark:ring-primary-900/30"
-                    : "border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700"
-                }`}
-              >
-                {tier.popular && <span className="bg-primary-500 text-white text-xs font-semibold px-3 py-1 rounded-full">POPULAR</span>}
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-4">{tier.name}</h3>
-                <div className="mt-4 mb-6">
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-bold text-gray-900 dark:text-white">${tier.annualPrice}</span>
-                    <span className="text-gray-600 dark:text-gray-400">/mo</span>
-                  </div>
-                  {tier.price > 0 && tier.price !== tier.annualPrice && (
-                    <div className="mt-2">
-                      <span className="text-sm text-gray-500 dark:text-gray-400 line-through">${tier.price}/mo</span>
-                      <span className="ml-2 text-sm font-semibold text-green-600 dark:text-green-400">
-                        Save {Math.round(((tier.price - tier.annualPrice) / tier.price) * 100)}%
-                      </span>
-                    </div>
-                  )}
-                  {tier.annualPrice > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${(tier.annualPrice * 12).toFixed(2)}/year</p>
-                  )}
-                </div>
-                <ul className="space-y-3 mb-8">
-                  {tier.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start">
-                      <svg className="w-5 h-5 text-primary-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className={`text-gray-600 dark:text-gray-400 ${feature.includes("Everything in") ? "font-semibold" : ""}`}>
-                        {feature}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-auto">
-                  <Link
-                    to="/auth"
-                    className={`block text-center px-6 py-3 rounded-lg font-semibold transition-colors ${
-                      tier.popular
-                        ? "bg-primary-600 hover:bg-primary-700 text-white"
-                        : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
-                    }`}
-                  >
-                    {tier.cta}
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
+            {INDIVIDUAL_PLAN_KEYS.map(key => {
+              const plan = PRICING_PLANS[key]
+              const display = PLAN_DISPLAY[key]
+              const savings = getAnnualSavings(key)
 
-          {/* Team Plans */}
-          <div className="mt-16">
-            <h3 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-2">🏢 For Teams</h3>
-            <p className="text-center text-gray-600 dark:text-gray-400 mb-10">Collaborative workspaces for content teams</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-              {teamPricingTiers.map((tier, index) => (
+              return (
                 <div
-                  key={index}
+                  key={key}
                   className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 flex flex-col transition-all hover:shadow-2xl hover:scale-105 ${
-                    tier.popular
-                      ? "border-purple-500 ring-4 ring-purple-100 dark:ring-purple-900/30"
-                      : "border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700"
+                    display.popular
+                      ? "border-primary-500 ring-4 ring-primary-100 dark:ring-primary-900/30"
+                      : "border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700"
                   }`}
                 >
-                  {tier.popular && <span className="bg-purple-500 text-white text-xs font-semibold px-3 py-1 rounded-full">MOST POPULAR</span>}
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-4">{tier.name}</h3>
-                  <p className="text-sm text-purple-600 dark:text-purple-400 font-medium mt-1">Up to {tier.seats} seats</p>
+                  {display.popular && <span className="bg-primary-500 text-white text-xs font-semibold px-3 py-1 rounded-full">POPULAR</span>}
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-4">{plan.name}</h3>
                   <div className="mt-4 mb-6">
                     <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-4xl font-bold text-gray-900 dark:text-white">${tier.annualPrice}</span>
+                      <span className="text-4xl font-bold text-gray-900 dark:text-white">${plan.annualPrice}</span>
                       <span className="text-gray-600 dark:text-gray-400">/mo</span>
                     </div>
-                    <div className="mt-2">
-                      <span className="text-sm text-gray-500 dark:text-gray-400 line-through">${tier.price}/mo</span>
-                      <span className="ml-2 text-sm font-semibold text-green-600 dark:text-green-400">
-                        Save {Math.round(((tier.price - tier.annualPrice) / tier.price) * 100)}%
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${(tier.annualPrice * 12).toFixed(2)}/year</p>
+                    {plan.monthlyPrice > 0 && plan.monthlyPrice !== plan.annualPrice && (
+                      <div className="mt-2">
+                        <span className="text-sm text-gray-500 dark:text-gray-400 line-through">${plan.monthlyPrice}/mo</span>
+                        <span className="ml-2 text-sm font-semibold text-green-600 dark:text-green-400">Save {savings}%</span>
+                      </div>
+                    )}
+                    {plan.annualPrice > 0 && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${formatPrice(plan.annualPrice * 12)}/year</p>
+                    )}
                   </div>
                   <ul className="space-y-3 mb-8">
-                    {tier.features.map((feature, idx) => (
+                    {display.highlights.map((feature, idx) => (
                       <li key={idx} className="flex items-start">
-                        <svg className="w-5 h-5 text-purple-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5 text-primary-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                         <span className={`text-gray-600 dark:text-gray-400 ${feature.includes("Everything in") ? "font-semibold" : ""}`}>
@@ -271,13 +218,76 @@ export default function LandingPage() {
                   <div className="mt-auto">
                     <Link
                       to="/auth"
-                      className="block text-center px-6 py-3 rounded-lg font-semibold transition-colors bg-purple-600 hover:bg-purple-700 text-white"
+                      className={`block text-center px-6 py-3 rounded-lg font-semibold transition-colors ${
+                        display.popular
+                          ? "bg-primary-600 hover:bg-primary-700 text-white"
+                          : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
+                      }`}
                     >
-                      {tier.cta}
+                      {display.cta}
                     </Link>
                   </div>
                 </div>
-              ))}
+              )
+            })}
+          </div>
+
+          {/* Team Plans */}
+          <div className="mt-16">
+            <h3 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-2">🏢 For Teams</h3>
+            <p className="text-center text-gray-600 dark:text-gray-400 mb-10">Collaborative workspaces for content teams</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              {TEAM_PLAN_KEYS.map(key => {
+                const plan = PRICING_PLANS[key]
+                const display = PLAN_DISPLAY[key]
+                const savings = getAnnualSavings(key)
+
+                return (
+                  <div
+                    key={key}
+                    className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border-2 flex flex-col transition-all hover:shadow-2xl hover:scale-105 ${
+                      display.popular
+                        ? "border-purple-500 ring-4 ring-purple-100 dark:ring-purple-900/30"
+                        : "border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700"
+                    }`}
+                  >
+                    {display.popular && <span className="bg-purple-500 text-white text-xs font-semibold px-3 py-1 rounded-full">MOST POPULAR</span>}
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-4">{plan.name}</h3>
+                    <p className="text-sm text-purple-600 dark:text-purple-400 font-medium mt-1">Up to {plan.features.maxTeamMembers} seats</p>
+                    <div className="mt-4 mb-6">
+                      <div className="flex items-baseline justify-center gap-1">
+                        <span className="text-4xl font-bold text-gray-900 dark:text-white">${plan.annualPrice}</span>
+                        <span className="text-gray-600 dark:text-gray-400">/mo</span>
+                      </div>
+                      <div className="mt-2">
+                        <span className="text-sm text-gray-500 dark:text-gray-400 line-through">${plan.monthlyPrice}/mo</span>
+                        <span className="ml-2 text-sm font-semibold text-green-600 dark:text-green-400">Save {savings}%</span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Billed ${formatPrice(plan.annualPrice * 12)}/year</p>
+                    </div>
+                    <ul className="space-y-3 mb-8">
+                      {display.highlights.map((feature, idx) => (
+                        <li key={idx} className="flex items-start">
+                          <svg className="w-5 h-5 text-purple-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className={`text-gray-600 dark:text-gray-400 ${feature.includes("Everything in") ? "font-semibold" : ""}`}>
+                            {feature}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-auto">
+                      <Link
+                        to="/auth"
+                        className="block text-center px-6 py-3 rounded-lg font-semibold transition-colors bg-purple-600 hover:bg-purple-700 text-white"
+                      >
+                        {display.cta}
+                      </Link>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -428,98 +438,3 @@ const featureSections = [
   },
 ]
 
-const pricingTiers = [
-  {
-    name: "Free",
-    price: 0,
-    annualPrice: 0,
-    popular: false,
-    features: ["5 RSS feeds & 2 categories", "Read / unread tracking", "Search & basic filters", "Usage analytics dashboard", "Installable PWA"],
-    cta: "Get Started Free",
-  },
-  {
-    name: "Starter",
-    price: 6,
-    annualPrice: 5,
-    popular: false,
-    features: [
-      "Everything in Free, plus:",
-      "25 feeds & 10 categories",
-      "Save articles for later",
-      "1 public collection",
-      "OPML import & export",
-      "Keyboard shortcuts",
-      "Full-text article search",
-    ],
-    cta: "Start Free Trial",
-  },
-  {
-    name: "Creator",
-    price: 14,
-    annualPrice: 11,
-    popular: true,
-    features: [
-      "Everything in Starter, plus:",
-      "100 feeds & 25 categories",
-      "200 AI summaries / mo",
-      "Newsletter export (Beehiiv, MailerLite)",
-      "Scheduled auto-digests",
-      "Digest history & quiet hours",
-      "5 webhooks (Zapier / Make)",
-      "Advanced keyword filters",
-    ],
-    cta: "Start Free Trial",
-  },
-  {
-    name: "Builder",
-    price: 24,
-    annualPrice: 19,
-    popular: false,
-    features: [
-      "Everything in Creator, plus:",
-      "Unlimited feeds, categories & collections",
-      "Unlimited AI summaries",
-      "Unlimited webhooks",
-      "Public REST API access",
-      "Priority email support",
-    ],
-    cta: "Start Free Trial",
-  },
-]
-
-const teamPricingTiers = [
-  {
-    name: "Team Starter",
-    price: 99,
-    annualPrice: 79,
-    seats: 5,
-    popular: false,
-    features: [
-      "Everything in Builder, plus:",
-      "5-seat team workspace",
-      "Admin & member roles",
-      "Shared team collections",
-      "Slack bot integration",
-      "Discord bot integration",
-    ],
-    cta: "Start Free Trial",
-  },
-  {
-    name: "Team Pro",
-    price: 199,
-    annualPrice: 159,
-    seats: 15,
-    popular: true,
-    features: ["Everything in Team Starter, plus:", "15-seat team workspace", "Priority email support", "Best value for growing teams"],
-    cta: "Start Free Trial",
-  },
-  {
-    name: "Team Business",
-    price: 349,
-    annualPrice: 279,
-    seats: 30,
-    popular: false,
-    features: ["Everything in Team Pro, plus:", "30-seat team workspace", "Lowest per-seat cost", "Priority email support"],
-    cta: "Start Free Trial",
-  },
-]
