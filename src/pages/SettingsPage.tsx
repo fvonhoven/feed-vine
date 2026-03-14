@@ -7,7 +7,7 @@ import toast from "react-hot-toast"
 import { useState, useEffect } from "react"
 import { useSubscription } from "../hooks/useSubscription"
 import { useTeam } from "../hooks/useTeam"
-import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getPlanFeaturesArray, getStatusDisplay, type BillingInterval, type PlanId, type SubscriptionStatus } from "../lib/stripe"
+import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getPlanFeaturesArray, type BillingInterval, type PlanId, type SubscriptionStatus } from "../lib/stripe"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import SubscriptionBadge from "../components/SubscriptionBadge"
 

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useAuth } from "../hooks/useAuth"
 import { useSubscription } from "../hooks/useSubscription"
-import { PRICING_PLANS, PLAN_DISPLAY, INDIVIDUAL_PLAN_KEYS, TEAM_PLAN_KEYS, getPlanPrice, getPlanPriceId, getAnnualSavings, formatPrice, type BillingInterval } from "../lib/stripe"
+import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getAnnualSavings, formatPrice, type BillingInterval } from "../lib/stripe"
 import { supabase } from "../lib/supabase"
 import toast from "react-hot-toast"
 import { Link } from "react-router-dom"
