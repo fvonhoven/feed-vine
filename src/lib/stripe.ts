@@ -384,6 +384,80 @@ export function formatPrice(amount: number): string {
   return amount.toLocaleString("en-US")
 }
 
+// ---------------------------------------------------------------------------
+// Subscription status display helpers
+// ---------------------------------------------------------------------------
+
+export type SubscriptionStatus = "active" | "canceled" | "past_due" | "trialing"
+
+interface StatusDisplay {
+  label: string
+  badgeClass: string
+  renewalPrefix: string
+}
+
+const STATUS_DISPLAY: Record<SubscriptionStatus, StatusDisplay> = {
+  active: {
+    label: "Active",
+    badgeClass: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    renewalPrefix: "Renews",
+  },
+  trialing: {
+    label: "Free Trial",
+    badgeClass: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    renewalPrefix: "Trial ends",
+  },
+  past_due: {
+    label: "Past Due",
+    badgeClass: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    renewalPrefix: "Payment due",
+  },
+  canceled: {
+    label: "Canceled",
+    badgeClass: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+    renewalPrefix: "Access until",
+  },
+}
+
+/**
+ * Get user-friendly display properties for a subscription status
+ *
+ * @param status - Raw DB subscription status
+ * @returns Display label, Tailwind badge classes, and period-end prefix text
+ */
+export function getStatusDisplay(status: SubscriptionStatus): StatusDisplay {
+  return STATUS_DISPLAY[status] ?? STATUS_DISPLAY.active
+}
+
+const PLAN_BADGE_COLORS: Record<string, string> = {
+  premium: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  plus: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  pro: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  team: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+  team_pro: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+  team_business: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+  free: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+}
+
+/**
+ * Get Tailwind badge color classes for a plan
+ *
+ * @param planId - The raw plan_id from the DB (lowercase)
+ */
+export function getPlanBadgeColor(planId: string): string {
+  return PLAN_BADGE_COLORS[planId] ?? PLAN_BADGE_COLORS.free
+}
+
+/**
+ * Get the user-facing plan display name
+ *
+ * @param planId - The raw plan_id from the DB (lowercase)
+ */
+export function getPlanDisplayName(planId: string): string {
+  const upper = planId.toUpperCase() as PlanId
+  return PRICING_PLANS[upper]?.name ?? planId.charAt(0).toUpperCase() + planId.slice(1)
+}
+
 // Helper to get features as a readable array
 export function getPlanFeaturesArray(planId: PlanId): string[] {
   const features = PRICING_PLANS[planId].features

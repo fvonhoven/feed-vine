@@ -8,6 +8,36 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
 
 const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") || ""
 
+/**
+ * Extract period timestamps from a Stripe subscription object.
+ * Uses bracket notation to bypass SDK type issues, and falls back
+ * to trial_start/trial_end for trialing subscriptions.
+ */
+function extractPeriodDates(sub: unknown): { periodStart: string | null; periodEnd: string | null } {
+  const s = sub as Record<string, unknown>
+
+  console.log("[extractPeriodDates] current_period_start:", s.current_period_start, "type:", typeof s.current_period_start)
+  console.log("[extractPeriodDates] current_period_end:", s.current_period_end, "type:", typeof s.current_period_end)
+  console.log("[extractPeriodDates] trial_start:", s.trial_start, "trial_end:", s.trial_end)
+
+  const toIso = (val: unknown): string | null => {
+    if (typeof val === "number" && val > 0) {
+      return new Date(val * 1000).toISOString()
+    }
+    if (typeof val === "string" && val.length > 0) {
+      const num = Number(val)
+      if (!isNaN(num) && num > 0) return new Date(num * 1000).toISOString()
+    }
+    return null
+  }
+
+  const periodStart = toIso(s.current_period_start) ?? toIso(s.trial_start)
+  const periodEnd = toIso(s.current_period_end) ?? toIso(s.trial_end)
+
+  console.log("[extractPeriodDates] resolved periodStart:", periodStart, "periodEnd:", periodEnd)
+  return { periodStart, periodEnd }
+}
+
 // Helper function to map Stripe status to our database status
 function mapStripeStatusToDb(stripeStatus: string): string {
   // Stripe statuses: active, past_due, unpaid, canceled, incomplete, incomplete_expired, trialing, paused
@@ -153,11 +183,20 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   const dbStatus = mapStripeStatusToDb(subscription.status)
   console.log("Stripe status:", subscription.status, "-> DB status:", dbStatus)
 
-  // Safely convert timestamps
-  const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : null
-  const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null
+  const { periodStart, periodEnd } = extractPeriodDates(subscription)
 
-  // Update subscription in database using PATCH to update existing record
+  const checkoutPayload: Record<string, unknown> = {
+    stripe_customer_id: session.customer,
+    stripe_subscription_id: subscriptionId,
+    plan_id: planId,
+    status: dbStatus,
+    cancel_at_period_end: subscription.cancel_at_period_end,
+  }
+  if (periodStart) checkoutPayload.current_period_start = periodStart
+  if (periodEnd) checkoutPayload.current_period_end = periodEnd
+
+  console.log("checkout.completed PATCH payload:", JSON.stringify(checkoutPayload))
+
   const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
     method: "PATCH",
     headers: {
@@ -165,15 +204,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
       Authorization: `Bearer ${supabaseKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      stripe_customer_id: session.customer,
-      stripe_subscription_id: subscriptionId,
-      plan_id: planId,
-      status: dbStatus,
-      current_period_start: periodStart,
-      current_period_end: periodEnd,
-      cancel_at_period_end: subscription.cancel_at_period_end,
-    }),
+    body: JSON.stringify(checkoutPayload),
   })
 
   if (!response.ok) {
@@ -233,24 +264,20 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
   const dbStatus = mapStripeStatusToDb(subscription.status)
   console.log("Stripe status:", subscription.status, "-> DB status:", dbStatus)
 
-  // Safely convert timestamps
-  const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : null
-  const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null
+  const { periodStart, periodEnd } = extractPeriodDates(subscription)
 
-  console.log("Period start:", periodStart, "Period end:", periodEnd)
-
-  const payload = {
+  const payload: Record<string, unknown> = {
     user_id: userId,
     stripe_customer_id: customerId,
     stripe_subscription_id: subscription.id,
     plan_id: planId,
     status: dbStatus,
-    current_period_start: periodStart,
-    current_period_end: periodEnd,
     cancel_at_period_end: subscription.cancel_at_period_end,
   }
+  if (periodStart) payload.current_period_start = periodStart
+  if (periodEnd) payload.current_period_end = periodEnd
 
-  console.log("Attempting to update subscription with payload:", JSON.stringify(payload))
+  console.log("subscription.created PATCH payload:", JSON.stringify(payload))
 
   // Update subscription in database using PATCH to update existing record
   const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
@@ -278,23 +305,19 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supabaseUrl: string, supabaseKey: string) {
   const customerId = subscription.customer as string
 
-  // Get user ID from customer
   const customer = await stripe.customers.retrieve(customerId)
   const userId = (customer as Stripe.Customer).metadata?.supabase_user_id
 
   if (!userId) return
 
-  // Determine plan ID
+  console.log("Processing subscription.updated for user:", userId, "status:", subscription.status)
+
   const priceId = subscription.items.data[0]?.price.id
   let planId = "free"
 
-  // Map price IDs to plan IDs (checking both monthly and annual)
   const proPrices = [Deno.env.get("STRIPE_PRO_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_PRO_ANNUAL_PRICE_ID")].filter(Boolean)
-
   const plusPrices = [Deno.env.get("STRIPE_PLUS_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_PLUS_ANNUAL_PRICE_ID")].filter(Boolean)
-
   const premiumPrices = [Deno.env.get("STRIPE_PREMIUM_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_PREMIUM_ANNUAL_PRICE_ID")].filter(Boolean)
-
   const teamPrices = [Deno.env.get("STRIPE_TEAM_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_ANNUAL_PRICE_ID")].filter(Boolean)
   const teamProPrices = [Deno.env.get("STRIPE_TEAM_PRO_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_PRO_ANNUAL_PRICE_ID")].filter(Boolean)
   const teamBusinessPrices = [Deno.env.get("STRIPE_TEAM_BUSINESS_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_TEAM_BUSINESS_ANNUAL_PRICE_ID")].filter(
@@ -317,26 +340,35 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
 
   const dbStatus = mapStripeStatusToDb(subscription.status)
 
-  // Safely convert timestamps
-  const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : null
-  const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null
+  const { periodStart, periodEnd } = extractPeriodDates(subscription)
 
-  // Update subscription
-  await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
+  const payload: Record<string, unknown> = {
+    plan_id: planId,
+    status: dbStatus,
+    cancel_at_period_end: subscription.cancel_at_period_end,
+  }
+
+  if (periodStart) payload.current_period_start = periodStart
+  if (periodEnd) payload.current_period_end = periodEnd
+
+  console.log("subscription.updated PATCH payload:", JSON.stringify(payload))
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
     method: "PATCH",
     headers: {
       apikey: supabaseKey,
       Authorization: `Bearer ${supabaseKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      plan_id: planId,
-      status: dbStatus,
-      current_period_start: periodStart,
-      current_period_end: periodEnd,
-      cancel_at_period_end: subscription.cancel_at_period_end,
-    }),
+    body: JSON.stringify(payload),
   })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error("subscription.updated PATCH failed:", errorText)
+  } else {
+    console.log("subscription.updated — successfully updated user:", userId, "plan:", planId, "status:", dbStatus)
+  }
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabaseUrl: string, supabaseKey: string) {
@@ -371,7 +403,26 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice, supabaseUrl: stri
 
   console.log("Payment succeeded for user:", userId)
 
-  // Update status to active (in case it was past_due)
+  const subscriptionId = invoice.subscription as string | null
+  if (!subscriptionId) {
+    console.log("No subscription on invoice, skipping status update")
+    return
+  }
+
+  // Retrieve the actual subscription to get the authoritative status —
+  // a $0 trial invoice fires payment_succeeded even while trialing
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  const dbStatus = mapStripeStatusToDb(subscription.status)
+  console.log("Payment succeeded — Stripe subscription status:", subscription.status, "-> DB status:", dbStatus)
+
+  const { periodStart, periodEnd } = extractPeriodDates(subscription)
+
+  const paymentPayload: Record<string, unknown> = { status: dbStatus }
+  if (periodStart) paymentPayload.current_period_start = periodStart
+  if (periodEnd) paymentPayload.current_period_end = periodEnd
+
+  console.log("payment_succeeded PATCH payload:", JSON.stringify(paymentPayload))
+
   await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
     method: "PATCH",
     headers: {
@@ -379,9 +430,7 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice, supabaseUrl: stri
       Authorization: `Bearer ${supabaseKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      status: "active",
-    }),
+    body: JSON.stringify(paymentPayload),
   })
 }
 

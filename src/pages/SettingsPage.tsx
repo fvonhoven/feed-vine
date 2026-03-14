@@ -7,8 +7,9 @@ import toast from "react-hot-toast"
 import { useState, useEffect } from "react"
 import { useSubscription } from "../hooks/useSubscription"
 import { useTeam } from "../hooks/useTeam"
-import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getPlanFeaturesArray, type BillingInterval, type PlanId } from "../lib/stripe"
+import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getPlanFeaturesArray, getStatusDisplay, type BillingInterval, type PlanId, type SubscriptionStatus } from "../lib/stripe"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import SubscriptionBadge from "../components/SubscriptionBadge"
 
 export default function SettingsPage() {
   const { user } = useAuth()
@@ -376,25 +377,21 @@ export default function SettingsPage() {
                     {currentPlan.name}
                     {subscriptionLoading && <span className="text-sm text-gray-500 ml-2">(loading...)</span>}
                   </p>
-                  {subscription?.status && subscription.status !== "active" && (
-                    <span className="inline-block mt-2 px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                      Status: {subscription.status}
-                    </span>
+                  {subscription && (
+                    <div className="mt-2">
+                      <SubscriptionBadge
+                        planId={subscription.plan_id}
+                        status={subscription.status as SubscriptionStatus}
+                        periodEnd={subscription.current_period_end}
+                        showPlanName={false}
+                      />
+                    </div>
                   )}
-                  {/* Debug info */}
-                  <p className="text-xs text-gray-500 dark:text-gray-600 mt-2">
-                    Plan ID: {subscription?.plan_id} → {currentPlanId}
-                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     {planIdUpper === "FREE" ? "Free Forever" : `$${getPlanPrice(planIdUpper, "monthly")}/mo`}
                   </p>
-                  {subscription?.current_period_end && planIdUpper !== "FREE" && (
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      Renews {new Date(subscription.current_period_end).toLocaleDateString()}
-                    </p>
-                  )}
                 </div>
               </div>
             </div>

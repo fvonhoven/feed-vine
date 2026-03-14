@@ -4,6 +4,8 @@ import { supabase, isDemoMode } from "../lib/supabase"
 import { useAuth } from "../hooks/useAuth"
 import { useSubscription } from "../hooks/useSubscription"
 import { useDarkMode } from "../hooks/useDarkMode"
+import { type SubscriptionStatus } from "../lib/stripe"
+import SubscriptionBadge from "./SubscriptionBadge"
 import toast from "react-hot-toast"
 
 export default function UserMenu() {
@@ -51,25 +53,6 @@ export default function UserMenu() {
     return user.email.charAt(0).toUpperCase()
   }
 
-  const getPlanBadgeColor = () => {
-    const plan = subscription?.plan_id || "free"
-    switch (plan) {
-      case "premium":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-      case "plus":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-      case "pro":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-    }
-  }
-
-  const getPlanName = () => {
-    const plan = subscription?.plan_id || "free"
-    return plan.charAt(0).toUpperCase() + plan.slice(1)
-  }
-
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -86,7 +69,11 @@ export default function UserMenu() {
           <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{user?.email || "Demo User"}</p>
             <div className="mt-1">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getPlanBadgeColor()}`}>{getPlanName()} Plan</span>
+              <SubscriptionBadge
+                planId={subscription?.plan_id || "free"}
+                status={(subscription?.status || "active") as SubscriptionStatus}
+                size="sm"
+              />
             </div>
           </div>
 
