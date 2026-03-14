@@ -151,13 +151,13 @@ export default function ApiKeysPage() {
               d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
             />
           </svg>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">API Access Requires Premium Plan</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">Upgrade to Premium to access the FeedVine API and integrate with your applications.</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">API Access Requires Builder Plan</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">Upgrade to Builder to access the FeedVine API and integrate with your applications.</p>
           <Link
             to="/pricing"
             className="inline-block bg-primary-600 hover:bg-primary-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
           >
-            Upgrade to Premium
+            Upgrade to Builder
           </Link>
         </div>
       </div>

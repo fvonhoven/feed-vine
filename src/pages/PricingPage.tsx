@@ -1,14 +1,14 @@
 import { useState } from "react"
 import { useAuth } from "../hooks/useAuth"
 import { useSubscription } from "../hooks/useSubscription"
-import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getAnnualSavings, formatPrice, type BillingInterval } from "../lib/stripe"
+import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getAnnualSavings, formatPrice, type BillingInterval, type PlanId } from "../lib/stripe"
 import { supabase } from "../lib/supabase"
 import toast from "react-hot-toast"
 import { Link } from "react-router-dom"
 
 export default function PricingPage() {
   const { user } = useAuth()
-  const { planId: currentPlanId } = useSubscription()
+  const { subscription, planId: currentPlanId } = useSubscription()
   const [loading, setLoading] = useState<string | null>(null)
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("annual")
 
@@ -23,44 +23,72 @@ export default function PricingPage() {
       return
     }
 
-    const priceId = getPlanPriceId(planId.toUpperCase() as any, interval)
-    if (!priceId) {
-      toast.error("Price ID not configured. Please contact support.")
+    const planIdUpper = planId.toUpperCase() as PlanId
+
+    if (planIdUpper === currentPlanId) {
+      toast.success("You're already on this plan!")
       return
     }
 
     setLoading(planId)
 
     try {
-      // Check if user has a valid session
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      console.log("User session:", session)
-      console.log("Access token present:", !!session?.access_token)
+      const hasExistingSubscription = subscription?.stripe_subscription_id
 
-      // Call Supabase Edge Function to create checkout session
-      const { data, error } = await supabase.functions.invoke("create-checkout-session", {
-        body: { priceId },
-      })
+      if (hasExistingSubscription) {
+        const planOrder: Record<string, number> = { free: 0, pro: 1, plus: 2, premium: 3 }
+        const currentOrder = planOrder[currentPlanId.toLowerCase()] ?? 0
+        const newOrder = planOrder[planId.toLowerCase()] ?? 0
+        const isDowngrade = newOrder < currentOrder
 
-      console.log("Function response data:", data)
-      console.log("Function response error:", error)
+        if (isDowngrade) {
+          const currentName = PRICING_PLANS[currentPlanId]?.name ?? currentPlanId
+          const newName = PRICING_PLANS[planIdUpper]?.name ?? planId
 
-      if (error) {
-        console.error("Function invocation error:", error)
-        throw error
-      }
+          if (!confirm(`Downgrade from ${currentName} to ${newName}? Your current plan stays active until the end of your billing period.`)) {
+            return
+          }
 
-      if (data?.url) {
-        window.location.href = data.url
+          const { data, error } = await supabase.functions.invoke("schedule-plan-change", {
+            body: { newPlanId: planId },
+          })
+          if (error) throw error
+          if (data?.success) {
+            toast.success(data.message || "Plan change scheduled!")
+          } else {
+            throw new Error(data?.error || "Failed to schedule plan change")
+          }
+        } else {
+          const { data, error } = await supabase.functions.invoke("upgrade-subscription", {
+            body: { newPlanId: planId, interval },
+          })
+          if (error) throw error
+          if (data?.success) {
+            toast.success(data.message || "Successfully upgraded!")
+          } else {
+            throw new Error(data?.error || "Failed to upgrade subscription")
+          }
+        }
       } else {
-        throw new Error("No checkout URL returned")
+        const priceId = getPlanPriceId(planIdUpper, interval)
+        if (!priceId) {
+          toast.error("Price ID not configured. Please contact support.")
+          return
+        }
+
+        const { data, error } = await supabase.functions.invoke("create-checkout-session", {
+          body: { priceId },
+        })
+        if (error) throw error
+        if (data?.url) {
+          window.location.href = data.url
+        } else {
+          throw new Error("No checkout URL returned")
+        }
       }
-    } catch (error: any) {
-      console.error("Subscription error:", error)
-      console.error("Error details:", error.message, error.details)
-      toast.error(error.message || "Failed to start checkout. Please try again.")
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to process subscription change."
+      toast.error(message)
     } finally {
       setLoading(null)
     }

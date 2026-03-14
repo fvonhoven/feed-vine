@@ -57,7 +57,7 @@ export default function ArticleCard({ article, onToggleRead, onToggleSave }: Art
     e.stopPropagation()
 
     if (!canSaveArticles) {
-      toast.error("Upgrade to Pro to save articles!")
+      toast.error("Upgrade to Starter to save articles!")
       return
     }
 
@@ -217,7 +217,7 @@ export default function ArticleCard({ article, onToggleRead, onToggleSave }: Art
                   ? "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
                   : "text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50"
             }`}
-            title={!canSaveArticles && !isSaved ? "Upgrade to Pro to save articles" : isSaved ? "Remove from saved" : "Save for later"}
+            title={!canSaveArticles && !isSaved ? "Upgrade to Starter to save articles" : isSaved ? "Remove from saved" : "Save for later"}
           >
             <svg className="w-5 h-5" fill={isSaved ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />

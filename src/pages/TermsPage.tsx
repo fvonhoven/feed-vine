@@ -25,7 +25,7 @@ export default function TermsPage() {
             <li>Content filtering and search</li>
             <li>Article bookmarking and saving</li>
             <li>RSS feed export functionality</li>
-            <li>API access for programmatic integration (Premium plan only)</li>
+            <li>API access for programmatic integration (Builder plan only)</li>
           </ul>
         </section>
 
@@ -46,23 +46,23 @@ export default function TermsPage() {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">4. Subscription Plans</h2>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            The Service offers multiple subscription tiers (Free, Pro, Plus, and Premium) with different features and limitations:
+            The Service offers multiple subscription tiers (Free, Starter, Creator, and Builder) with different features and limitations:
           </p>
           <ul className="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-4 space-y-2">
             <li>
               <strong>Free Plan:</strong> Limited to 1 RSS feed and 1 category with basic read/unread tracking
             </li>
             <li>
-              <strong>Pro Plan:</strong> Everything in Free, plus up to 5 feeds, 3 categories, 1 feed collection, save articles, and export to RSS
-              ($6/month or $5/month annual)
+              <strong>Starter Plan:</strong> Everything in Free, plus up to 5 feeds, 3 categories, 1 feed collection, save articles, and export to RSS
+              ($6/month or $5/month billed annually)
             </li>
             <li>
-              <strong>Plus Plan:</strong> Everything in Pro, plus up to 15 feeds, 10 categories, 5 feed collections, advanced filters, and keyboard
-              shortcuts ($12/month or $9/month annual)
+              <strong>Creator Plan:</strong> Everything in Starter, plus up to 15 feeds, 10 categories, 5 feed collections, advanced filters, and keyboard
+              shortcuts ($14/month or $9/month billed annually)
             </li>
             <li>
-              <strong>Premium Plan:</strong> Everything in Plus, plus up to 25 feeds, 25 categories, 25 collections, and API access with 2,000
-              requests/hour ($20/month or $15/month annual)
+              <strong>Builder Plan:</strong> Everything in Creator, plus up to 25 feeds, 25 categories, 25 collections, and API access with 2,000
+              requests/hour ($24/month or $19/month billed annually)
             </li>
           </ul>
           <p className="text-gray-700 dark:text-gray-300 mb-4">

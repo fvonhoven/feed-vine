@@ -66,14 +66,14 @@ function UpgradePrompt() {
         <div className="text-5xl mb-4">📧</div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Newsletter Digest Builder</h1>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Compile your top articles into a formatted digest you can paste straight into Beehiiv, Substack, ConvertKit, or Ghost. Available on Pro and
-          above.
+          Compile your top articles into a formatted digest you can paste straight into Beehiiv, Substack, ConvertKit, or Ghost. Available on Starter
+          and above.
         </p>
         <Link
           to="/pricing"
           className="inline-flex items-center px-6 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
         >
-          Upgrade to Pro →
+          Upgrade to Starter →
         </Link>
       </div>
     </div>
