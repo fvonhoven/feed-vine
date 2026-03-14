@@ -20,6 +20,7 @@ export default function SettingsPage() {
   const { team } = useTeam()
   const [showFeedURL, setShowFeedURL] = useState(false)
   const [changingPlan, setChangingPlan] = useState(false)
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>("annual")
   const [loadingPortal, setLoadingPortal] = useState(false)
   const [beehiivApiKey, setBeehiivApiKey] = useState("")
   const [beehiivPublicationId, setBeehiivPublicationId] = useState("")
@@ -252,14 +253,23 @@ export default function SettingsPage() {
         setChangingPlan(false)
       }
     } else {
-      // For upgrades, check if user already has a subscription
       const hasExistingSubscription = subscription?.stripe_subscription_id
+      const newPlanName = PRICING_PLANS[newPlanId.toUpperCase() as PlanId]?.name ?? newPlanId
+      const newPrice = getPlanPrice(newPlanId.toUpperCase() as PlanId, interval)
+
+      if (hasExistingSubscription) {
+        const currentName = PRICING_PLANS[currentPlanId.toUpperCase() as PlanId]?.name ?? currentPlanId
+        const confirmMessage = `Upgrade from ${currentName} to ${newPlanName} ($${newPrice}/mo)? The prorated difference will be charged immediately.`
+
+        if (!confirm(confirmMessage)) {
+          return
+        }
+      }
 
       setChangingPlan(true)
 
       try {
         if (hasExistingSubscription) {
-          // User has existing subscription - update it with proration
           const { data, error } = await supabase.functions.invoke("upgrade-subscription", {
             body: { newPlanId, interval },
           })
@@ -268,14 +278,12 @@ export default function SettingsPage() {
 
           if (data?.success) {
             toast.success(data.message || "Successfully upgraded! Your account has been updated.")
-            // Refresh subscription data
             queryClient.invalidateQueries({ queryKey: ["subscription"] })
           } else {
             throw new Error(data?.error || "Failed to upgrade subscription")
           }
         } else {
-          // No existing subscription - create new checkout session
-          const priceId = getPlanPriceId(newPlanId.toUpperCase() as any, interval)
+          const priceId = getPlanPriceId(newPlanId.toUpperCase() as PlanId, interval)
           if (!priceId) {
             toast.error("Price ID not configured. Please contact support.")
             return
@@ -293,9 +301,10 @@ export default function SettingsPage() {
             throw new Error("No checkout URL returned")
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to change plan. Please try again."
         console.error("Plan change error:", error)
-        toast.error(error.message || "Failed to change plan. Please try again.")
+        toast.error(message)
       } finally {
         setChangingPlan(false)
       }
@@ -417,7 +426,31 @@ export default function SettingsPage() {
 
             {/* Change Plan */}
             <div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Change Your Plan</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Change Your Plan</p>
+                <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                  <button
+                    onClick={() => setBillingInterval("monthly")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      billingInterval === "monthly"
+                        ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setBillingInterval("annual")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      billingInterval === "annual"
+                        ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    }`}
+                  >
+                    Annual
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {Object.entries(PRICING_PLANS)
                   .filter(([id]) => id !== planIdUpper)
@@ -425,11 +458,12 @@ export default function SettingsPage() {
                     const planOrder = { FREE: 0, PRO: 1, PLUS: 2, PREMIUM: 3, TEAM: 4, TEAM_PRO: 5, TEAM_BUSINESS: 6 }
                     const isDowngrade = planOrder[id as keyof typeof planOrder] < planOrder[planIdUpper]
                     const isCurrentPlan = id === planIdUpper
+                    const price = getPlanPrice(id as PlanId, billingInterval)
 
                     return (
                       <button
                         key={id}
-                        onClick={() => handleChangePlan(id.toLowerCase(), "monthly")}
+                        onClick={() => handleChangePlan(id.toLowerCase(), billingInterval)}
                         disabled={changingPlan || isCurrentPlan}
                         className={`p-4 border-2 rounded-lg transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed ${
                           isCurrentPlan
@@ -442,7 +476,10 @@ export default function SettingsPage() {
                           {isCurrentPlan && <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Current)</span>}
                         </p>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          {id === "FREE" ? "Free" : `$${getPlanPrice(id as PlanId, "monthly")}/month`}
+                          {id === "FREE" ? "Free" : `$${price}/mo`}
+                          {id !== "FREE" && billingInterval === "annual" && (
+                            <span className="text-xs text-green-600 dark:text-green-400 ml-1">(billed yearly)</span>
+                          )}
                         </p>
                         {!isCurrentPlan && (
                           <p className="text-xs text-primary-600 dark:text-primary-400 mt-2">
