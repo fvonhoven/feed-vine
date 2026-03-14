@@ -157,6 +157,13 @@ export default function OnboardingPage() {
             >
               Get Started
             </button>
+            <button
+              onClick={handleFinish}
+              disabled={busy}
+              className="block mx-auto mt-3 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              Skip for now
+            </button>
           </div>
         )}
 
@@ -233,13 +240,22 @@ export default function OnboardingPage() {
               >
                 Back
               </button>
-              <button
-                onClick={handleAddFeeds}
-                disabled={busy || (!opmlFile && selectedFeeds.length === 0)}
-                className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold rounded-xl transition-colors"
-              >
-                {busy ? "Adding..." : opmlFile ? "Import" : `Add ${selectedFeeds.length} feed${selectedFeeds.length !== 1 ? "s" : ""}`}
-              </button>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleFinish}
+                  disabled={busy}
+                  className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={handleAddFeeds}
+                  disabled={busy || (!opmlFile && selectedFeeds.length === 0)}
+                  className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold rounded-xl transition-colors"
+                >
+                  {busy ? "Adding..." : opmlFile ? "Import" : `Add ${selectedFeeds.length} feed${selectedFeeds.length !== 1 ? "s" : ""}`}
+                </button>
+              </div>
             </div>
           </div>
         )}
