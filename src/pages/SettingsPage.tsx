@@ -392,6 +392,7 @@ export default function SettingsPage() {
                         planId={subscription.plan_id}
                         status={subscription.status as SubscriptionStatus}
                         periodEnd={subscription.current_period_end}
+                        cancelAtPeriodEnd={subscription.cancel_at_period_end}
                         showPlanName={false}
                       />
                     </div>

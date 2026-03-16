@@ -72,6 +72,7 @@ export default function UserMenu() {
               <SubscriptionBadge
                 planId={subscription?.plan_id || "free"}
                 status={(subscription?.status || "active") as SubscriptionStatus}
+                cancelAtPeriodEnd={subscription?.cancel_at_period_end}
                 size="sm"
               />
             </div>
