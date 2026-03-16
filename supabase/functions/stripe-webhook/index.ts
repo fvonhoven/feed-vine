@@ -10,20 +10,17 @@ const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") || ""
 
 /**
  * Extract period timestamps from a Stripe subscription object.
- * Uses bracket notation to bypass SDK type issues, and falls back
- * to trial_start/trial_end for trialing subscriptions.
+ *
+ * Stripe API 2025-12-15+ moved current_period_start/end to the item level.
+ * Fallback chain: top-level → items.data[0] → trial_start/trial_end.
  */
 function extractPeriodDates(sub: unknown): { periodStart: string | null; periodEnd: string | null } {
   const s = sub as Record<string, unknown>
-
-  console.log("[extractPeriodDates] current_period_start:", s.current_period_start, "type:", typeof s.current_period_start)
-  console.log("[extractPeriodDates] current_period_end:", s.current_period_end, "type:", typeof s.current_period_end)
-  console.log("[extractPeriodDates] trial_start:", s.trial_start, "trial_end:", s.trial_end)
+  const items = s.items as Record<string, unknown> | undefined
+  const firstItem = (items?.data as Record<string, unknown>[] | undefined)?.[0]
 
   const toIso = (val: unknown): string | null => {
-    if (typeof val === "number" && val > 0) {
-      return new Date(val * 1000).toISOString()
-    }
+    if (typeof val === "number" && val > 0) return new Date(val * 1000).toISOString()
     if (typeof val === "string" && val.length > 0) {
       const num = Number(val)
       if (!isNaN(num) && num > 0) return new Date(num * 1000).toISOString()
@@ -31,11 +28,29 @@ function extractPeriodDates(sub: unknown): { periodStart: string | null; periodE
     return null
   }
 
-  const periodStart = toIso(s.current_period_start) ?? toIso(s.trial_start)
-  const periodEnd = toIso(s.current_period_end) ?? toIso(s.trial_end)
+  const periodStart =
+    toIso(s.current_period_start) ??
+    toIso(firstItem?.current_period_start) ??
+    toIso(s.trial_start)
 
-  console.log("[extractPeriodDates] resolved periodStart:", periodStart, "periodEnd:", periodEnd)
+  const periodEnd =
+    toIso(s.current_period_end) ??
+    toIso(firstItem?.current_period_end) ??
+    toIso(s.trial_end)
+
+  console.log("[extractPeriodDates] resolved:", periodStart, "→", periodEnd)
   return { periodStart, periodEnd }
+}
+
+/**
+ * Determine whether the subscription is scheduled to cancel.
+ * Stripe uses cancel_at_period_end (bool) OR cancel_at (timestamp).
+ */
+function isCancelling(sub: unknown): boolean {
+  const s = sub as Record<string, unknown>
+  if (s.cancel_at_period_end === true) return true
+  if (typeof s.cancel_at === "number" && s.cancel_at > 0) return true
+  return false
 }
 
 // Helper function to map Stripe status to our database status
@@ -190,7 +205,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     stripe_subscription_id: subscriptionId,
     plan_id: planId,
     status: dbStatus,
-    cancel_at_period_end: subscription.cancel_at_period_end,
+    cancel_at_period_end: isCancelling(subscription),
   }
   if (periodStart) checkoutPayload.current_period_start = periodStart
   if (periodEnd) checkoutPayload.current_period_end = periodEnd
@@ -272,7 +287,7 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
     stripe_subscription_id: subscription.id,
     plan_id: planId,
     status: dbStatus,
-    cancel_at_period_end: subscription.cancel_at_period_end,
+    cancel_at_period_end: isCancelling(subscription),
   }
   if (periodStart) payload.current_period_start = periodStart
   if (periodEnd) payload.current_period_end = periodEnd
@@ -345,7 +360,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
   const payload: Record<string, unknown> = {
     plan_id: planId,
     status: dbStatus,
-    cancel_at_period_end: subscription.cancel_at_period_end,
+    cancel_at_period_end: isCancelling(subscription),
   }
 
   if (periodStart) payload.current_period_start = periodStart
