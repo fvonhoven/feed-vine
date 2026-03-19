@@ -7,8 +7,8 @@ import toast from "react-hot-toast"
 import { useState, useEffect } from "react"
 import { useSubscription } from "../hooks/useSubscription"
 import { useTeam } from "../hooks/useTeam"
-import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getPlanFeaturesArray, type BillingInterval, type PlanId, type SubscriptionStatus } from "../lib/stripe"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { getPlanPrice, getPlanFeaturesArray, getPlanDisplayName, type PlanId, type SubscriptionStatus } from "../lib/stripe"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import SubscriptionBadge from "../components/SubscriptionBadge"
 
 export default function SettingsPage() {
@@ -19,8 +19,6 @@ export default function SettingsPage() {
   const { subscription, planId: currentPlanId, isLoading: subscriptionLoading, hasFeature } = useSubscription()
   const { team } = useTeam()
   const [showFeedURL, setShowFeedURL] = useState(false)
-  const [changingPlan, setChangingPlan] = useState(false)
-  const [billingInterval, setBillingInterval] = useState<BillingInterval>("annual")
   const [loadingPortal, setLoadingPortal] = useState(false)
   const [beehiivApiKey, setBeehiivApiKey] = useState("")
   const [beehiivPublicationId, setBeehiivPublicationId] = useState("")
@@ -29,7 +27,7 @@ export default function SettingsPage() {
   const [mailerLiteFromName, setMailerLiteFromName] = useState("")
 
   // Debug: Log subscription data
-  console.log("SettingsPage - Subscription data:", { subscription, currentPlanId, subscriptionLoading })
+
 
   // Show success toast when returning from Stripe checkout or bot OAuth
   useEffect(() => {
@@ -202,115 +200,6 @@ export default function SettingsPage() {
     setShowFeedURL(true)
   }
 
-  const handleChangePlan = async (newPlanId: string, interval: BillingInterval) => {
-    if (!user) {
-      toast.error("Please sign in to change plans")
-      return
-    }
-
-    if (newPlanId === currentPlanId) {
-      toast.success("You're already on this plan!")
-      return
-    }
-
-    // Determine if this is an upgrade or downgrade
-    const planOrder = { free: 0, pro: 1, plus: 2, premium: 3 }
-    const currentPlanOrder = planOrder[currentPlanId.toLowerCase() as keyof typeof planOrder]
-    const newPlanOrder = planOrder[newPlanId.toLowerCase() as keyof typeof planOrder]
-    const isDowngrade = newPlanOrder < currentPlanOrder
-
-    if (isDowngrade) {
-      // For downgrades, schedule change at period end
-      const confirmMessage =
-        newPlanId === "free"
-          ? `Are you sure you want to cancel your subscription? Your ${PRICING_PLANS[currentPlanId.toUpperCase() as PlanId].name} plan will remain active until ${subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : "the end of your billing period"}, then you'll be downgraded to the Free plan.`
-          : `Your plan will be downgraded to ${PRICING_PLANS[newPlanId.toUpperCase() as PlanId].name} at the end of your current billing period (${subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : "end of period"}). You'll keep your current ${PRICING_PLANS[currentPlanId.toUpperCase() as PlanId].name} features until then.`
-
-      if (!confirm(confirmMessage)) {
-        return
-      }
-
-      setChangingPlan(true)
-
-      try {
-        const { data, error } = await supabase.functions.invoke("schedule-plan-change", {
-          body: { newPlanId },
-        })
-
-        if (error) throw error
-
-        if (data?.success) {
-          toast.success(data.message || "Plan change scheduled successfully!")
-          // Refresh subscription data
-          queryClient.invalidateQueries({ queryKey: ["subscription"] })
-        } else {
-          throw new Error(data?.error || "Failed to schedule plan change")
-        }
-      } catch (error: any) {
-        console.error("Downgrade error:", error)
-        toast.error(error.message || "Failed to schedule downgrade. Please try again.")
-      } finally {
-        setChangingPlan(false)
-      }
-    } else {
-      const hasExistingSubscription = subscription?.stripe_subscription_id
-      const newPlanName = PRICING_PLANS[newPlanId.toUpperCase() as PlanId]?.name ?? newPlanId
-      const newPrice = getPlanPrice(newPlanId.toUpperCase() as PlanId, interval)
-
-      if (hasExistingSubscription) {
-        const currentName = PRICING_PLANS[currentPlanId.toUpperCase() as PlanId]?.name ?? currentPlanId
-        const confirmMessage = `Upgrade from ${currentName} to ${newPlanName} ($${newPrice}/mo)? The prorated difference will be charged immediately.`
-
-        if (!confirm(confirmMessage)) {
-          return
-        }
-      }
-
-      setChangingPlan(true)
-
-      try {
-        if (hasExistingSubscription) {
-          const { data, error } = await supabase.functions.invoke("upgrade-subscription", {
-            body: { newPlanId, interval },
-          })
-
-          if (error) throw error
-
-          if (data?.success) {
-            toast.success(data.message || "Successfully upgraded! Your account has been updated.")
-            queryClient.invalidateQueries({ queryKey: ["subscription"] })
-          } else {
-            throw new Error(data?.error || "Failed to upgrade subscription")
-          }
-        } else {
-          const priceId = getPlanPriceId(newPlanId.toUpperCase() as PlanId, interval)
-          if (!priceId) {
-            toast.error("Price ID not configured. Please contact support.")
-            return
-          }
-
-          const { data, error } = await supabase.functions.invoke("create-checkout-session", {
-            body: { priceId },
-          })
-
-          if (error) throw error
-
-          if (data?.url) {
-            window.location.href = data.url
-          } else {
-            throw new Error("No checkout URL returned")
-          }
-        }
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to change plan. Please try again."
-        console.error("Plan change error:", error)
-        toast.error(message)
-      } finally {
-        setChangingPlan(false)
-      }
-    }
-  }
-
   const handleManageSubscription = async () => {
     if (isDemoMode) {
       toast.error("Cannot manage subscription in demo mode")
@@ -337,9 +226,8 @@ export default function SettingsPage() {
     }
   }
 
-  // Convert lowercase plan ID to uppercase for PRICING_PLANS lookup
   const planIdUpper = currentPlanId.toUpperCase() as PlanId
-  const currentPlan = PRICING_PLANS[planIdUpper]
+  const currentPlanName = getPlanDisplayName(currentPlanId)
   const currentPlanFeatures = getPlanFeaturesArray(planIdUpper)
 
   return (
@@ -383,7 +271,7 @@ export default function SettingsPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Current Plan</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                    {currentPlan.name}
+                    {currentPlanName}
                     {subscriptionLoading && <span className="text-sm text-gray-500 ml-2">(loading...)</span>}
                   </p>
                   {subscription && (
@@ -427,76 +315,15 @@ export default function SettingsPage() {
 
             {/* Change Plan */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Change Your Plan</p>
-                <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                  <button
-                    onClick={() => setBillingInterval("monthly")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      billingInterval === "monthly"
-                        ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
-                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                    }`}
-                  >
-                    Monthly
-                  </button>
-                  <button
-                    onClick={() => setBillingInterval("annual")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      billingInterval === "annual"
-                        ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
-                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                    }`}
-                  >
-                    Annual
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {Object.entries(PRICING_PLANS)
-                  .filter(([id]) => id !== planIdUpper)
-                  .map(([id, plan]) => {
-                    const planOrder = { FREE: 0, PRO: 1, PLUS: 2, PREMIUM: 3, TEAM: 4, TEAM_PRO: 5, TEAM_BUSINESS: 6 }
-                    const isDowngrade = planOrder[id as keyof typeof planOrder] < planOrder[planIdUpper]
-                    const isCurrentPlan = id === planIdUpper
-                    const price = getPlanPrice(id as PlanId, billingInterval)
-
-                    return (
-                      <button
-                        key={id}
-                        onClick={() => handleChangePlan(id.toLowerCase(), billingInterval)}
-                        disabled={changingPlan || isCurrentPlan}
-                        className={`p-4 border-2 rounded-lg transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed ${
-                          isCurrentPlan
-                            ? "border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-900/20"
-                            : "border-gray-200 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500"
-                        }`}
-                      >
-                        <p className="font-semibold text-gray-900 dark:text-white">
-                          {plan.name}
-                          {isCurrentPlan && <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Current)</span>}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          {id === "FREE" ? "Free" : `$${price}/mo`}
-                          {id !== "FREE" && billingInterval === "annual" && (
-                            <span className="text-xs text-green-600 dark:text-green-400 ml-1">(billed yearly)</span>
-                          )}
-                        </p>
-                        {!isCurrentPlan && (
-                          <p className="text-xs text-primary-600 dark:text-primary-400 mt-2">
-                            {isDowngrade ? "Downgrade at period end" : "Upgrade now"}
-                          </p>
-                        )}
-                      </button>
-                    )
-                  })}
-              </div>
-              {planIdUpper !== "FREE" && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                  Upgrades take effect immediately. Downgrades take effect at the end of your current billing period (
-                  {subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : "end of period"}).
-                </p>
-              )}
+              <Link
+                to="/pricing"
+                className="inline-flex items-center gap-2 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                Compare plans & upgrade
+              </Link>
             </div>
 
             {/* Manage Subscription Link */}

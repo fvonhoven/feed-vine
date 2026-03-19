@@ -181,12 +181,12 @@ export default function WebhooksPage() {
           <svg className="w-16 h-16 text-yellow-600 dark:text-yellow-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Webhooks Require Builder Plan</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Webhooks Require Creator Plan</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Upgrade to Builder to use webhooks and integrate FeedVine with Zapier, Make, and other automation tools.
+            Upgrade to Creator to use webhooks and integrate FeedVine with Zapier, Make, and other automation tools.
           </p>
           <Link to="/pricing" className="inline-block bg-primary-600 hover:bg-primary-700 text-white font-semibold px-6 py-3 rounded-lg">
-            Upgrade to Builder
+            Upgrade to Creator
           </Link>
         </div>
       </div>

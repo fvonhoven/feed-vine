@@ -161,7 +161,7 @@ export default function PricingPage() {
                   </div>
                 ) : isPopular ? (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-primary-500 text-white text-xs font-semibold px-4 py-1 rounded-full">
+                    <span className="bg-primary-500 text-white text-xs font-semibold px-4 py-1 rounded-full whitespace-nowrap">
                       {billingInterval === "annual" ? "⭐ MOST POPULAR" : "MOST POPULAR"}
                     </span>
                   </div>
@@ -363,7 +363,7 @@ export default function PricingPage() {
                     </div>
                   ) : isPopular ? (
                     <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                      <span className="bg-purple-500 text-white text-xs font-semibold px-4 py-1 rounded-full">MOST POPULAR</span>
+                      <span className="bg-purple-500 text-white text-xs font-semibold px-4 py-1 rounded-full whitespace-nowrap">MOST POPULAR</span>
                     </div>
                   ) : null}
 
