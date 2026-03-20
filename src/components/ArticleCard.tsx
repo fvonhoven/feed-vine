@@ -3,6 +3,7 @@ import { useState } from "react"
 import type { ArticleWithStatus } from "../types/database"
 import { useSubscription } from "../hooks/useSubscription"
 import { supabase } from "../lib/supabase"
+import { isSafeUrl } from "../lib/urlUtils"
 import toast from "react-hot-toast"
 
 interface ArticleCardProps {
@@ -122,7 +123,13 @@ export default function ArticleCard({ article, onToggleRead, onToggleSave }: Art
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <a href={article.url} target="_blank" rel="noopener noreferrer" onClick={handleArticleClick} className="block group">
+          <a
+            href={isSafeUrl(article.url) ? article.url : "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={handleArticleClick}
+            className="block group"
+          >
             <h2
               className={`text-lg font-semibold mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors ${
                 isRead ? "text-gray-600 dark:text-gray-400" : "text-gray-900 dark:text-gray-100"

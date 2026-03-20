@@ -6,6 +6,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { authenticateApiKey, extractApiKey } from "../_shared/apiAuth.ts"
+import { escapeFilterValue } from "../_shared/security.ts"
 import { checkRateLimit, logApiUsage, addRateLimitHeaders } from "../_shared/rateLimit.ts"
 import {
   corsPreflightResponse,
@@ -101,7 +102,8 @@ serve(async req => {
         }
 
         if (search) {
-          query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`)
+          const escaped = escapeFilterValue(search)
+          query = query.or(`title.ilike.%${escaped}%,description.ilike.%${escaped}%`)
         }
 
         const { data: articles, error, count } = await query.range(offset, offset + limit - 1)

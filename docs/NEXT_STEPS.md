@@ -13,6 +13,7 @@ Stripe products for the 3 individual paid plans (Starter, Creator, Builder) have
 | `STRIPE_SECRET_KEY` | Stripe Dashboard → Developers → API keys (`sk_test_…`) |
 | `STRIPE_WEBHOOK_SECRET` | Created in step 2 below (`whsec_…`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Settings → API → `service_role` key |
+| `CRON_SECRET` | Random secret for cron/internal calls (e.g. `openssl rand -hex 32`). Required for `fetch-rss`, `send-scheduled-digest` when triggered by cron. Pass as `X-Cron-Secret` header or `?secret=` query param. |
 | `STRIPE_PRO_MONTHLY_PRICE_ID` | Starter monthly price ID |
 | `STRIPE_PRO_ANNUAL_PRICE_ID` | Starter annual price ID |
 | `STRIPE_PLUS_MONTHLY_PRICE_ID` | Creator monthly price ID |

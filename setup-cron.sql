@@ -5,13 +5,15 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- Schedule RSS fetching to run every hour
+-- IMPORTANT: Set CRON_SECRET in Supabase Edge Function secrets, then replace YOUR_CRON_SECRET below
+-- Or use the service_role key as Bearer token for Authorization header
 SELECT cron.schedule(
   'fetch-rss-hourly',
   '0 * * * *',  -- Every hour at minute 0
   $$
   SELECT net.http_post(
     url:='https://jrjotduzvzbslnbhswxo.supabase.co/functions/v1/fetch-rss',
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impyam90ZHV6dnpic2xuYmhzd3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MjY5NjIsImV4cCI6MjA4NDEwMjk2Mn0.mUzqn8ZOLX4BT_PVBfLDAD3NQx_PHytBDxHUML5kXOg"}'::jsonb
+    headers:='{"Content-Type": "application/json", "X-Cron-Secret": "YOUR_CRON_SECRET"}'::jsonb
   ) AS request_id;
   $$
 );

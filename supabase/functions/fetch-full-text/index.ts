@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { isValidHttpUrl } from "../_shared/security.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,6 +68,13 @@ serve(async req => {
 
     if (!url || typeof url !== "string") {
       return new Response(JSON.stringify({ success: false, error: "url is required" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      })
+    }
+
+    if (!isValidHttpUrl(url)) {
+      return new Response(JSON.stringify({ success: false, error: "Invalid URL" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       })

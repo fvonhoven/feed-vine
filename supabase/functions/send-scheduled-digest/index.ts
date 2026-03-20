@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { format as dateFormat, subDays, subHours } from "https://esm.sh/date-fns@3"
+import { isCronOrServiceAuth, escapeHtml, isValidHttpUrl } from "../_shared/security.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,19 +13,20 @@ function generateHTML(
   articles: Array<{ title: string; url: string; description?: string | null; feed_title: string; published_at: string }>,
 ): string {
   const date = dateFormat(new Date(), "MMMM d, yyyy")
-  let html = `<h1 style="font-family:sans-serif;color:#111;">${title}</h1>\n`
+  let html = `<h1 style="font-family:sans-serif;color:#111;">${escapeHtml(title)}</h1>\n`
   html += `<p style="color:#888;font-size:14px;">${date}</p>\n<hr>\n`
   for (const a of articles) {
-    html += `<h2 style="font-family:sans-serif;"><a href="${a.url}" style="color:#0070f3;text-decoration:none;">${a.title}</a></h2>\n`
+    const safeUrl = isValidHttpUrl(a.url) ? a.url : "#"
+    html += `<h2 style="font-family:sans-serif;"><a href="${escapeHtml(safeUrl)}" style="color:#0070f3;text-decoration:none;">${escapeHtml(a.title)}</a></h2>\n`
     if (a.description) {
       const stripped = a.description
         .replace(/<[^>]*>/g, "")
         .replace(/&nbsp;/g, " ")
         .replace(/&amp;/g, "&")
         .trim()
-      html += `<p style="color:#444;line-height:1.6;">${stripped}</p>\n`
+      html += `<p style="color:#444;line-height:1.6;">${escapeHtml(stripped)}</p>\n`
     }
-    html += `<p style="color:#888;font-size:12px;">${a.feed_title} · ${dateFormat(new Date(a.published_at), "MMM d")}</p>\n<hr>\n`
+    html += `<p style="color:#888;font-size:12px;">${escapeHtml(a.feed_title)} · ${dateFormat(new Date(a.published_at), "MMM d")}</p>\n<hr>\n`
   }
   return html
 }
@@ -93,6 +95,13 @@ function getTimezoneOffsetHours(tz: string): number {
 serve(async req => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
+  }
+
+  if (!isCronOrServiceAuth(req)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 401,
+    })
   }
 
   try {
@@ -233,9 +242,14 @@ serve(async req => {
           }
         }
 
-        // Save to digest history
+        // Save to digest history (escape markdown special chars in titles, validate URLs)
         const markdownContent = articleList
-          .map(a => `## [${a.title}](${a.url})\n\n${a.description ? a.description.replace(/<[^>]*>/g, "").trim() : ""}\n\n*${a.feed_title} · ${dateFormat(new Date(a.published_at), "MMM d")}*`)
+          .map(a => {
+            const safeUrl = isValidHttpUrl(a.url) ? a.url : "#"
+            const safeTitle = a.title.replace(/[\[\]()]/g, " ")
+            const desc = a.description ? a.description.replace(/<[^>]*>/g, "").trim() : ""
+            return `## [${safeTitle}](${safeUrl})\n\n${desc}\n\n*${a.feed_title} · ${dateFormat(new Date(a.published_at), "MMM d")}*`
+          })
           .join("\n\n---\n\n")
 
         await supabaseAdmin.from("digest_history").insert({

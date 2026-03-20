@@ -105,8 +105,9 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "invite") {
-      const { team_id, email, role = "member" } = body
+      const { team_id, email, role: rawRole } = body
       if (!email?.trim()) return err("Email is required")
+      const role = ["member", "admin"].includes(rawRole) ? rawRole : "member"
       const { data: m } = await sb.from("team_members").select("role").eq("team_id", team_id).eq("user_id", user.id).single()
       if (!m || !["owner", "admin"].includes(m.role)) return err("Only owner/admin can invite members", 403)
 
@@ -126,6 +127,8 @@ Deno.serve(async (req: Request) => {
       const { token } = body
       const { data: invite, error: iErr } = await sb.from("team_invites").select("*").eq("token", token).eq("status", "pending").single()
       if (iErr || !invite) return err("Invalid or expired invite")
+      const userEmail = (user.email || "").toLowerCase()
+      if (invite.email.toLowerCase() !== userEmail) return err("This invite was sent to a different email address", 403)
       if (new Date(invite.expires_at) < new Date()) {
         await sb.from("team_invites").update({ status: "expired" }).eq("id", invite.id)
         return err("This invite has expired")

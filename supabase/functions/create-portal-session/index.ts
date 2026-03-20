@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import Stripe from "https://esm.sh/stripe@14.21.0"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0"
+import { validateReturnUrl } from "../_shared/security.ts"
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
   apiVersion: "2024-11-20.acacia",
@@ -56,14 +57,14 @@ serve(async req => {
       throw new Error("No active subscription found")
     }
 
-    // Get the return URL from the request body or use default
     const { returnUrl } = await req.json().catch(() => ({}))
-    const baseUrl = returnUrl || Deno.env.get("FRONTEND_URL") || "http://localhost:5173"
+    const allowedReturn = validateReturnUrl(returnUrl)
+    const defaultUrl = Deno.env.get("FRONTEND_URL") || "http://localhost:5173"
+    const baseUrl = allowedReturn ?? defaultUrl
 
-    // Create a billing portal session
     const session = await stripe.billingPortal.sessions.create({
       customer: subscription.stripe_customer_id,
-      return_url: `${baseUrl}/settings`,
+      return_url: `${baseUrl.replace(/\/$/, "")}/settings`,
     })
 
     return new Response(JSON.stringify({ url: session.url }), {

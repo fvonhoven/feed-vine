@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { escapeFilterValue } from "../_shared/security.ts"
 
 const DISCORD_PUBLIC_KEY = Deno.env.get("DISCORD_PUBLIC_KEY") ?? ""
 
@@ -92,10 +93,11 @@ serve(async (req) => {
             return interactionResponse("Please provide a feed name or URL to subscribe to.")
           }
 
+          const escaped = escapeFilterValue(args)
           const { data: feeds } = await supabaseAdmin
             .from("feeds")
             .select("id, title, url")
-            .or(`title.ilike.%${args}%,url.ilike.%${args}%`)
+            .or(`title.ilike.%${escaped}%,url.ilike.%${escaped}%`)
             .limit(1)
 
           if (!feeds || feeds.length === 0) {

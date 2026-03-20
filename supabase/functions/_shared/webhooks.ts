@@ -3,6 +3,7 @@
  */
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { isValidHttpUrl } from "./security.ts"
 
 export interface WebhookPayload {
   event: string
@@ -62,6 +63,15 @@ export async function fireWebhook(
 
   if (deliveryError) {
     console.error("Failed to create delivery record:", deliveryError)
+  }
+
+  if (!isValidHttpUrl(webhook.url)) {
+    const errMsg = "Invalid webhook URL"
+    if (delivery) {
+      await supabase.from("webhook_deliveries").update({ status: "failed", error_message: errMsg, delivered_at: new Date().toISOString() }).eq("id", delivery.id)
+    }
+    await supabase.from("webhooks").update({ last_error: errMsg, failure_count: webhook.failure_count + 1 }).eq("id", webhook.id)
+    return { success: false, error: errMsg }
   }
 
   try {

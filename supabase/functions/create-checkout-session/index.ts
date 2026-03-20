@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { validateReturnUrl } from "../_shared/security.ts"
 
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") || ""
 
@@ -80,9 +81,6 @@ serve(async req => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? ""
 
-    console.log("Supabase URL:", supabaseUrl)
-    console.log("Auth header present:", !!authHeader)
-
     const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: {
         Authorization: authHeader,
@@ -90,19 +88,16 @@ serve(async req => {
       },
     })
 
-    console.log("Auth API response status:", userResponse.status)
-
     if (!userResponse.ok) {
       const errorBody = await userResponse.text()
       console.error("Auth API error:", errorBody)
-      return new Response(JSON.stringify({ error: "Unauthorized", details: errorBody }), {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       })
     }
 
     const user = await userResponse.json()
-    console.log("User verified:", user.id)
     const userId = user.id
     const userEmail = user.email
 
@@ -134,14 +129,15 @@ serve(async req => {
       })
     }
 
-    // Create Checkout Session
-    const origin = req.headers.get("origin") || "https://feedvine.app"
+    const originHeader = req.headers.get("origin")
+    const allowedOrigin = originHeader ? validateReturnUrl(originHeader) : null
+    const baseUrl = allowedOrigin ?? Deno.env.get("FRONTEND_URL") ?? "https://feedvine.app"
     const session = await createStripeCheckoutSession(
       customerId,
       priceId,
       userId,
-      `${origin}/settings?success=true`,
-      `${origin}/pricing?canceled=true`,
+      `${baseUrl.replace(/\/$/, "")}/settings?success=true`,
+      `${baseUrl.replace(/\/$/, "")}/pricing?canceled=true`,
     )
 
     return new Response(JSON.stringify({ url: session.url }), {

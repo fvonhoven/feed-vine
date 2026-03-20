@@ -125,7 +125,7 @@ serve(async req => {
               slug: body.slug,
               description: body.description || "",
               is_public: body.is_public !== false,
-              output_format: body.output_format || "rss",
+              output_format: ["rss", "atom"].includes(body.output_format) ? body.output_format : "rss",
             })
             .select("id, name, slug, description, is_public, output_format, created_at")
             .single()
@@ -138,14 +138,24 @@ serve(async req => {
               throw insertError
             }
           } else {
-            // Add feed sources if provided
             if (body.feed_ids && Array.isArray(body.feed_ids)) {
-              const sources = body.feed_ids.map((feedId: string) => ({
-                collection_id: newCollection.id,
-                feed_id: feedId,
-              }))
-
-              await supabase.from("feed_collection_sources").insert(sources)
+              const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+              const validIds = body.feed_ids.filter((id: unknown) => typeof id === "string" && uuidRe.test(id))
+              if (validIds.length > 0) {
+                const { data: ownedFeeds } = await supabase
+                  .from("feeds")
+                  .select("id")
+                  .eq("user_id", user.id)
+                  .in("id", validIds)
+                const ownedIds = (ownedFeeds || []).map((f: { id: string }) => f.id)
+                const sources = ownedIds.map((feedId: string) => ({
+                  collection_id: newCollection.id,
+                  feed_id: feedId,
+                }))
+                if (sources.length > 0) {
+                  await supabase.from("feed_collection_sources").insert(sources)
+                }
+              }
             }
 
             response = successResponse(newCollection, null, 201)

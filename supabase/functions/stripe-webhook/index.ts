@@ -38,7 +38,6 @@ function extractPeriodDates(sub: unknown): { periodStart: string | null; periodE
     toIso(firstItem?.current_period_end) ??
     toIso(s.trial_end)
 
-  console.log("[extractPeriodDates] resolved:", periodStart, "→", periodEnd)
   return { periodStart, periodEnd }
 }
 
@@ -150,19 +149,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
 
   if (!userId || !subscriptionId) {
     console.error("Missing userId or subscriptionId in checkout session")
-    console.error("userId:", userId, "subscriptionId:", subscriptionId)
-    console.error("Full metadata:", JSON.stringify(session.metadata))
     return
   }
 
-  console.log("Processing checkout completion for user:", userId)
 
   // Get subscription details from Stripe
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
   // Determine plan ID from price
   const priceId = subscription.items.data[0]?.price.id
-  console.log("Price ID from subscription:", priceId)
 
   let planId = "free"
 
@@ -193,10 +188,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     planId = "team_business"
   }
 
-  console.log("Mapped to plan:", planId)
 
   const dbStatus = mapStripeStatusToDb(subscription.status)
-  console.log("Stripe status:", subscription.status, "-> DB status:", dbStatus)
 
   const { periodStart, periodEnd } = extractPeriodDates(subscription)
 
@@ -210,7 +203,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   if (periodStart) checkoutPayload.current_period_start = periodStart
   if (periodEnd) checkoutPayload.current_period_end = periodEnd
 
-  console.log("checkout.completed PATCH payload:", JSON.stringify(checkoutPayload))
 
   const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
     method: "PATCH",
@@ -226,7 +218,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     const errorText = await response.text()
     console.error("Failed to update subscription in database:", errorText)
   } else {
-    console.log("Successfully updated subscription for user:", userId, "to plan:", planId)
   }
 }
 
@@ -242,11 +233,9 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
     return
   }
 
-  console.log("Processing subscription.created for user:", userId)
 
   // Determine plan ID from price
   const priceId = subscription.items.data[0]?.price.id
-  console.log("Price ID from subscription:", priceId)
 
   let planId = "free"
 
@@ -274,10 +263,8 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
     planId = "team_business"
   }
 
-  console.log("Mapped to plan:", planId)
 
   const dbStatus = mapStripeStatusToDb(subscription.status)
-  console.log("Stripe status:", subscription.status, "-> DB status:", dbStatus)
 
   const { periodStart, periodEnd } = extractPeriodDates(subscription)
 
@@ -292,7 +279,6 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
   if (periodStart) payload.current_period_start = periodStart
   if (periodEnd) payload.current_period_end = periodEnd
 
-  console.log("subscription.created PATCH payload:", JSON.stringify(payload))
 
   // Update subscription in database using PATCH to update existing record
   const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
@@ -305,15 +291,12 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
     body: JSON.stringify(payload),
   })
 
-  console.log("Database response status:", response.status)
 
   if (!response.ok) {
     const errorText = await response.text()
     console.error("Failed to create subscription in database:", errorText)
   } else {
     const responseData = await response.text()
-    console.log("Database response body:", responseData)
-    console.log("Successfully created subscription for user:", userId, "to plan:", planId)
   }
 }
 
@@ -325,7 +308,6 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
 
   if (!userId) return
 
-  console.log("Processing subscription.updated for user:", userId, "status:", subscription.status)
 
   const priceId = subscription.items.data[0]?.price.id
   let planId = "free"
@@ -366,7 +348,6 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
   if (periodStart) payload.current_period_start = periodStart
   if (periodEnd) payload.current_period_end = periodEnd
 
-  console.log("subscription.updated PATCH payload:", JSON.stringify(payload))
 
   const response = await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
     method: "PATCH",
@@ -382,7 +363,6 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
     const errorText = await response.text()
     console.error("subscription.updated PATCH failed:", errorText)
   } else {
-    console.log("subscription.updated — successfully updated user:", userId, "plan:", planId, "status:", dbStatus)
   }
 }
 
@@ -416,11 +396,9 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice, supabaseUrl: stri
 
   if (!userId) return
 
-  console.log("Payment succeeded for user:", userId)
 
   const subscriptionId = invoice.subscription as string | null
   if (!subscriptionId) {
-    console.log("No subscription on invoice, skipping status update")
     return
   }
 
@@ -428,7 +406,6 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice, supabaseUrl: stri
   // a $0 trial invoice fires payment_succeeded even while trialing
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
   const dbStatus = mapStripeStatusToDb(subscription.status)
-  console.log("Payment succeeded — Stripe subscription status:", subscription.status, "-> DB status:", dbStatus)
 
   const { periodStart, periodEnd } = extractPeriodDates(subscription)
 
@@ -436,7 +413,6 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice, supabaseUrl: stri
   if (periodStart) paymentPayload.current_period_start = periodStart
   if (periodEnd) paymentPayload.current_period_end = periodEnd
 
-  console.log("payment_succeeded PATCH payload:", JSON.stringify(paymentPayload))
 
   await fetch(`${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${userId}`, {
     method: "PATCH",

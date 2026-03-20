@@ -7,6 +7,7 @@ import FilterBar from "../components/FilterBar"
 import toast from "react-hot-toast"
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts"
 import { KeyboardShortcutsHelp } from "../components/KeyboardShortcutsHelp"
+import { isSafeUrl, escapeFilterValue } from "../lib/urlUtils"
 import { FaRegKeyboard } from "react-icons/fa"
 import { useFeedFilters, applyFeedFilters } from "../hooks/useFeedFilters"
 
@@ -54,9 +55,9 @@ export default function HomePage() {
         .order("published_at", { ascending: false })
         .limit(500)
 
-      // Apply filters
       if (keyword) {
-        query = query.or(`title.ilike.%${keyword}%,description.ilike.%${keyword}%,content.ilike.%${keyword}%`)
+        const escaped = escapeFilterValue(keyword)
+        query = query.or(`title.ilike.%${escaped}%,description.ilike.%${escaped}%,content.ilike.%${escaped}%`)
       }
 
       if (selectedFeedId) {
@@ -277,8 +278,9 @@ export default function HomePage() {
         description: "Open article",
         action: () => {
           if (filteredArticles && filteredArticles[selectedArticleIndex]) {
-            window.open(filteredArticles[selectedArticleIndex].url, "_blank")
-            handleToggleRead(filteredArticles[selectedArticleIndex].id, true)
+            const art = filteredArticles[selectedArticleIndex]
+            if (isSafeUrl(art.url)) window.open(art.url, "_blank")
+            handleToggleRead(art.id, true)
           }
         },
       },

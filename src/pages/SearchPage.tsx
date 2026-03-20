@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
+import { escapeFilterValue } from "../lib/urlUtils"
 import type { ArticleWithStatus, Feed } from "../types/database"
 import ArticleCard from "../components/ArticleCard"
 import toast from "react-hot-toast"
@@ -28,10 +29,11 @@ export default function SearchPage() {
     queryFn: async () => {
       if (isDemoMode) return []
 
+      const escaped = escapeFilterValue(submittedKeyword)
       let query = supabase
         .from("articles")
         .select(`*, feed:feeds(title, url), user_article:user_articles!left(is_read, is_saved)`)
-        .or(`title.ilike.%${submittedKeyword}%,description.ilike.%${submittedKeyword}%,content.ilike.%${submittedKeyword}%`)
+        .or(`title.ilike.%${escaped}%,description.ilike.%${escaped}%,content.ilike.%${escaped}%`)
         .order("published_at", { ascending: false })
         .limit(200)
 

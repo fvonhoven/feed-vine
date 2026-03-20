@@ -23,11 +23,35 @@ function stripHtml(html: string) {
     .trim()
 }
 
+function escapeHtml(text: string): string {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
+function isSafeUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    if (!["http:", "https:"].includes(u.protocol)) return false
+    const host = u.hostname.toLowerCase()
+    if (host === "localhost" || host === "127.0.0.1") return false
+    if (host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.")) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
 function generateMarkdown(title: string, articles: ArticleWithFeed[]): string {
   const date = dateFormat(new Date(), "MMMM d, yyyy")
-  let md = `# ${title}\n\n*${date}*\n\n---\n\n`
+  let md = `# ${title.replace(/[#*_`[\]]/g, " ")}\n\n*${date}*\n\n---\n\n`
   articles.forEach(a => {
-    md += `## [${a.title}](${a.url})\n\n`
+    const safeUrl = isSafeUrl(a.url) ? a.url : "#"
+    const safeTitle = a.title.replace(/[\[\]()]/g, " ")
+    md += `## [${safeTitle}](${safeUrl})\n\n`
     if (a.description) md += `${stripHtml(a.description)}\n\n`
     md += `*${a.feed.title} · ${dateFormat(new Date(a.published_at), "MMM d")}*\n\n---\n\n`
   })
@@ -36,12 +60,13 @@ function generateMarkdown(title: string, articles: ArticleWithFeed[]): string {
 
 function generateHTML(title: string, articles: ArticleWithFeed[]): string {
   const date = dateFormat(new Date(), "MMMM d, yyyy")
-  let html = `<h1 style="font-family:sans-serif;color:#111;">${title}</h1>\n`
+  let html = `<h1 style="font-family:sans-serif;color:#111;">${escapeHtml(title)}</h1>\n`
   html += `<p style="color:#888;font-size:14px;">${date}</p>\n<hr>\n`
   articles.forEach(a => {
-    html += `<h2 style="font-family:sans-serif;"><a href="${a.url}" style="color:#0070f3;text-decoration:none;">${a.title}</a></h2>\n`
-    if (a.description) html += `<p style="color:#444;line-height:1.6;">${stripHtml(a.description)}</p>\n`
-    html += `<p style="color:#888;font-size:12px;">${a.feed.title} · ${dateFormat(new Date(a.published_at), "MMM d")}</p>\n<hr>\n`
+    const safeUrl = isSafeUrl(a.url) ? a.url : "#"
+    html += `<h2 style="font-family:sans-serif;"><a href="${escapeHtml(safeUrl)}" style="color:#0070f3;text-decoration:none;">${escapeHtml(a.title)}</a></h2>\n`
+    if (a.description) html += `<p style="color:#444;line-height:1.6;">${escapeHtml(stripHtml(a.description))}</p>\n`
+    html += `<p style="color:#888;font-size:12px;">${escapeHtml(a.feed.title)} · ${dateFormat(new Date(a.published_at), "MMM d")}</p>\n<hr>\n`
   })
   return html
 }

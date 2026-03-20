@@ -1,5 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { escapeFilterValue } from "../_shared/security.ts"
+import { verifySlackSignature } from "../_shared/slackVerify.ts"
+import { isValidHttpUrl } from "../_shared/security.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,19 +18,32 @@ serve(async (req) => {
   }
 
   try {
-    const formData = await req.formData()
-    const command = formData.get("command") as string
-    const text = (formData.get("text") as string || "").trim()
-    const channelId = formData.get("channel_id") as string
-    const channelName = formData.get("channel_name") as string
-    const slackTeamId = formData.get("team_id") as string
-    const responseUrl = formData.get("response_url") as string
-
-    // Verify this came from our Slack app
+    const rawBody = await req.text()
     const signingSecret = Deno.env.get("SLACK_SIGNING_SECRET")
     if (!signingSecret) {
-      console.warn("SLACK_SIGNING_SECRET not set, skipping verification")
+      return new Response(JSON.stringify({ error: "Slack signing not configured" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 503,
+      })
     }
+
+    const signature = req.headers.get("X-Slack-Signature")
+    const timestamp = req.headers.get("X-Slack-Request-Timestamp")
+    const valid = await verifySlackSignature(signingSecret, signature, timestamp, rawBody)
+    if (!valid) {
+      return new Response(JSON.stringify({ error: "Invalid signature" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      })
+    }
+
+    const params = new URLSearchParams(rawBody)
+    const command = params.get("command") as string
+    const text = (params.get("text") || "").trim()
+    const channelId = params.get("channel_id") as string
+    const channelName = params.get("channel_name") as string
+    const slackTeamId = params.get("team_id") as string
+    const responseUrl = params.get("response_url") as string
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -53,11 +69,11 @@ serve(async (req) => {
           return slackResponse("Usage: `/feedvine subscribe <feed name or URL>`\nSubscribes this channel to a feed.")
         }
 
-        // Search for a feed matching the query
+        const escaped = escapeFilterValue(args)
         const { data: feeds } = await supabaseAdmin
           .from("feeds")
           .select("id, title, url")
-          .or(`title.ilike.%${args}%,url.ilike.%${args}%`)
+          .or(`title.ilike.%${escaped}%,url.ilike.%${escaped}%`)
           .limit(1)
 
         if (!feeds || feeds.length === 0) {
@@ -171,13 +187,14 @@ serve(async (req) => {
           return slackResponse("No recent articles from your subscribed feeds.")
         }
 
-        // Post digest asynchronously via response_url
         const blocks = buildDigestBlocks(articles)
-        await fetch(responseUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ response_type: "in_channel", blocks }),
-        })
+        if (responseUrl && isValidHttpUrl(responseUrl)) {
+          await fetch(responseUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ response_type: "in_channel", blocks }),
+          })
+        }
 
         return new Response("", { status: 200 })
       }

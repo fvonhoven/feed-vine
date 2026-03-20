@@ -1,8 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { parseFeed } from "https://deno.land/x/rss@0.5.6/mod.ts"
-// Webhook utilities are dynamically imported to prevent breaking feed fetching if there's an issue
-// import { getWebhooksForEvent, fireWebhook, WebhookPayload } from "../_shared/webhooks.ts"
+import { isCronOrServiceAuth, isValidHttpUrl } from "../_shared/security.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,20 +98,19 @@ Example response: AI News, Tools, Opinion, Uncategorized`
 }
 
 serve(async req => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
   }
 
   try {
-    const supabaseClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? ""
 
-    // Check if this is a request for a specific feed
     const url = new URL(req.url)
     let feedId = url.searchParams.get("feedId")
     let feedUrl = url.searchParams.get("url")
 
-    // Also check POST body for parameters
     let discoverUrl: string | null = url.searchParams.get("discoverUrl")
     if (req.method === "POST") {
       try {
@@ -124,6 +122,48 @@ serve(async req => {
         // Ignore JSON parse errors, use query params
       }
     }
+
+    // Auth: require JWT (user) or CRON_SECRET / service key (cron/internal)
+    const isCron = isCronOrServiceAuth(req)
+    let userId: string | null = null
+
+    if (!isCron) {
+      const authHeader = req.headers.get("Authorization")
+      if (!authHeader?.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        })
+      }
+      const token = authHeader.slice(7)
+      const authClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      })
+      const { data: { user }, error: authErr } = await authClient.auth.getUser(token)
+      if (authErr || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        })
+      }
+      userId = user.id
+    }
+
+    // URL validation for SSRF prevention
+    if (discoverUrl && !isValidHttpUrl(discoverUrl)) {
+      return new Response(JSON.stringify({ success: false, error: "Invalid URL", discoveredFeeds: [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      })
+    }
+    if (feedUrl && !isValidHttpUrl(feedUrl)) {
+      return new Response(JSON.stringify({ success: false, error: "Invalid feed URL" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      })
+    }
+
+    const supabaseClient = createClient(supabaseUrl, serviceKey)
 
     // Discovery mode: find RSS feed URLs from a website URL server-side (no CORS proxy needed)
     if (discoverUrl) {
@@ -196,10 +236,15 @@ serve(async req => {
     let feeds: Feed[] = []
 
     if (feedId) {
-      // Fetch specific feed by ID
-      const { data, error } = await supabaseClient.from("feeds").select("id, url, title, full_text_enabled").eq("id", feedId).single()
+      const { data, error } = await supabaseClient.from("feeds").select("id, url, title, full_text_enabled, user_id").eq("id", feedId).single()
       if (error) throw error
-      feeds = [data]
+      if (userId && data.user_id !== userId) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 403,
+        })
+      }
+      feeds = [{ id: data.id, url: data.url, title: data.title, full_text_enabled: data.full_text_enabled }]
     } else if (feedUrl) {
       // Fetch from a URL directly (for discovery/testing)
       feeds = [{ id: "temp", url: feedUrl, title: "Temporary Feed", full_text_enabled: false }]
@@ -212,10 +257,11 @@ serve(async req => {
 
     const results = []
 
-    // Process each feed
     for (const feed of feeds as Feed[]) {
       try {
-        console.log(`Fetching feed: ${feed.url}`)
+        if (!isValidHttpUrl(feed.url)) {
+          throw new Error("Invalid feed URL")
+        }
 
         // Fetch RSS feed
         const response = await fetch(feed.url, {
