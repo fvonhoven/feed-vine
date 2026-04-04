@@ -10,6 +10,7 @@ import { KeyboardShortcutsHelp } from "../components/KeyboardShortcutsHelp"
 import { isSafeUrl, escapeFilterValue } from "../lib/urlUtils"
 import { FaRegKeyboard } from "react-icons/fa"
 import { useFeedFilters, applyFeedFilters } from "../hooks/useFeedFilters"
+import { invokeFetchRss } from "../lib/rssFetcher"
 
 export default function HomePage() {
   const [keyword, setKeyword] = useState("")
@@ -321,7 +322,7 @@ export default function HomePage() {
 
     try {
       // Call the edge function without parameters to refresh all feeds
-      const { data, error } = await supabase.functions.invoke("fetch-rss")
+      const { data, error } = await invokeFetchRss({})
 
       if (error) {
         throw new Error(error.message || "Failed to refresh feeds")

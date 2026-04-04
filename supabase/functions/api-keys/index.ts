@@ -23,11 +23,12 @@ serve(async req => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? ""
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
 
-    // Get user from auth header
+    // Get user from auth header (JWT must be passed to getUser() in Edge Functions)
     const authHeader = req.headers.get("Authorization")
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return errorResponse("Missing authorization header", 401)
     }
+    const jwt = authHeader.slice(7)
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -36,7 +37,7 @@ serve(async req => {
     const {
       data: { user },
       error: userError,
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser(jwt)
 
     if (userError || !user) {
       return errorResponse("Unauthorized", 401)

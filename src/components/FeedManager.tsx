@@ -4,7 +4,7 @@ import { supabase, isDemoMode } from "../lib/supabase"
 import type { Feed, Category } from "../types/database"
 import toast from "react-hot-toast"
 import { formatDistanceToNow } from "date-fns"
-import { fetchAndSaveArticles, discoverRSSFeeds, refreshAllFeeds } from "../lib/rssFetcher"
+import { fetchAndSaveArticles, discoverRSSFeeds, invokeFetchRss, refreshAllFeeds } from "../lib/rssFetcher"
 import { useSubscription } from "../hooks/useSubscription"
 import { useFeedFilters } from "../hooks/useFeedFilters"
 import { Link } from "react-router-dom"
@@ -181,10 +181,10 @@ export default function FeedManager() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      // Check plan limits
+      // Check plan limits (-1 = unlimited; see PRICING_PLANS in stripe.ts)
       const currentFeedCount = feeds?.length || 0
       const maxFeeds = getLimit("maxFeeds")
-      if (currentFeedCount >= maxFeeds) {
+      if (maxFeeds !== -1 && currentFeedCount >= maxFeeds) {
         throw new Error(`You've reached your plan limit of ${maxFeeds} feed${maxFeeds === 1 ? "" : "s"}. Upgrade to add more!`)
       }
 
@@ -231,9 +231,7 @@ export default function FeedManager() {
       // Validate feed before adding to database
       toast.loading("Validating feed...")
       try {
-        const { data: validationData, error: validationError } = await supabase.functions.invoke("fetch-rss", {
-          body: { url: feedUrl },
-        })
+        const { data: validationData, error: validationError } = await invokeFetchRss({ url: feedUrl })
 
         toast.dismiss()
 
@@ -471,9 +469,7 @@ export default function FeedManager() {
       }
       setValidatingFeedId(feed.id)
 
-      const { data, error } = await supabase.functions.invoke("fetch-rss", {
-        body: { url: feed.url },
-      })
+      const { data, error } = await invokeFetchRss({ url: feed.url })
 
       if (error) throw error
 
@@ -622,7 +618,7 @@ export default function FeedManager() {
       // Check plan limits
       const currentFeedCount = feeds?.length || 0
       const maxFeeds = getLimit("maxFeeds")
-      const availableSlots = maxFeeds - currentFeedCount
+      const availableSlots = maxFeeds === -1 ? Number.MAX_SAFE_INTEGER : maxFeeds - currentFeedCount
 
       if (feedsToImport.length > availableSlots) {
         throw new Error(
@@ -737,7 +733,7 @@ export default function FeedManager() {
       // Check plan limits
       const currentFeedCount = feeds?.length || 0
       const maxFeeds = getLimit("maxFeeds")
-      const availableSlots = maxFeeds - currentFeedCount
+      const availableSlots = maxFeeds === -1 ? Number.MAX_SAFE_INTEGER : maxFeeds - currentFeedCount
       if (feedOutlines.length > availableSlots) {
         throw new Error(`Cannot import ${feedOutlines.length} feeds. You have ${availableSlots} slot${availableSlots === 1 ? "" : "s"} available.`)
       }
@@ -869,7 +865,7 @@ Example Feed,https://feeds.feedburner.com/example`
 
   const currentFeedCount = feeds?.length || 0
   const maxFeeds = getLimit("maxFeeds")
-  const isAtLimit = currentFeedCount >= maxFeeds
+  const isAtLimit = maxFeeds !== -1 && currentFeedCount >= maxFeeds
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -908,7 +904,7 @@ Example Feed,https://feeds.feedburner.com/example`
               </button>
             )}
             <span className={`text-xs sm:text-sm ${isAtLimit ? "text-red-600 dark:text-red-400 font-semibold" : "text-gray-500 dark:text-gray-400"}`}>
-              {currentFeedCount} / {maxFeeds} feeds
+              {currentFeedCount} / {maxFeeds === -1 ? "∞" : maxFeeds} feeds
             </span>
           </div>
         </div>

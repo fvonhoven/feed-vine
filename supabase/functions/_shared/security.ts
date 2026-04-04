@@ -3,6 +3,16 @@
  * @soc2 CC6.7 - Input validation, URL validation
  */
 
+/**
+ * Headers for fetching RSS/Atom XML. Many publishers return 403 or HTML challenges
+ * for generic bot User-Agents; align with a normal client (see discover + fetch-full-text).
+ */
+export const RSS_FEED_FETCH_HEADERS: Record<string, string> = {
+  "User-Agent": "Mozilla/5.0 (compatible; FeedVine/1.0; +https://feedvine.app)",
+  Accept: "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.1",
+  "Accept-Language": "en-US,en;q=0.9",
+}
+
 /** Allowed redirect origins for open-redirect protection */
 const ALLOWED_ORIGINS = [
   "https://feedvine.app",

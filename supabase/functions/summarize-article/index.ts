@@ -7,11 +7,15 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
+/** Monthly cap per plan; -1 = unlimited. Must stay aligned with frontend PRICING_PLANS (stripe.ts). */
 const PLAN_LIMITS: Record<string, number> = {
   free: 0,
   pro: 0, // Starter
   plus: 200, // Creator
   premium: -1, // Builder — unlimited
+  team: -1,
+  team_pro: -1,
+  team_business: -1,
 }
 
 async function summarizeWithClaude(title: string, content: string): Promise<string> {

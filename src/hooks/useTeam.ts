@@ -14,7 +14,9 @@ interface TeamData {
 
 async function invokeTeam(action: string, body: Record<string, unknown> = {}): Promise<TeamData & { success?: boolean; team_id?: string }> {
   const { data, error } = await supabase.functions.invoke("manage-team", { body: { action, ...body } })
-  if (error) throw error
+  if (error) {
+    throw new Error(error.message || "Team request failed")
+  }
   if (data?.error) throw new Error(data.error)
   return data
 }

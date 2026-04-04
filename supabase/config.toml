@@ -1,0 +1,5 @@
+# Project-level function settings (per-function folder config is not always merged on deploy).
+# See: https://supabase.com/docs/guides/functions/function-configuration
+
+[functions.fetch-rss]
+verify_jwt = false

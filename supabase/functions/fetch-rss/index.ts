@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { parseFeed } from "https://deno.land/x/rss@0.5.6/mod.ts"
-import { isCronOrServiceAuth, isValidHttpUrl } from "../_shared/security.ts"
+import { isCronOrServiceAuth, isValidHttpUrl, RSS_FEED_FETCH_HEADERS } from "../_shared/security.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -265,10 +265,9 @@ serve(async req => {
 
         // Fetch RSS feed
         const response = await fetch(feed.url, {
-          headers: {
-            "User-Agent": "RSS-Aggregator/1.0",
-            Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
-          },
+          headers: RSS_FEED_FETCH_HEADERS,
+          redirect: "follow",
+          signal: AbortSignal.timeout(45_000),
         })
 
         if (!response.ok) {
@@ -277,9 +276,17 @@ serve(async req => {
 
         const contentType = response.headers.get("content-type") || ""
         const xml = await response.text()
+        const trimmed = xml.trim()
+        const bodyLooksLikeFeed =
+          trimmed.startsWith("<?xml") ||
+          trimmed.startsWith("<rss") ||
+          trimmed.startsWith("<feed") ||
+          trimmed.startsWith("<rdf:RDF")
 
-        // Check if we got HTML instead of XML
-        if (contentType.includes("text/html") || xml.trim().startsWith("<!DOCTYPE html") || xml.trim().startsWith("<html")) {
+        // Some CDNs send text/html or wrong types even for valid RSS; sniff body before rejecting.
+        const looksLikeHtmlDoc =
+          trimmed.startsWith("<!DOCTYPE html") || trimmed.startsWith("<html") || trimmed.toLowerCase().startsWith("<html")
+        if ((contentType.includes("text/html") || looksLikeHtmlDoc) && !bodyLooksLikeFeed) {
           throw new Error("Feed URL returned HTML instead of RSS/XML. The URL may be incorrect or the feed may not exist.")
         }
 

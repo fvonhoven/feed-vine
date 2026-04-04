@@ -21,9 +21,10 @@ serve(async req => {
   try {
     // Get the authorization header
     const authHeader = req.headers.get("Authorization")
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       throw new Error("No authorization header")
     }
+    const jwt = authHeader.slice(7)
 
     // Create Supabase client
     const supabaseClient = createClient(
@@ -40,7 +41,7 @@ serve(async req => {
     const {
       data: { user },
       error: userError,
-    } = await supabaseClient.auth.getUser()
+    } = await supabaseClient.auth.getUser(jwt)
 
     if (userError || !user) {
       throw new Error("Not authenticated")

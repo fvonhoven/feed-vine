@@ -1,5 +1,25 @@
 import { supabase } from "./supabase"
 
+/**
+ * Invoke fetch-rss with an explicit Bearer token. Fixes intermittent 401s when the
+ * API gateway or client omits/merges the session JWT, and after the session is refreshed.
+ */
+export async function invokeFetchRss(body: Record<string, unknown> = {}) {
+  const { data: userRes, error: userErr } = await supabase.auth.getUser()
+  if (userErr || !userRes.user) {
+    return { data: null, error: new Error("Not authenticated") }
+  }
+  const { data: sessionData } = await supabase.auth.getSession()
+  const token = sessionData.session?.access_token
+  if (!token) {
+    return { data: null, error: new Error("Not authenticated") }
+  }
+  return supabase.functions.invoke("fetch-rss", {
+    body,
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
 interface RSSItem {
   title: string
   link: string
@@ -33,9 +53,7 @@ export async function fetchRSSFeedServerSide(feedUrl: string): Promise<RSSItem[]
   try {
     console.log(`Fetching RSS feed server-side: ${feedUrl}`)
 
-    const { data, error } = await supabase.functions.invoke("fetch-rss", {
-      body: { url: feedUrl },
-    })
+    const { data, error } = await invokeFetchRss({ url: feedUrl })
 
     if (error) throw error
 
@@ -71,9 +89,7 @@ export async function fetchRSSFeedServerSide(feedUrl: string): Promise<RSSItem[]
 export async function discoverRSSFeeds(websiteUrl: string): Promise<DiscoveredFeed[]> {
   console.log(`Discovering RSS feeds from: ${websiteUrl}`)
   try {
-    const { data, error } = await supabase.functions.invoke("fetch-rss", {
-      body: { discoverUrl: websiteUrl },
-    })
+    const { data, error } = await invokeFetchRss({ discoverUrl: websiteUrl })
     if (error || !data?.success) {
       console.warn("Discovery via Edge Function failed:", error || data?.error)
       return []
@@ -268,9 +284,7 @@ export async function fetchAndSaveArticles(feedId: string, feedUrl: string): Pro
     console.log(`Fetching RSS feed server-side: ${feedUrl}`)
 
     // Use edge function to fetch feed server-side (bypasses CORS and Cloudflare)
-    const { data, error } = await supabase.functions.invoke("fetch-rss", {
-      body: { feedId },
-    })
+    const { data, error } = await invokeFetchRss({ feedId })
 
     if (error) {
       // Extract actual response body from FunctionsHttpError for better diagnostics
