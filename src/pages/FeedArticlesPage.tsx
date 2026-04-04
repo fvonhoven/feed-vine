@@ -5,6 +5,7 @@ import type { ArticleWithStatus, Feed } from "../types/database"
 import ArticleCard from "../components/ArticleCard"
 import toast from "react-hot-toast"
 import { useFeedFilters, applyFeedFilters } from "../hooks/useFeedFilters"
+import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
 
 export default function FeedArticlesPage() {
   const { feedId } = useParams<{ feedId: string }>()
@@ -28,6 +29,8 @@ export default function FeedArticlesPage() {
   // Fetch articles for this feed
   const { data: articles, isLoading } = useQuery({
     queryKey: ["feed-articles", feedId],
+    staleTime: LIST_STALE_MS,
+    gcTime: LIST_GC_MS,
     queryFn: async () => {
       if (!feedId) throw new Error("Feed ID is required")
       if (isDemoMode) {
@@ -113,6 +116,7 @@ export default function FeedArticlesPage() {
     },
     onSuccess: ({ isSaved }) => {
       queryClient.invalidateQueries({ queryKey: ["feed-articles", feedId] })
+      queryClient.invalidateQueries({ queryKey: ["saved-articles"] })
       toast.success(isSaved ? "Article saved!" : "Article removed from saved")
     },
   })

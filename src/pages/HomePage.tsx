@@ -11,6 +11,7 @@ import { isSafeUrl, escapeFilterValue } from "../lib/urlUtils"
 import { FaRegKeyboard } from "react-icons/fa"
 import { useFeedFilters, applyFeedFilters } from "../hooks/useFeedFilters"
 import { invokeFetchRss } from "../lib/rssFetcher"
+import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
 
 export default function HomePage() {
   const [keyword, setKeyword] = useState("")
@@ -26,6 +27,8 @@ export default function HomePage() {
   // Fetch all feeds for refresh all functionality
   const { data: feeds } = useQuery({
     queryKey: ["feeds"],
+    staleTime: LIST_STALE_MS,
+    gcTime: LIST_GC_MS,
     queryFn: async () => {
       if (isDemoMode) return []
       const { data, error } = await supabase.from("feeds").select("*").eq("status", "active")
@@ -36,6 +39,8 @@ export default function HomePage() {
 
   const { data: articles, isLoading } = useQuery({
     queryKey: ["articles", keyword, selectedFeedId, dateRange, showUnreadOnly],
+    staleTime: LIST_STALE_MS,
+    gcTime: LIST_GC_MS,
     queryFn: async () => {
       // In demo mode, return empty array
       if (isDemoMode) {
@@ -161,6 +166,7 @@ export default function HomePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["articles"] })
+      queryClient.invalidateQueries({ queryKey: ["saved-articles"] })
     },
   })
 

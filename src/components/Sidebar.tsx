@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
@@ -5,6 +6,7 @@ import type { Category, Feed, FeedCollection } from "../types/database"
 import { useAuth } from "../hooks/useAuth"
 import { useSubscription } from "../hooks/useSubscription"
 import { useTeam } from "../hooks/useTeam"
+import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
 
 interface SidebarProps {
   isOpen: boolean
@@ -16,6 +18,13 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: SidebarProps) {
   const location = useLocation()
   const { hasFeature } = useSubscription()
+  const [feedsQuickNavOpen, setFeedsQuickNavOpen] = useState(false)
+
+  useEffect(() => {
+    if (location.pathname.startsWith("/feed/")) {
+      setFeedsQuickNavOpen(true)
+    }
+  }, [location.pathname])
 
   const { data: categories } = useQuery({
     queryKey: ["categories"],
@@ -31,6 +40,8 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
 
   const { data: feeds } = useQuery({
     queryKey: ["feeds"],
+    staleTime: LIST_STALE_MS,
+    gcTime: LIST_GC_MS,
     queryFn: async () => {
       if (isDemoMode) {
         return []
@@ -96,6 +107,54 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
       return acc
     },
     {} as Record<string, Feed[]>,
+  )
+
+  const feedCount = feeds?.length ?? 0
+
+  const feedQuickNavTree = (onFeedClick?: () => void) => (
+    <nav className="space-y-2">
+      {categories?.map(category => (
+        <div key={category.id}>
+          <div className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
+            <span className="flex items-center">
+              <span className="w-3 h-3 rounded-full mr-3 shrink-0" style={{ backgroundColor: category.color }}></span>
+              {category.name}
+            </span>
+            {isDemoMode && (
+              <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">{feedsByCategory?.[category.id]?.length || 0}</span>
+            )}
+          </div>
+          {feedsByCategory?.[category.id]?.map(feed => (
+            <Link
+              key={feed.id}
+              to={`/feed/${feed.id}`}
+              onClick={onFeedClick}
+              className="flex items-center justify-between pl-9 pr-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+            >
+              <span className="truncate">{feed.title}</span>
+            </Link>
+          ))}
+        </div>
+      ))}
+
+      {feedsByCategory?.["uncategorized"] && (
+        <div>
+          <div className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
+            <span>Uncategorized</span>
+          </div>
+          {feedsByCategory["uncategorized"].map(feed => (
+            <Link
+              key={feed.id}
+              to={`/feed/${feed.id}`}
+              onClick={onFeedClick}
+              className="flex items-center justify-between pl-9 pr-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+            >
+              <span className="truncate">{feed.title}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </nav>
   )
 
   return (
@@ -184,87 +243,69 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
               {!isCollapsed && isDemoMode && <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">2</span>}
             </Link>
 
-            <Link
-              to="/collections"
-              className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
-                isActive("/collections")
-                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-              title={isCollapsed ? "Collections" : ""}
-            >
-              <span className="flex items-center">
-                <svg className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {isCollapsed && (
+              <Link
+                to="/feeds"
+                className={`flex items-center justify-center px-3 py-2 text-sm rounded-md ${
+                  isActive("/feeds")
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+                title="Manage feeds"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                    d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7m-7 7h.01M6 19h.01"
                   />
                 </svg>
-                {!isCollapsed && "Collections"}
-              </span>
-            </Link>
-            <Link
-              to="/marketplace"
-              className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
-                isActive("/marketplace")
-                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-              title={isCollapsed ? "Marketplace" : ""}
-            >
-              <span className="flex items-center">
-                <svg className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-                {!isCollapsed && "Marketplace"}
-              </span>
-            </Link>
+              </Link>
+            )}
 
-            <Link
-              to="/api-keys"
-              className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
-                isActive("/api-keys")
-                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-              title={isCollapsed ? "API Keys" : ""}
-            >
-              <span className="flex items-center">
-                <svg className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                  />
-                </svg>
-                {!isCollapsed && "API Keys"}
-              </span>
-            </Link>
+            {hasFeature("apiAccess") && (
+              <Link
+                to="/api-keys"
+                className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
+                  isActive("/api-keys")
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+                title={isCollapsed ? "API Keys" : ""}
+              >
+                <span className="flex items-center">
+                  <svg className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                    />
+                  </svg>
+                  {!isCollapsed && "API Keys"}
+                </span>
+              </Link>
+            )}
 
-            <Link
-              to="/webhooks"
-              className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
-                isActive("/webhooks")
-                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-              title={isCollapsed ? "Webhooks" : ""}
-            >
-              <span className="flex items-center">
-                <svg className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                {!isCollapsed && "Webhooks"}
-              </span>
-            </Link>
+            {hasFeature("webhooks") && (
+              <Link
+                to="/webhooks"
+                className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
+                  isActive("/webhooks")
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+                title={isCollapsed ? "Webhooks" : ""}
+              >
+                <span className="flex items-center">
+                  <svg className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  {!isCollapsed && "Webhooks"}
+                </span>
+              </Link>
+            )}
 
             <Link
               to="/digest"
@@ -365,49 +406,46 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
             </>
           )}
 
-          {!isCollapsed && <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-3">Categories</h2>}
           {!isCollapsed && (
-            <nav className="space-y-2">
-              {categories?.map(category => (
-                <div key={category.id}>
-                  <div className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
-                    <span className="flex items-center">
-                      <span className="w-3 h-3 rounded-full mr-3" style={{ backgroundColor: category.color }}></span>
-                      {category.name}
-                    </span>
-                    {isDemoMode && (
-                      <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">{feedsByCategory?.[category.id]?.length || 0}</span>
-                    )}
-                  </div>
-                  {feedsByCategory?.[category.id]?.map(feed => (
-                    <Link
-                      key={feed.id}
-                      to={`/feed/${feed.id}`}
-                      className="flex items-center justify-between pl-9 pr-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+            <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+              <div className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 shrink-0">Feeds</span>
+                <div className="ml-auto flex min-w-0 flex-row-reverse items-center gap-2">
+                  {/* Button first in DOM so Link stacks above it for hit-testing (avoids expand control covering Manage). */}
+                  <button
+                    type="button"
+                    onClick={() => setFeedsQuickNavOpen(o => !o)}
+                    className="flex shrink-0 items-center gap-2 rounded p-0.5 -mr-0.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    aria-expanded={feedsQuickNavOpen}
+                    aria-label={feedsQuickNavOpen ? "Collapse feeds list" : "Expand feeds list"}
+                  >
+                    <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded tabular-nums">{feedCount}</span>
+                    <svg
+                      className={`w-4 h-4 shrink-0 text-gray-400 transition-transform ${feedsQuickNavOpen ? "rotate-180" : ""}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      aria-hidden
                     >
-                      <span className="truncate">{feed.title}</span>
-                    </Link>
-                  ))}
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <Link
+                    to="/feeds"
+                    className={`relative z-10 text-[11px] shrink-0 underline leading-none ${
+                      isActive("/feeds")
+                        ? "text-primary-700 dark:text-primary-400 font-medium"
+                        : "text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                    }`}
+                  >
+                    Manage
+                  </Link>
                 </div>
-              ))}
-
-              {feedsByCategory?.["uncategorized"] && (
-                <div>
-                  <div className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
-                    <span>Uncategorized</span>
-                  </div>
-                  {feedsByCategory["uncategorized"].map(feed => (
-                    <Link
-                      key={feed.id}
-                      to={`/feed/${feed.id}`}
-                      className="flex items-center justify-between pl-9 pr-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                    >
-                      <span className="truncate">{feed.title}</span>
-                    </Link>
-                  ))}
-                </div>
+              </div>
+              {feedsQuickNavOpen && feedCount > 0 && (
+                <div className="mt-2 max-h-[min(50vh,24rem)] overflow-y-auto pr-1">{feedQuickNavTree()}</div>
               )}
-            </nav>
+            </div>
           )}
         </div>
       </div>
@@ -494,88 +532,48 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
                 {isDemoMode && <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">2</span>}
               </Link>
 
-              <Link
-                to="/collections"
-                onClick={onClose}
-                className={`flex items-center justify-between px-3 py-2 text-sm rounded-md ${
-                  isActive("/collections")
-                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <span className="flex items-center">
-                  <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                    />
-                  </svg>
-                  Collections
-                </span>
-              </Link>
+              {hasFeature("apiAccess") && (
+                <Link
+                  to="/api-keys"
+                  onClick={onClose}
+                  className={`flex items-center justify-between px-3 py-2 text-sm rounded-md ${
+                    isActive("/api-keys")
+                      ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <span className="flex items-center">
+                    <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                      />
+                    </svg>
+                    API Keys
+                  </span>
+                </Link>
+              )}
 
-              <Link
-                to="/marketplace"
-                onClick={onClose}
-                className={`flex items-center justify-between px-3 py-2 text-sm rounded-md ${
-                  isActive("/marketplace")
-                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <span className="flex items-center">
-                  <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                  </svg>
-                  Marketplace
-                </span>
-              </Link>
-
-              <Link
-                to="/api-keys"
-                onClick={onClose}
-                className={`flex items-center justify-between px-3 py-2 text-sm rounded-md ${
-                  isActive("/api-keys")
-                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <span className="flex items-center">
-                  <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                    />
-                  </svg>
-                  API Keys
-                </span>
-              </Link>
-
-              <Link
-                to="/webhooks"
-                onClick={onClose}
-                className={`flex items-center justify-between px-3 py-2 text-sm rounded-md ${
-                  isActive("/webhooks")
-                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <span className="flex items-center">
-                  <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  Webhooks
-                </span>
-              </Link>
+              {hasFeature("webhooks") && (
+                <Link
+                  to="/webhooks"
+                  onClick={onClose}
+                  className={`flex items-center justify-between px-3 py-2 text-sm rounded-md ${
+                    isActive("/webhooks")
+                      ? "bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <span className="flex items-center">
+                    <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Webhooks
+                  </span>
+                </Link>
+              )}
 
               <Link
                 to="/analytics"
@@ -656,50 +654,45 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
               </>
             )}
 
-            <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-3">Categories</h2>
-            <nav className="space-y-2">
-              {categories?.map(category => (
-                <div key={category.id}>
-                  <div className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
-                    <span className="flex items-center">
-                      <span className="w-3 h-3 rounded-full mr-3" style={{ backgroundColor: category.color }}></span>
-                      {category.name}
-                    </span>
-                    {isDemoMode && (
-                      <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">{feedsByCategory?.[category.id]?.length || 0}</span>
-                    )}
-                  </div>
-                  {feedsByCategory?.[category.id]?.map(feed => (
-                    <Link
-                      key={feed.id}
-                      to={`/feed/${feed.id}`}
-                      onClick={onClose}
-                      className="flex items-center justify-between pl-9 pr-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+            <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+              <div className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 shrink-0">Feeds</span>
+                <div className="ml-auto flex min-w-0 flex-row-reverse items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFeedsQuickNavOpen(o => !o)}
+                    className="flex shrink-0 items-center gap-2 rounded p-0.5 -mr-0.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    aria-expanded={feedsQuickNavOpen}
+                    aria-label={feedsQuickNavOpen ? "Collapse feeds list" : "Expand feeds list"}
+                  >
+                    <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded tabular-nums">{feedCount}</span>
+                    <svg
+                      className={`w-4 h-4 shrink-0 text-gray-400 transition-transform ${feedsQuickNavOpen ? "rotate-180" : ""}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      aria-hidden
                     >
-                      <span className="truncate">{feed.title}</span>
-                    </Link>
-                  ))}
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <Link
+                    to="/feeds"
+                    onClick={onClose}
+                    className={`relative z-10 text-[11px] shrink-0 underline leading-none ${
+                      isActive("/feeds")
+                        ? "text-primary-700 dark:text-primary-400 font-medium"
+                        : "text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                    }`}
+                  >
+                    Manage
+                  </Link>
                 </div>
-              ))}
-
-              {feedsByCategory?.["uncategorized"] && (
-                <div>
-                  <div className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
-                    <span>Uncategorized</span>
-                  </div>
-                  {feedsByCategory["uncategorized"].map(feed => (
-                    <Link
-                      key={feed.id}
-                      to={`/feed/${feed.id}`}
-                      onClick={onClose}
-                      className="flex items-center justify-between pl-9 pr-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                    >
-                      <span className="truncate">{feed.title}</span>
-                    </Link>
-                  ))}
-                </div>
+              </div>
+              {feedsQuickNavOpen && feedCount > 0 && (
+                <div className="mt-2 max-h-[min(50vh,24rem)] overflow-y-auto pr-1">{feedQuickNavTree(onClose)}</div>
               )}
-            </nav>
+            </div>
           </div>
         </div>
       </div>

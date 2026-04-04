@@ -9,6 +9,7 @@ export default function SavedPage() {
 
   const { data: articles, isLoading } = useQuery({
     queryKey: ["saved-articles"],
+    staleTime: 0,
     queryFn: async () => {
       if (isDemoMode) {
         return []

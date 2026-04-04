@@ -110,18 +110,16 @@ test.describe("Collections & Marketplace", () => {
     }
   })
 
-  test("visit Discover/Marketplace and public collections are visible", async ({
+  test("visit Explore (redirects from legacy /marketplace) and content loads", async ({
     page,
   }) => {
     await page.goto("/marketplace")
-    await expect(page).toHaveURL("/marketplace")
+    await expect(page).toHaveURL("/explore")
 
-    // Wait for the page to load
     await page.waitForLoadState("domcontentloaded")
 
-    // The marketplace page should show content
-    await expect(
-      page.getByRole("heading").first()
-    ).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole("heading", { name: "Explore" })).toBeVisible({
+      timeout: 10_000,
+    })
   })
 })

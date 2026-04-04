@@ -26,9 +26,9 @@ export default function WebhooksPage() {
     collection_id: "",
   })
   const queryClient = useQueryClient()
-  const { hasFeature } = useSubscription()
+  const { hasFeature, isLoading: subscriptionLoading } = useSubscription()
 
-  const hasWebhookAccess = hasFeature("apiAccess") // Webhooks require API access tier
+  const hasWebhookAccess = hasFeature("webhooks")
 
   // Fetch webhooks - using type assertion since webhooks table isn't in generated types yet
   const { data: webhooks, isLoading } = useQuery({
@@ -172,6 +172,15 @@ export default function WebhooksPage() {
       ...prev,
       event_types: prev.event_types.includes(eventType) ? prev.event_types.filter(e => e !== eventType) : [...prev.event_types, eventType],
     }))
+  }
+
+  // Avoid paywall flash: until subscription loads, plan defaults to FREE and webhooks reads false.
+  if (user && subscriptionLoading) {
+    return (
+      <div className="flex justify-center items-center py-24">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" aria-label="Loading" />
+      </div>
+    )
   }
 
   if (!hasWebhookAccess) {

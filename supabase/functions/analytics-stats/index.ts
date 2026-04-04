@@ -12,6 +12,7 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+
     const authHeader = req.headers.get("Authorization") ?? ""
     if (!authHeader.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -19,16 +20,18 @@ Deno.serve(async (req: Request) => {
         status: 401,
       })
     }
-    const jwt = authHeader.slice(7)
 
-    const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } })
-    const { data: { user }, error: authErr } = await authClient.auth.getUser(jwt)
-    if (authErr || !user) {
+    // Same pattern as summarize-article / test-webhook — auth.getUser(jwt) is unreliable in Deno edge.
+    const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { Authorization: authHeader, apikey: anonKey },
+    })
+    if (!userRes.ok) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       })
     }
+    const user = (await userRes.json()) as { id: string }
 
     const sb = createClient(supabaseUrl, serviceKey)
 

@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
 import { escapeFilterValue } from "../lib/urlUtils"
+import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
 import type { ArticleWithStatus, Feed } from "../types/database"
 import ArticleCard from "../components/ArticleCard"
 import toast from "react-hot-toast"
@@ -15,6 +16,8 @@ export default function SearchPage() {
 
   const { data: feeds } = useQuery({
     queryKey: ["feeds"],
+    staleTime: LIST_STALE_MS,
+    gcTime: LIST_GC_MS,
     queryFn: async () => {
       if (isDemoMode) return []
       const { data, error } = await supabase.from("feeds").select("id, title").order("title")
@@ -26,6 +29,8 @@ export default function SearchPage() {
   const { data: articles, isLoading } = useQuery({
     queryKey: ["search-articles", submittedKeyword, selectedFeedId, dateRange],
     enabled: submittedKeyword.length > 0,
+    staleTime: LIST_STALE_MS,
+    gcTime: LIST_GC_MS,
     queryFn: async () => {
       if (isDemoMode) return []
 
@@ -92,7 +97,10 @@ export default function SearchPage() {
       toast.success(isSaved ? "Article saved!" : "Article removed from saved")
       return { articleId, isSaved }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["search-articles"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["search-articles"] })
+      queryClient.invalidateQueries({ queryKey: ["saved-articles"] })
+    },
   })
 
   const handleSearch = (e: React.FormEvent) => {

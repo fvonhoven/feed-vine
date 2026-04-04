@@ -7,6 +7,7 @@ import { useSubscription } from "../hooks/useSubscription"
 import { Link } from "react-router-dom"
 import { useAuth } from "../hooks/useAuth"
 import { useTeam } from "../hooks/useTeam"
+import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
 
 export default function CollectionsPage() {
   const { user } = useAuth()
@@ -81,6 +82,8 @@ export default function CollectionsPage() {
 
   const { data: feeds } = useQuery({
     queryKey: ["feeds"],
+    staleTime: LIST_STALE_MS,
+    gcTime: LIST_GC_MS,
     queryFn: async () => {
       if (isDemoMode) {
         return []

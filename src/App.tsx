@@ -10,6 +10,7 @@ import FeedArticlesPage from "./pages/FeedArticlesPage"
 import CollectionsPage from "./pages/CollectionsPage"
 import CollectionArticlesPage from "./pages/CollectionArticlesPage"
 import MarketplacePage from "./pages/MarketplacePage"
+import ExplorePage from "./pages/ExplorePage"
 import SettingsPage from "./pages/SettingsPage"
 import ApiKeysPage from "./pages/ApiKeysPage"
 import WebhooksPage from "./pages/WebhooksPage"
@@ -72,6 +73,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/saved" element={<SavedPage />} />
+          <Route path="/explore" element={<ExplorePage />} />
           <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/feeds" element={<FeedsPage />} />
           <Route path="/feed/:feedId" element={<FeedArticlesPage />} />

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
+import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
 import type { Feed } from "../types/database"
 
 interface FilterBarProps {
@@ -14,6 +15,8 @@ interface FilterBarProps {
 export default function FilterBar({ keyword, onKeywordChange, selectedFeedId, onFeedChange, dateRange, onDateRangeChange }: FilterBarProps) {
   const { data: feeds } = useQuery({
     queryKey: ["feeds"],
+    staleTime: LIST_STALE_MS,
+    gcTime: LIST_GC_MS,
     queryFn: async () => {
       // In demo mode, return empty array
       if (isDemoMode) {

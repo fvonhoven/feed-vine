@@ -4,6 +4,7 @@ import { supabase, isDemoMode } from "../lib/supabase"
 import type { ArticleWithStatus, FeedCollection } from "../types/database"
 import ArticleCard from "../components/ArticleCard"
 import toast from "react-hot-toast"
+import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
 
 export default function CollectionArticlesPage() {
   const { collectionId } = useParams<{ collectionId: string }>()
@@ -12,6 +13,8 @@ export default function CollectionArticlesPage() {
   // Fetch collection info
   const { data: collection, isLoading: isCollectionLoading } = useQuery({
     queryKey: ["collection", collectionId],
+    staleTime: LIST_STALE_MS,
+    gcTime: LIST_GC_MS,
     queryFn: async () => {
       if (!collectionId) throw new Error("Collection ID is required")
       if (isDemoMode) {
@@ -27,6 +30,8 @@ export default function CollectionArticlesPage() {
   // Fetch articles for this collection
   const { data: articles, isLoading: isArticlesLoading } = useQuery({
     queryKey: ["collection-articles", collectionId],
+    staleTime: LIST_STALE_MS,
+    gcTime: LIST_GC_MS,
     queryFn: async () => {
       if (!collectionId) throw new Error("Collection ID is required")
       if (isDemoMode) {
@@ -122,6 +127,7 @@ export default function CollectionArticlesPage() {
     },
     onSuccess: ({ isSaved }) => {
       queryClient.invalidateQueries({ queryKey: ["collection-articles", collectionId] })
+      queryClient.invalidateQueries({ queryKey: ["saved-articles"] })
       toast.success(isSaved ? "Article saved!" : "Article removed from saved")
     },
   })
@@ -137,8 +143,8 @@ export default function CollectionArticlesPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       <div className="mb-6">
-        <Link to="/marketplace" className="text-primary-600 hover:text-primary-700 text-sm mb-2 inline-block">
-          ← Back to Marketplace
+        <Link to="/explore" className="text-primary-600 hover:text-primary-700 text-sm mb-2 inline-block">
+          ← Back to Explore
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
           {collection?.name || "Collection Articles"}

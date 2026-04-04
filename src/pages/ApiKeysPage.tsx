@@ -4,6 +4,7 @@ import { supabase, isDemoMode } from "../lib/supabase"
 import toast from "react-hot-toast"
 import { formatDistanceToNow } from "date-fns"
 import { useSubscription } from "../hooks/useSubscription"
+import { useAuth } from "../hooks/useAuth"
 import { Link } from "react-router-dom"
 import ApiUsageStats from "../components/ApiUsageStats"
 
@@ -22,7 +23,8 @@ export default function ApiKeysPage() {
   const [newKeyName, setNewKeyName] = useState("")
   const [newApiKey, setNewApiKey] = useState<string | null>(null)
   const queryClient = useQueryClient()
-  const { hasFeature } = useSubscription()
+  const { user } = useAuth()
+  const { hasFeature, isLoading: subscriptionLoading } = useSubscription()
 
   const hasApiAccess = hasFeature("apiAccess")
 
@@ -137,6 +139,14 @@ export default function ApiKeysPage() {
   const handleCopyKey = (key: string) => {
     navigator.clipboard.writeText(key)
     toast.success("API key copied to clipboard!")
+  }
+
+  if (user && subscriptionLoading) {
+    return (
+      <div className="flex justify-center items-center py-24">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" aria-label="Loading" />
+      </div>
+    )
   }
 
   if (!hasApiAccess) {

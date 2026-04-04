@@ -8,6 +8,7 @@ import { fetchAndSaveArticles, discoverRSSFeeds, invokeFetchRss, refreshAllFeeds
 import { useSubscription } from "../hooks/useSubscription"
 import { useFeedFilters } from "../hooks/useFeedFilters"
 import { Link } from "react-router-dom"
+import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
 
 export default function FeedManager() {
   const [newFeedUrl, setNewFeedUrl] = useState("")
@@ -55,6 +56,8 @@ export default function FeedManager() {
 
   const { data: feeds, isLoading } = useQuery({
     queryKey: ["feeds"],
+    staleTime: LIST_STALE_MS,
+    gcTime: LIST_GC_MS,
     queryFn: async () => {
       // In demo mode, return empty array
       if (isDemoMode) {
@@ -920,24 +923,30 @@ Example Feed,https://feeds.feedburner.com/example`
         )}
 
         {!showBulkImport && !showOpmlImport ? (
-          <form onSubmit={handleAddFeed} className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="url"
-              value={newFeedUrl}
-              onChange={e => setNewFeedUrl(e.target.value)}
-              placeholder="https://example.com or https://example.com/feed.xml"
-              className="flex-1 px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
-              required
-              disabled={isAtLimit}
-            />
-            <button
-              type="submit"
-              disabled={addFeedMutation.isPending || isAtLimit}
-              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
-            >
-              {addFeedMutation.isPending ? "Adding..." : "Add Feed"}
-            </button>
-          </form>
+          <>
+            <form onSubmit={handleAddFeed} className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="url"
+                value={newFeedUrl}
+                onChange={e => setNewFeedUrl(e.target.value)}
+                placeholder="https://example.com or https://example.com/feed.xml"
+                className="flex-1 px-3 py-2 rounded-md border-gray-300 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+                required
+                disabled={isAtLimit}
+              />
+              <button
+                type="submit"
+                disabled={addFeedMutation.isPending || isAtLimit}
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+              >
+                {addFeedMutation.isPending ? "Adding..." : "Add Feed"}
+              </button>
+            </form>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              For a normal homepage URL, we try to find a feed by scanning the page for standard RSS/Atom discovery links. If that doesn’t work, paste
+              the direct feed URL instead.
+            </p>
+          </>
         ) : showBulkImport ? (
           <div className="space-y-4">
             <div className="p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
@@ -947,8 +956,8 @@ Example Feed,https://feeds.feedburner.com/example`
                 a header row.
               </p>
               <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-200 mb-3">
-                <strong>✨ Auto-Discovery:</strong> You can provide website URLs (e.g., https://techcrunch.com) and we'll automatically find the RSS
-                feed!
+                <strong>Homepage URLs:</strong> For a normal site URL (not a direct feed file), we try to find a feed from that page by scanning for
+                standard RSS/Atom discovery links. If that fails for a row, use the direct feed URL instead.
               </p>
               <button
                 type="button"
@@ -969,7 +978,7 @@ Example Feed,https://feeds.feedburner.com/example`
                   type="file"
                   accept=".csv,text/csv"
                   onChange={e => setBulkImportFile(e.target.files?.[0] || null)}
-                  className="block w-full text-xs sm:text-sm text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                  className="block w-full h-11 p-0 text-xs sm:text-sm text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed file:mr-4 file:h-11 file:min-h-[44px] file:cursor-pointer file:rounded-l-md file:rounded-r-none file:border-0 file:border-r file:border-gray-300 file:bg-gray-200 file:px-4 file:text-sm file:font-medium file:text-gray-800 dark:file:border-gray-500 dark:file:bg-gray-600 dark:file:text-gray-100"
                   disabled={isAtLimit}
                 />
               </div>
@@ -1013,7 +1022,7 @@ Example Feed,https://feeds.feedburner.com/example`
                   type="file"
                   accept=".opml,.xml,application/xml,text/xml"
                   onChange={e => setOpmlImportFile(e.target.files?.[0] || null)}
-                  className="block w-full text-xs sm:text-sm text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                  className="block w-full h-11 p-0 text-xs sm:text-sm text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed file:mr-4 file:h-11 file:min-h-[44px] file:cursor-pointer file:rounded-l-md file:rounded-r-none file:border-0 file:border-r file:border-gray-300 file:bg-gray-200 file:px-4 file:text-sm file:font-medium file:text-gray-800 dark:file:border-gray-500 dark:file:bg-gray-600 dark:file:text-gray-100"
                   disabled={isAtLimit}
                 />
               </div>
@@ -1190,9 +1199,10 @@ Example Feed,https://feeds.feedburner.com/example`
 
       {/* Feeds List */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">Your Feeds ({feeds?.length || 0})</h2>
-          {feeds && feeds.length > 0 && (
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">Your feeds ({feeds?.length || 0})</h2>
+            {feeds && feeds.length > 0 && (
             <button
               onClick={() => refreshAllFeedsMutation.mutate()}
               disabled={isRefreshingAll || isDemoMode}
@@ -1209,6 +1219,13 @@ Example Feed,https://feeds.feedburner.com/example`
               </svg>
               <span className="ml-1.5">{isRefreshingAll ? "Refreshing All..." : "Refresh All"}</span>
             </button>
+            )}
+          </div>
+          {feeds && feeds.length > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Set each feed&apos;s <span className="font-medium text-gray-600 dark:text-gray-300">Category</span> below to group it in the sidebar.
+              Create categories in the <span className="font-medium text-gray-600 dark:text-gray-300">Categories</span> section above.
+            </p>
           )}
         </div>
         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1369,24 +1386,28 @@ Example Feed,https://feeds.feedburner.com/example`
                         {feed.last_fetched && (
                           <span className="text-xs">Last fetched {formatDistanceToNow(new Date(feed.last_fetched), { addSuffix: true })}</span>
                         )}
-                        <select
-                          value={feed.category_id || ""}
-                          onChange={e => {
-                            const value = e.target.value
-                            updateFeedCategoryMutation.mutate({
-                              feedId: feed.id,
-                              categoryId: value === "" ? null : value,
-                            })
-                          }}
-                          className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 min-h-[32px]"
-                        >
-                          <option value="">Uncategorized</option>
-                          {categories?.map(cat => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+                          <span className="shrink-0">Category</span>
+                          <select
+                            value={feed.category_id || ""}
+                            onChange={e => {
+                              const value = e.target.value
+                              updateFeedCategoryMutation.mutate({
+                                feedId: feed.id,
+                                categoryId: value === "" ? null : value,
+                              })
+                            }}
+                            className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 min-h-[32px]"
+                            aria-label={`Category for ${feed.title}`}
+                          >
+                            <option value="">Uncategorized</option>
+                            {categories?.map(cat => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                         {/* Keyword filter toggle */}
                         {canUseFilters ? (
                           <button
