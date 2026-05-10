@@ -14,8 +14,7 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    # Prevent clickjacking attacks
-    X-Frame-Options = "DENY"
+    # Clickjacking: use CSP frame-ancestors below (allows path-specific overrides like /c/*).
 
     # Prevent MIME type sniffing
     X-Content-Type-Options = "nosniff"
@@ -47,6 +46,26 @@
 
     # Strict Transport Security - force HTTPS (2 years)
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+
+# Public collection wall (/c/:slug): allow embedding (newsletters, Notion, etc.).
+# Keep this CSP in sync with the /* block except for frame-ancestors.
+[[headers]]
+  for = "/c/*"
+  [headers.values]
+    Content-Security-Policy = """
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.clarity.ms https://scripts.clarity.ms https://static.cloudflareinsights.com https://js.hcaptcha.com https://*.hcaptcha.com;
+      style-src 'self' 'unsafe-inline' https://*.hcaptcha.com;
+      img-src 'self' data: https: blob:;
+      font-src 'self' data:;
+      connect-src 'self' https://*.supabase.co https://api.stripe.com https://www.clarity.ms https://y.clarity.ms https://cronnarc.com https://*.hcaptcha.com https://api.allorigins.win;
+      frame-src https://js.stripe.com https://*.hcaptcha.com;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors *;
+      upgrade-insecure-requests;
+    """
 
 # Cache static assets
 [[headers]]

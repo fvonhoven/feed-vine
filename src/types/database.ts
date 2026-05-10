@@ -87,6 +87,7 @@ export interface Database {
           guid: string
           ai_summary: string | null
           ai_summary_generated_at: string | null
+          language: string | null
           created_at: string
         }
         Insert: {
@@ -102,6 +103,7 @@ export interface Database {
           guid: string
           ai_summary?: string | null
           ai_summary_generated_at?: string | null
+          language?: string | null
           created_at?: string
         }
         Update: {
@@ -117,6 +119,7 @@ export interface Database {
           guid?: string
           ai_summary?: string | null
           ai_summary_generated_at?: string | null
+          language?: string | null
           created_at?: string
         }
         Relationships: [

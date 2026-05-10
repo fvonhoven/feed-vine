@@ -50,8 +50,7 @@ export default function ExplorePage() {
       {tab === "collections" ? <MarketplaceCollectionsSection /> : <DiscoverFeedsSection />}
 
       <p className="mt-10 text-sm text-gray-500 dark:text-gray-400">
-        To add feeds by URL, <strong className="font-medium text-gray-600 dark:text-gray-300">set categories</strong> for the sidebar, or manage
-        sources, go to{" "}
+        To add feeds by URL or change how they are grouped in the sidebar, go to{" "}
         <Link to="/feeds" className="text-primary-600 dark:text-primary-400 hover:underline">
           Manage feeds
         </Link>

@@ -104,6 +104,11 @@ export default function OnboardingPage() {
       const sources = addedFeedIds.map(feedId => ({ collection_id: collection.id, feed_id: feedId }))
       await supabase.from("feed_collection_sources").insert(sources)
 
+      const { error: whErr } = await supabase.functions.invoke("dispatch-collection-webhooks", {
+        body: { collectionId: collection.id },
+      })
+      if (whErr) console.warn("dispatch-collection-webhooks:", whErr.message)
+
       queryClient.invalidateQueries({ queryKey: ["collections"] })
       toast.success(`Collection "${collectionName.trim()}" created!`)
       setStep("done")

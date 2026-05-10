@@ -5,6 +5,7 @@ import type { ArticleWithStatus, FeedCollection } from "../types/database"
 import ArticleCard from "../components/ArticleCard"
 import toast from "react-hot-toast"
 import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
+import { ARTICLE_LANGUAGE_SUPABASE_OR, filterEnglishPrimaryArticles } from "../lib/articleLanguageFilter"
 
 export default function CollectionArticlesPage() {
   const { collectionId } = useParams<{ collectionId: string }>()
@@ -61,15 +62,18 @@ export default function CollectionArticlesPage() {
         `,
         )
         .in("feed_id", feedIds)
+        .or(ARTICLE_LANGUAGE_SUPABASE_OR)
         .order("published_at", { ascending: false })
         .limit(100)
 
       if (error) throw error
 
-      return (data || []).map(article => ({
-        ...article,
-        user_article: Array.isArray(article.user_article) && article.user_article.length > 0 ? article.user_article[0] : null,
-      })) as ArticleWithStatus[]
+      return filterEnglishPrimaryArticles(
+        (data || []).map(article => ({
+          ...article,
+          user_article: Array.isArray(article.user_article) && article.user_article.length > 0 ? article.user_article[0] : null,
+        })) as ArticleWithStatus[],
+      )
     },
     enabled: !!collectionId,
   })
@@ -161,6 +165,20 @@ export default function CollectionArticlesPage() {
               </span>
             ))}
           </div>
+        )}
+
+        {collection?.slug && collection?.is_public && (
+          <p className="text-sm mt-3">
+            <Link
+              to={`/c/${collection.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary-600 dark:text-primary-400 font-medium hover:underline"
+            >
+              Open public wall →
+            </Link>
+            <span className="text-gray-500 dark:text-gray-400"> · Shareable page for readers</span>
+          </p>
         )}
 
         {collection?.slug && (

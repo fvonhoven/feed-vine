@@ -7,7 +7,8 @@ import toast from "react-hot-toast"
 import { useState, useEffect } from "react"
 import { useSubscription } from "../hooks/useSubscription"
 import { useTeam } from "../hooks/useTeam"
-import { getPlanPrice, getPlanFeaturesArray, getPlanDisplayName, type PlanId, type SubscriptionStatus } from "../lib/stripe"
+import { featureFlags } from "../lib/featureFlags"
+import { getPlanPrice, getPlanFeaturesArray, getPlanDisplayName, isTeamPlanId, type PlanId, type SubscriptionStatus } from "../lib/stripe"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import SubscriptionBadge from "../components/SubscriptionBadge"
 
@@ -228,7 +229,8 @@ export default function SettingsPage() {
 
   const planIdUpper = currentPlanId.toUpperCase() as PlanId
   const currentPlanName = getPlanDisplayName(currentPlanId)
-  const currentPlanFeatures = getPlanFeaturesArray(planIdUpper)
+  const omitTeamFeaturesForSettings = !featureFlags.teams && !isTeamPlanId(currentPlanId)
+  const currentPlanFeatures = getPlanFeaturesArray(planIdUpper, { omitTeamFeatures: omitTeamFeaturesForSettings })
 
   return (
     <div className="px-4 sm:px-0">
@@ -311,6 +313,15 @@ export default function SettingsPage() {
                   </li>
                 ))}
               </ul>
+              {hasFeature("exportRSS") && (
+                <p className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+                  OPML import and export are on{" "}
+                  <Link to="/feeds" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">
+                    Manage feeds
+                  </Link>{" "}
+                  (OPML Import / Export OPML next to Add New Feed).
+                </p>
+              )}
             </div>
 
             {/* Change Plan */}
@@ -503,7 +514,9 @@ export default function SettingsPage() {
                   placeholder="your-mailerlite-api-key"
                   className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Found in MailerLite → Integrations → API</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  MailerLite → Integrations → MailerLite API → Generate token (new API, not Classic).
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sender Email</label>
@@ -544,12 +557,9 @@ export default function SettingsPage() {
         </div>
 
         {/* Slack & Discord Integrations — Team plans only */}
-        {hasFeature("slackBot") && team && (
+        {featureFlags.teams && hasFeature("slackBot") && team && (
           <SlackDiscordSection teamId={team.id} />
         )}
-
-        {/* Digest Quiet Hours */}
-        <DigestPreferencesSection />
 
         {/* About */}
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
@@ -780,179 +790,6 @@ function SlackDiscordSection({ teamId }: { teamId: string }) {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-// ── Digest Preferences (Quiet Hours) ────────────────────────────────────────
-
-const COMMON_TIMEZONES = [
-  "UTC",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Asia/Tokyo",
-  "Asia/Shanghai",
-  "Asia/Kolkata",
-  "Australia/Sydney",
-]
-
-function DigestPreferencesSection() {
-  const { user } = useAuth()
-  const queryClient = useQueryClient()
-
-  const { data: prefs } = useQuery({
-    queryKey: ["user-preferences", user?.id],
-    queryFn: async () => {
-      if (!user || isDemoMode) return null
-      const { data } = await supabase.from("user_preferences").select("*").eq("user_id", user.id).maybeSingle()
-      return data
-    },
-    enabled: !!user && !isDemoMode,
-  })
-
-  const [start, setStart] = useState<string>("")
-  const [end, setEnd] = useState<string>("")
-  const [tz, setTz] = useState("UTC")
-
-  useEffect(() => {
-    if (prefs) {
-      setStart(prefs.quiet_hours_start !== null ? String(prefs.quiet_hours_start) : "")
-      setEnd(prefs.quiet_hours_end !== null ? String(prefs.quiet_hours_end) : "")
-      setTz(prefs.quiet_hours_timezone || "UTC")
-    }
-  }, [prefs])
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error("Not authenticated")
-      const qStart = start !== "" ? Number(start) : null
-      const qEnd = end !== "" ? Number(end) : null
-      const { error } = await supabase.from("user_preferences").upsert({
-        user_id: user.id,
-        quiet_hours_start: qStart,
-        quiet_hours_end: qEnd,
-        quiet_hours_timezone: tz,
-        updated_at: new Date().toISOString(),
-      })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-preferences"] })
-      toast.success("Quiet hours saved")
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  const clearMutation = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error("Not authenticated")
-      const { error } = await supabase.from("user_preferences").upsert({
-        user_id: user.id,
-        quiet_hours_start: null,
-        quiet_hours_end: null,
-        updated_at: new Date().toISOString(),
-      })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      setStart("")
-      setEnd("")
-      queryClient.invalidateQueries({ queryKey: ["user-preferences"] })
-      toast.success("Quiet hours cleared")
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  const hours = Array.from({ length: 24 }, (_, i) => i)
-
-  return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Digest Preferences</h2>
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
-        Set quiet hours to pause scheduled digests during specific times.
-      </p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label htmlFor="quiet-start" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Quiet hours start
-          </label>
-          <select
-            id="quiet-start"
-            value={start}
-            onChange={e => setStart(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white py-2 px-3 text-sm"
-          >
-            <option value="">Off</option>
-            {hours.map(h => (
-              <option key={h} value={h}>{`${h.toString().padStart(2, "0")}:00`}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="quiet-end" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Quiet hours end
-          </label>
-          <select
-            id="quiet-end"
-            value={end}
-            onChange={e => setEnd(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white py-2 px-3 text-sm"
-          >
-            <option value="">Off</option>
-            {hours.map(h => (
-              <option key={h} value={h}>{`${h.toString().padStart(2, "0")}:00`}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="quiet-tz" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Timezone
-          </label>
-          <select
-            id="quiet-tz"
-            value={tz}
-            onChange={e => setTz(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white py-2 px-3 text-sm"
-          >
-            {COMMON_TIMEZONES.map(t => (
-              <option key={t} value={t}>{t.replace("_", " ")}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="mt-4 flex gap-3">
-        <button
-          onClick={() => saveMutation.mutate()}
-          disabled={saveMutation.isPending}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-        >
-          {saveMutation.isPending ? "Saving..." : "Save Quiet Hours"}
-        </button>
-        {(start !== "" || end !== "") && (
-          <button
-            onClick={() => clearMutation.mutate()}
-            disabled={clearMutation.isPending}
-            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-          >
-            Clear
-          </button>
-        )}
-      </div>
-
-      {start !== "" && end !== "" && (
-        <p className="mt-3 text-xs text-gray-400">
-          Scheduled digests will not be sent between {start.padStart(2, "0")}:00 and {end.padStart(2, "0")}:00 ({tz}).
-        </p>
-      )}
     </div>
   )
 }

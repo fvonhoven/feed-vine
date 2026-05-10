@@ -88,6 +88,7 @@ serve(async req => {
             content,
             author,
             published_at,
+            language,
             created_at,
             feed:feeds(id, title, url),
             user_article:user_articles!left(is_read, is_saved, read_at, saved_at)
@@ -137,6 +138,7 @@ serve(async req => {
           content,
           author,
           published_at,
+          language,
           created_at,
           feed:feeds!inner(id, title, url, user_id),
           user_article:user_articles!left(is_read, is_saved, read_at, saved_at)

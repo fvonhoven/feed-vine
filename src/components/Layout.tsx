@@ -1,14 +1,10 @@
 import { useState } from "react"
-import { Link, useLocation } from "react-router-dom"
+import { Link, Outlet, useLocation } from "react-router-dom"
 import { isDemoMode } from "../lib/supabase"
 import Sidebar from "./Sidebar"
 import UserMenu from "./UserMenu"
 
-interface LayoutProps {
-  children: React.ReactNode
-}
-
-export default function Layout({ children }: LayoutProps) {
+export default function Layout() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -121,7 +117,7 @@ export default function Layout({ children }: LayoutProps) {
         )}
 
         <main className={`flex-1 overflow-y-auto ${showSidebar ? "" : "max-w-7xl mx-auto w-full"} py-3 sm:py-6 px-3 sm:px-6 lg:px-8`}>
-          {children}
+          <Outlet />
         </main>
       </div>
     </div>

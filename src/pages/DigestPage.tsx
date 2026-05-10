@@ -6,31 +6,21 @@ import type { ArticleWithFeed, ScheduledDigest, DigestHistory } from "../types/d
 import { useSubscription } from "../hooks/useSubscription"
 import toast from "react-hot-toast"
 import { Link } from "react-router-dom"
+import {
+  htmlToPlainText,
+  escapeHtml,
+  plainTextToDigestBodyHtml,
+  wrapDigestEmail,
+  truncatePlainText,
+  DEFAULT_DIGEST_EMAIL_ARTICLE_CHARS,
+} from "../lib/htmlPlain"
+import { ARTICLE_LANGUAGE_SUPABASE_OR, filterEnglishPrimaryArticles } from "../lib/articleLanguageFilter"
 
 type DateRange = "24h" | "7d" | "30d"
 type ExportFormat = "markdown" | "html" | "text"
 type PageTab = "builder" | "schedules" | "history"
 
 // ── Output generators ────────────────────────────────────────────────────────
-
-function stripHtml(html: string) {
-  return html
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .trim()
-}
-
-function escapeHtml(text: string): string {
-  return String(text)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
-}
 
 function isSafeUrl(url: string): boolean {
   try {
@@ -45,30 +35,60 @@ function isSafeUrl(url: string): boolean {
   }
 }
 
-function generateMarkdown(title: string, articles: ArticleWithFeed[]): string {
+function generateMarkdown(title: string, articles: ArticleWithFeed[], opts?: { maxDescriptionChars?: number }): string {
   const date = dateFormat(new Date(), "MMMM d, yyyy")
+  const maxDesc = opts?.maxDescriptionChars ?? DEFAULT_DIGEST_EMAIL_ARTICLE_CHARS
   let md = `# ${title.replace(/[#*_`[\]]/g, " ")}\n\n*${date}*\n\n---\n\n`
   articles.forEach(a => {
     const safeUrl = isSafeUrl(a.url) ? a.url : "#"
     const safeTitle = a.title.replace(/[\[\]()]/g, " ")
     md += `## [${safeTitle}](${safeUrl})\n\n`
-    if (a.description) md += `${stripHtml(a.description)}\n\n`
+    if (a.description) {
+      const plain = truncatePlainText(htmlToPlainText(a.description), maxDesc)
+      md += `${plain}\n\n`
+    }
     md += `*${a.feed.title} · ${dateFormat(new Date(a.published_at), "MMM d")}*\n\n---\n\n`
   })
   return md
 }
 
-function generateHTML(title: string, articles: ArticleWithFeed[]): string {
+/** RSS descriptions are often full posts; history stores excerpts only so the log stays readable. */
+const DIGEST_HISTORY_MD_EXCERPT = 520
+const DIGEST_HISTORY_HTML_PLAIN = 1100
+
+function snapshotDigestForHistory(digestTitle: string, articles: ArticleWithFeed[]) {
+  return {
+    contentHtml: generateHTML(digestTitle, articles, { historyPlainMax: DIGEST_HISTORY_HTML_PLAIN }),
+    contentMarkdown: generateMarkdown(digestTitle, articles, { maxDescriptionChars: DIGEST_HISTORY_MD_EXCERPT }),
+  }
+}
+
+function generateHTML(title: string, articles: ArticleWithFeed[], opts?: { historyPlainMax?: number }): string {
   const date = dateFormat(new Date(), "MMMM d, yyyy")
-  let html = `<h1 style="font-family:sans-serif;color:#111;">${escapeHtml(title)}</h1>\n`
-  html += `<p style="color:#888;font-size:14px;">${date}</p>\n<hr>\n`
+  const chunks: string[] = []
+  chunks.push(
+    `<h1 style="font-size:26px;font-weight:700;margin:0 0 8px;line-height:1.25;color:#111;">${escapeHtml(title)}</h1>`,
+  )
+  chunks.push(`<p style="margin:0 0 22px;color:#888;font-size:14px;">${escapeHtml(date)}</p>`)
+  chunks.push(`<hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 26px;"/>`)
+
   articles.forEach(a => {
     const safeUrl = isSafeUrl(a.url) ? a.url : "#"
-    html += `<h2 style="font-family:sans-serif;"><a href="${escapeHtml(safeUrl)}" style="color:#0070f3;text-decoration:none;">${escapeHtml(a.title)}</a></h2>\n`
-    if (a.description) html += `<p style="color:#444;line-height:1.6;">${escapeHtml(stripHtml(a.description))}</p>\n`
-    html += `<p style="color:#888;font-size:12px;">${escapeHtml(a.feed.title)} · ${dateFormat(new Date(a.published_at), "MMM d")}</p>\n<hr>\n`
+    chunks.push(
+      `<h2 style="font-size:19px;font-weight:600;margin:0 0 12px;line-height:1.35;"><a href="${escapeHtml(safeUrl)}" style="color:#2563eb;text-decoration:none;">${escapeHtml(a.title)}</a></h2>`,
+    )
+    if (a.description) {
+      const plain = htmlToPlainText(a.description)
+      const maxPerArticle = opts?.historyPlainMax ?? DEFAULT_DIGEST_EMAIL_ARTICLE_CHARS
+      chunks.push(plainTextToDigestBodyHtml(plain, maxPerArticle))
+    }
+    chunks.push(
+      `<p style="margin:14px 0 0;font-size:13px;color:#888;">${escapeHtml(a.feed.title)} · ${escapeHtml(dateFormat(new Date(a.published_at), "MMM d"))}</p>`,
+    )
+    chunks.push(`<hr style="border:none;border-top:1px solid #e5e7eb;margin:26px 0;"/>`)
   })
-  return html
+
+  return wrapDigestEmail(chunks.join("\n"))
 }
 
 function generateText(title: string, articles: ArticleWithFeed[]): string {
@@ -76,7 +96,7 @@ function generateText(title: string, articles: ArticleWithFeed[]): string {
   let text = `${title}\n${date}\n${"=".repeat(50)}\n\n`
   articles.forEach((a, i) => {
     text += `${i + 1}. ${a.title}\n   ${a.url}\n`
-    if (a.description) text += `   ${stripHtml(a.description).slice(0, 160)}...\n`
+    if (a.description) text += `   ${htmlToPlainText(a.description).slice(0, 160)}...\n`
     text += `   ${a.feed.title} · ${dateFormat(new Date(a.published_at), "MMM d")}\n\n`
   })
   return text
@@ -804,10 +824,13 @@ function HistoryTab() {
 
           {expandedId === entry.id && (
             <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                Snapshot uses short excerpts per item so this log stays usable. Export from the builder for full text.
+              </p>
               <textarea
                 readOnly
                 value={entry.content_markdown || entry.content_html || "(no content saved)"}
-                className="w-full h-48 font-mono text-xs p-3 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-md resize-none focus:outline-none"
+                className="w-full min-h-48 max-h-[28rem] font-mono text-xs p-3 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-md resize-y focus:outline-none overflow-y-auto"
               />
               <div className="flex items-center gap-2 mt-3">
                 <button
@@ -878,6 +901,7 @@ export default function DigestPage() {
       let query = supabase
         .from("articles")
         .select("*, feed:feeds(title, url)")
+        .or(ARTICLE_LANGUAGE_SUPABASE_OR)
         .gte("published_at", cutoff)
         .order("published_at", { ascending: false })
         .limit(limit)
@@ -894,7 +918,7 @@ export default function DigestPage() {
 
       const { data, error } = await query
       if (error) throw error
-      const items = (data || []) as ArticleWithFeed[]
+      const items = filterEnglishPrimaryArticles((data || []) as ArticleWithFeed[])
       setSelectedIds(new Set(items.map(a => a.id)))
       return items
     },
@@ -932,8 +956,7 @@ export default function DigestPage() {
       toast.success("Copied to clipboard!")
       await saveDigestToHistory({
         title: digestTitle,
-        contentHtml: generateHTML(digestTitle, selectedArticles),
-        contentMarkdown: generateMarkdown(digestTitle, selectedArticles),
+        ...snapshotDigestForHistory(digestTitle, selectedArticles),
         articleIds: selectedArticles.map(a => a.id),
         collectionId: collectionId,
         destination: "clipboard",
@@ -956,21 +979,17 @@ export default function DigestPage() {
 
   const sendToBeehiivMutation = useMutation({
     mutationFn: async () => {
-      const htmlContent = exportFormat === "html" ? output : generateHTML(digestTitle, selectedArticles)
+      const htmlContent = generateHTML(digestTitle, selectedArticles)
       const {
         data: { session },
       } = await supabase.auth.getSession()
       if (!session) throw new Error("Not authenticated")
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-to-beehiiv`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ title: digestTitle, content_html: htmlContent }),
+      const { data, error } = await supabase.functions.invoke("send-to-beehiiv", {
+        body: { title: digestTitle, content_html: htmlContent },
       })
-      const result = await response.json()
-      if (!result.success) throw new Error(result.error || "Failed to send")
+      if (error) throw new Error(error.message)
+      const result = data as { success?: boolean; error?: string; postId?: string; webUrl?: string }
+      if (!result?.success) throw new Error(result?.error || "Failed to send")
       return result as { success: boolean; postId?: string; webUrl?: string }
     },
     onSuccess: data => {
@@ -989,8 +1008,7 @@ export default function DigestPage() {
       }
       saveDigestToHistory({
         title: digestTitle,
-        contentHtml: generateHTML(digestTitle, selectedArticles),
-        contentMarkdown: generateMarkdown(digestTitle, selectedArticles),
+        ...snapshotDigestForHistory(digestTitle, selectedArticles),
         articleIds: selectedArticles.map(a => a.id),
         collectionId: collectionId,
         destination: "beehiiv",
@@ -1014,21 +1032,35 @@ export default function DigestPage() {
 
   const sendToMailerLiteMutation = useMutation({
     mutationFn: async () => {
-      const htmlContent = exportFormat === "html" ? output : generateHTML(digestTitle, selectedArticles)
+      const htmlContent = generateHTML(digestTitle, selectedArticles)
       const {
         data: { session },
       } = await supabase.auth.getSession()
       if (!session) throw new Error("Not authenticated")
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-to-mailerlite`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ title: digestTitle, content_html: htmlContent }),
+      const { data, error: invokeError } = await supabase.functions.invoke("send-to-mailerlite", {
+        body: { title: digestTitle, content_html: htmlContent },
       })
-      const result = await response.json()
-      if (!result.success) throw new Error(result.error || "Failed to send")
+      const result = data as {
+        success?: boolean
+        error?: string
+        campaignId?: string
+        editUrl?: string
+        contentNotAdded?: boolean
+      } | null
+      if (invokeError) {
+        let msg = invokeError.message
+        try {
+          const ctx = (invokeError as { context?: Response }).context
+          if (ctx?.json) {
+            const b = (await ctx.json()) as { error?: string; success?: boolean }
+            if (typeof b?.error === "string") msg = b.error
+          }
+        } catch {
+          // use default msg
+        }
+        throw new Error(msg)
+      }
+      if (!result?.success) throw new Error(result?.error || "Failed to send to MailerLite")
       return result as { success: boolean; campaignId?: string; editUrl?: string; contentNotAdded?: boolean }
     },
     onSuccess: data => {
@@ -1037,10 +1069,12 @@ export default function DigestPage() {
           <span>
             Draft created in MailerLite!{" "}
             <a href={data.editUrl} target="_blank" rel="noopener noreferrer" className="underline">
-              Edit campaign →
+              Open Drafts →
             </a>
             <br />
-            <span className="text-xs opacity-80">Content requires MailerLite Advanced plan — paste HTML in editor.</span>
+            <span className="text-xs opacity-80">
+              Find it by name (“{digestTitle}”). Content requires MailerLite Advanced — paste HTML in the editor.
+            </span>
           </span>,
           { duration: 8000 },
         )
@@ -1049,8 +1083,10 @@ export default function DigestPage() {
           <span>
             Draft created in MailerLite!{" "}
             <a href={data.editUrl} target="_blank" rel="noopener noreferrer" className="underline">
-              Edit campaign →
+              Open Drafts →
             </a>
+            <br />
+            <span className="text-xs opacity-80">Find it in the list by name (“{digestTitle}”).</span>
           </span>,
           { duration: 6000 },
         )
@@ -1059,8 +1095,7 @@ export default function DigestPage() {
       }
       saveDigestToHistory({
         title: digestTitle,
-        contentHtml: generateHTML(digestTitle, selectedArticles),
-        contentMarkdown: generateMarkdown(digestTitle, selectedArticles),
+        ...snapshotDigestForHistory(digestTitle, selectedArticles),
         articleIds: selectedArticles.map(a => a.id),
         collectionId: collectionId,
         destination: "mailerlite",

@@ -6,6 +6,7 @@ import ArticleCard from "../components/ArticleCard"
 import toast from "react-hot-toast"
 import { useFeedFilters, applyFeedFilters } from "../hooks/useFeedFilters"
 import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
+import { ARTICLE_LANGUAGE_SUPABASE_OR, filterEnglishPrimaryArticles } from "../lib/articleLanguageFilter"
 
 export default function FeedArticlesPage() {
   const { feedId } = useParams<{ feedId: string }>()
@@ -47,15 +48,18 @@ export default function FeedArticlesPage() {
         `,
         )
         .eq("feed_id", feedId)
+        .or(ARTICLE_LANGUAGE_SUPABASE_OR)
         .order("published_at", { ascending: false })
         .limit(100)
 
       if (error) throw error
 
-      return (data || []).map(article => ({
-        ...article,
-        user_article: Array.isArray(article.user_article) && article.user_article.length > 0 ? article.user_article[0] : null,
-      })) as ArticleWithStatus[]
+      return filterEnglishPrimaryArticles(
+        (data || []).map(article => ({
+          ...article,
+          user_article: Array.isArray(article.user_article) && article.user_article.length > 0 ? article.user_article[0] : null,
+        })) as ArticleWithStatus[],
+      )
     },
     enabled: !!feedId,
   })

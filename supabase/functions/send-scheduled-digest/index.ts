@@ -1,34 +1,59 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { format as dateFormat, subDays, subHours } from "https://esm.sh/date-fns@3"
-import { isCronOrServiceAuth, escapeHtml, isValidHttpUrl } from "../_shared/security.ts"
+import { mailerLiteHeaders, mailerLiteTopLevelMessage, readMailerLiteJson } from "../_shared/mailerliteClient.ts"
+import { isCronOrServiceAuth, isValidHttpUrl } from "../_shared/security.ts"
+import {
+  escapeHtml,
+  htmlToPlainText,
+  plainTextToDigestBodyHtml,
+  truncatePlainText,
+  DEFAULT_DIGEST_EMAIL_ARTICLE_CHARS,
+  wrapDigestEmail,
+} from "../_shared/htmlPlain.ts"
+import { passesEnglishPrimaryArticle } from "../_shared/detectLanguage.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
+/** Match DigestPage snapshot limits for digest_history rows. */
+const DIGEST_HISTORY_MD_EXCERPT = 520
+const DIGEST_HISTORY_HTML_PLAIN = 1100
+
 function generateHTML(
   title: string,
   articles: Array<{ title: string; url: string; description?: string | null; feed_title: string; published_at: string }>,
+  opts?: { historyPlainMax?: number },
 ): string {
   const date = dateFormat(new Date(), "MMMM d, yyyy")
-  let html = `<h1 style="font-family:sans-serif;color:#111;">${escapeHtml(title)}</h1>\n`
-  html += `<p style="color:#888;font-size:14px;">${date}</p>\n<hr>\n`
+  const chunks: string[] = []
+  chunks.push(
+    `<h1 style="font-size:26px;font-weight:700;margin:0 0 8px;line-height:1.25;color:#111;">${escapeHtml(title)}</h1>`,
+  )
+  chunks.push(`<p style="margin:0 0 22px;color:#888;font-size:14px;">${escapeHtml(date)}</p>`)
+  chunks.push(`<hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 26px;"/>`)
+
   for (const a of articles) {
     const safeUrl = isValidHttpUrl(a.url) ? a.url : "#"
-    html += `<h2 style="font-family:sans-serif;"><a href="${escapeHtml(safeUrl)}" style="color:#0070f3;text-decoration:none;">${escapeHtml(a.title)}</a></h2>\n`
+    chunks.push(
+      `<h2 style="font-size:19px;font-weight:600;margin:0 0 12px;line-height:1.35;"><a href="${escapeHtml(safeUrl)}" style="color:#2563eb;text-decoration:none;">${escapeHtml(a.title)}</a></h2>`,
+    )
     if (a.description) {
-      const stripped = a.description
-        .replace(/<[^>]*>/g, "")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&amp;/g, "&")
-        .trim()
-      html += `<p style="color:#444;line-height:1.6;">${escapeHtml(stripped)}</p>\n`
+      const plain = htmlToPlainText(a.description)
+      const maxPerArticle = opts?.historyPlainMax ?? DEFAULT_DIGEST_EMAIL_ARTICLE_CHARS
+      chunks.push(plainTextToDigestBodyHtml(plain, maxPerArticle))
     }
-    html += `<p style="color:#888;font-size:12px;">${escapeHtml(a.feed_title)} · ${dateFormat(new Date(a.published_at), "MMM d")}</p>\n<hr>\n`
+    chunks.push(
+      `<p style="margin:14px 0 0;font-size:13px;color:#888;">${escapeHtml(a.feed_title)} · ${escapeHtml(
+        dateFormat(new Date(a.published_at), "MMM d"),
+      )}</p>`,
+    )
+    chunks.push(`<hr style="border:none;border-top:1px solid #e5e7eb;margin:26px 0;"/>`)
   }
-  return html
+
+  return wrapDigestEmail(chunks.join("\n"))
 }
 
 function computeNextRunAt(schedule: string): string {
@@ -68,30 +93,6 @@ function computeCutoff(schedule: string): string {
   return subDays(new Date(), 7).toISOString()
 }
 
-function isInQuietHours(
-  prefs: { quiet_hours_start: number | null; quiet_hours_end: number | null; quiet_hours_timezone: string } | null
-): boolean {
-  if (!prefs || prefs.quiet_hours_start === null || prefs.quiet_hours_end === null) return false
-  const nowUTC = new Date()
-  const tzOffset = getTimezoneOffsetHours(prefs.quiet_hours_timezone)
-  const localHour = (nowUTC.getUTCHours() + tzOffset + 24) % 24
-  const start = prefs.quiet_hours_start
-  const end = prefs.quiet_hours_end
-  if (start <= end) return localHour >= start && localHour < end
-  return localHour >= start || localHour < end
-}
-
-function getTimezoneOffsetHours(tz: string): number {
-  try {
-    const now = new Date()
-    const utcStr = now.toLocaleString("en-US", { timeZone: "UTC" })
-    const tzStr = now.toLocaleString("en-US", { timeZone: tz })
-    return (new Date(tzStr).getTime() - new Date(utcStr).getTime()) / 3600_000
-  } catch {
-    return 0
-  }
-}
-
 serve(async req => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
@@ -129,24 +130,12 @@ serve(async req => {
 
     for (const schedule of schedules) {
       try {
-        // Check quiet hours for this user
-        const { data: prefs } = await supabaseAdmin
-          .from("user_preferences")
-          .select("quiet_hours_start, quiet_hours_end, quiet_hours_timezone")
-          .eq("user_id", schedule.user_id)
-          .maybeSingle()
-
-        if (isInQuietHours(prefs)) {
-          results.push({ id: schedule.id, success: true, error: "skipped: quiet hours" })
-          continue
-        }
-
         const cutoff = computeCutoff(schedule.schedule)
 
         // Fetch articles
         let query = supabaseAdmin
           .from("articles")
-          .select("id, title, url, description, published_at, feed_id, feed:feeds(title)")
+          .select("id, title, url, description, content, published_at, feed_id, language, feed:feeds(title)")
           .gte("published_at", cutoff)
           .order("published_at", { ascending: false })
           .limit(schedule.max_articles)
@@ -161,8 +150,13 @@ serve(async req => {
           }
         }
 
-        const { data: articles, error: artErr } = await query
+        const { data: fetchedArticles, error: artErr } = await query
         if (artErr) throw artErr
+
+        const articles = (fetchedArticles || []).filter(
+          (a: { language?: string | null; title: string; description?: string | null; content?: string | null }) =>
+            passesEnglishPrimaryArticle(a.language ?? null, a.title, a.description ?? null, a.content ?? null),
+        )
 
         if (!articles || articles.length === 0) {
           // No articles — skip but update next_run_at
@@ -188,6 +182,7 @@ serve(async req => {
         const digestTitle = schedule.digest_title_template.replace("{name}", schedule.name).replace("{date}", dateFormat(new Date(), "MMM d, yyyy"))
 
         const contentHtml = generateHTML(digestTitle, articleList)
+        const historyHtml = generateHTML(digestTitle, articleList, { historyPlainMax: DIGEST_HISTORY_HTML_PLAIN })
 
         // Look up integration credentials directly (service role bypasses RLS)
         const { data: integration, error: intErr } = await supabaseAdmin
@@ -220,7 +215,7 @@ serve(async req => {
             fromEmail = integration.publication_id || ""
           }
           if (!fromEmail) throw new Error("MailerLite sender email not configured")
-          const mlHeaders = { Authorization: `Bearer ${integration.api_key}`, "Content-Type": "application/json", Accept: "application/json" }
+          const mlHeaders = mailerLiteHeaders(integration.api_key as string)
           const payload = {
             name: digestTitle,
             type: "regular",
@@ -236,8 +231,8 @@ serve(async req => {
             const fallback = { name: digestTitle, type: "regular", emails: [{ subject: digestTitle, from_name: fromName, from: fromEmail }] }
             resp = await fetch("https://connect.mailerlite.com/api/campaigns", { method: "POST", headers: mlHeaders, body: JSON.stringify(fallback) })
             if (!resp.ok) {
-              const d = await resp.json()
-              throw new Error(d?.message || "MailerLite API error")
+              const d = await readMailerLiteJson(resp)
+              throw new Error(mailerLiteTopLevelMessage(d))
             }
           }
         }
@@ -247,7 +242,9 @@ serve(async req => {
           .map(a => {
             const safeUrl = isValidHttpUrl(a.url) ? a.url : "#"
             const safeTitle = a.title.replace(/[\[\]()]/g, " ")
-            const desc = a.description ? a.description.replace(/<[^>]*>/g, "").trim() : ""
+            const desc = a.description
+              ? truncatePlainText(htmlToPlainText(a.description), DIGEST_HISTORY_MD_EXCERPT)
+              : ""
             return `## [${safeTitle}](${safeUrl})\n\n${desc}\n\n*${a.feed_title} · ${dateFormat(new Date(a.published_at), "MMM d")}*`
           })
           .join("\n\n---\n\n")
@@ -255,7 +252,7 @@ serve(async req => {
         await supabaseAdmin.from("digest_history").insert({
           user_id: schedule.user_id,
           title: digestTitle,
-          content_html: contentHtml,
+          content_html: historyHtml,
           content_markdown: `# ${digestTitle}\n\n---\n\n${markdownContent}`,
           article_count: articleList.length,
           article_ids: articles.map((a: { id: string }) => a.id),

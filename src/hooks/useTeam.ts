@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { featureFlags } from "../lib/featureFlags"
 import { supabase } from "../lib/supabase"
 import { useAuth } from "./useAuth"
 import toast from "react-hot-toast"
@@ -28,7 +29,7 @@ export function useTeam() {
   const { data, isLoading } = useQuery<TeamData>({
     queryKey: ["team", user?.id],
     queryFn: () => invokeTeam("get") as Promise<TeamData>,
-    enabled: !!user,
+    enabled: !!user && featureFlags.teams,
     staleTime: 30_000,
   })
 

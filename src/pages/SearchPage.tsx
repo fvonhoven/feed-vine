@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
 import { escapeFilterValue } from "../lib/urlUtils"
 import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
+import { ARTICLE_LANGUAGE_SUPABASE_OR, filterEnglishPrimaryArticles } from "../lib/articleLanguageFilter"
 import type { ArticleWithStatus, Feed } from "../types/database"
 import ArticleCard from "../components/ArticleCard"
 import toast from "react-hot-toast"
@@ -11,7 +12,8 @@ export default function SearchPage() {
   const [keyword, setKeyword] = useState("")
   const [submittedKeyword, setSubmittedKeyword] = useState("")
   const [selectedFeedId, setSelectedFeedId] = useState("")
-  const [dateRange, setDateRange] = useState("all")
+  /** Default narrowed window avoids scanning the whole articles table. */
+  const [dateRange, setDateRange] = useState("month")
   const queryClient = useQueryClient()
 
   const { data: feeds } = useQuery({
@@ -35,30 +37,56 @@ export default function SearchPage() {
       if (isDemoMode) return []
 
       const escaped = escapeFilterValue(submittedKeyword)
+      // Title + description only (not body): content ILIKE is very expensive at scale.
       let query = supabase
         .from("articles")
-        .select(`*, feed:feeds(title, url), user_article:user_articles!left(is_read, is_saved)`)
-        .or(`title.ilike.%${escaped}%,description.ilike.%${escaped}%,content.ilike.%${escaped}%`)
+        .select(
+          `
+          id,
+          feed_id,
+          title,
+          url,
+          description,
+          author,
+          category,
+          published_at,
+          guid,
+          ai_summary,
+          ai_summary_generated_at,
+          language,
+          created_at,
+          feed:feeds(title, url),
+          user_article:user_articles!left(is_read, is_saved)
+        `,
+        )
+        .or(ARTICLE_LANGUAGE_SUPABASE_OR)
+        .or(`title.ilike.%${escaped}%,description.ilike.%${escaped}%`)
         .order("published_at", { ascending: false })
-        .limit(200)
+        .limit(100)
 
       if (selectedFeedId) query = query.eq("feed_id", selectedFeedId)
 
-      if (dateRange !== "all") {
-        const startDate = new Date()
-        if (dateRange === "24h") startDate.setHours(startDate.getHours() - 24)
-        else if (dateRange === "week") startDate.setDate(startDate.getDate() - 7)
-        else if (dateRange === "month") startDate.setMonth(startDate.getMonth() - 1)
-        query = query.gte("published_at", startDate.toISOString())
+      const startDate = new Date()
+      if (dateRange === "all") {
+        startDate.setFullYear(startDate.getFullYear() - 1)
+      } else if (dateRange === "24h") {
+        startDate.setHours(startDate.getHours() - 24)
+      } else if (dateRange === "week") {
+        startDate.setDate(startDate.getDate() - 7)
+      } else {
+        startDate.setMonth(startDate.getMonth() - 1)
       }
+      query = query.gte("published_at", startDate.toISOString())
 
       const { data, error } = await query
       if (error) throw error
 
-      return (data || []).map(article => ({
-        ...article,
-        user_article: Array.isArray(article.user_article) && article.user_article.length > 0 ? article.user_article[0] : null,
-      })) as ArticleWithStatus[]
+      return filterEnglishPrimaryArticles(
+        (data || []).map(article => ({
+          ...article,
+          user_article: Array.isArray(article.user_article) && article.user_article.length > 0 ? article.user_article[0] : null,
+        })) as ArticleWithStatus[],
+      )
     },
   })
 
@@ -123,7 +151,7 @@ export default function SearchPage() {
               type="text"
               value={keyword}
               onChange={e => setKeyword(e.target.value)}
-              placeholder="Search titles, descriptions, and content..."
+              placeholder="Search titles and descriptions…"
               className="w-full pl-9 pr-3 py-2.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm min-h-[44px]"
               autoFocus
             />
@@ -156,12 +184,15 @@ export default function SearchPage() {
             onChange={e => setDateRange(e.target.value)}
             className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:border-primary-500 focus:ring-primary-500"
           >
-            <option value="all">Any time</option>
             <option value="24h">Last 24 hours</option>
             <option value="week">Last 7 days</option>
             <option value="month">Last 30 days</option>
+            <option value="all">Last 12 months</option>
           </select>
         </div>
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 max-w-2xl">
+          Search uses titles and descriptions only (not full article HTML), scoped by the date range above—default is 30 days to keep queries fast.
+        </p>
       </div>
 
       {/* Results */}
@@ -199,7 +230,9 @@ export default function SearchPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No results</h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">No articles found for "{submittedKeyword}".</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            No articles found for "{submittedKeyword}". Try a wider date range or a different feed.
+          </p>
         </div>
       )}
     </div>

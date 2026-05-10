@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { useAuth } from "../hooks/useAuth"
 import { useSubscription } from "../hooks/useSubscription"
-import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getAnnualSavings, formatPrice, type BillingInterval, type PlanId } from "../lib/stripe"
+import { featureFlags } from "../lib/featureFlags"
+import { PRICING_PLANS, getPlanPrice, getPlanPriceId, getAnnualSavings, formatPrice, isTeamPlanId, type BillingInterval, type PlanId } from "../lib/stripe"
 import { supabase } from "../lib/supabase"
 import toast from "react-hot-toast"
 import { Link } from "react-router-dom"
@@ -20,6 +21,11 @@ export default function PricingPage() {
 
     if (planId === "free") {
       toast.success("You're already on the free plan!")
+      return
+    }
+
+    if (!featureFlags.teams && isTeamPlanId(planId)) {
+      toast.error("Team plans are not available right now.")
       return
     }
 
@@ -252,7 +258,7 @@ export default function PricingPage() {
                         { label: "Webhooks (Zapier/Make) — up to 5" },
                         { label: "Newsletter export (Beehiiv & MailerLite)" },
                         { label: "Scheduled auto-draft digests" },
-                        { label: "Digest history & quiet hours" },
+                        { label: "Digest history" },
                         { label: "Advanced keyword filters" },
                       ].map(({ label, bold }) => (
                         <li key={label} className="flex items-start gap-2">
@@ -331,6 +337,7 @@ export default function PricingPage() {
       </div>
 
       {/* Team Plans Section */}
+      {featureFlags.teams && (
       <div className="mt-20">
         <div className="text-center mb-10">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">🏢 For Teams</h2>
@@ -475,6 +482,7 @@ export default function PricingPage() {
             })}
         </div>
       </div>
+      )}
 
       <div className="mt-12 text-center">
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">

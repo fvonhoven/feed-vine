@@ -12,6 +12,7 @@ import { FaRegKeyboard } from "react-icons/fa"
 import { useFeedFilters, applyFeedFilters } from "../hooks/useFeedFilters"
 import { invokeFetchRss } from "../lib/rssFetcher"
 import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
+import { ARTICLE_LANGUAGE_SUPABASE_OR, filterEnglishPrimaryArticles } from "../lib/articleLanguageFilter"
 
 export default function HomePage() {
   const [keyword, setKeyword] = useState("")
@@ -58,6 +59,7 @@ export default function HomePage() {
           user_article:user_articles!left(is_read, is_saved)
         `,
         )
+        .or(ARTICLE_LANGUAGE_SUPABASE_OR)
         .order("published_at", { ascending: false })
         .limit(500)
 
@@ -99,10 +101,12 @@ export default function HomePage() {
 
       // Transform the data to match ArticleWithStatus type
       // Supabase returns user_article as an array, we need to convert it to a single object or null
-      return (data || []).map(article => ({
-        ...article,
-        user_article: Array.isArray(article.user_article) && article.user_article.length > 0 ? article.user_article[0] : null,
-      })) as ArticleWithStatus[]
+      return filterEnglishPrimaryArticles(
+        (data || []).map(article => ({
+          ...article,
+          user_article: Array.isArray(article.user_article) && article.user_article.length > 0 ? article.user_article[0] : null,
+        })) as ArticleWithStatus[],
+      )
     },
   })
 

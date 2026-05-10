@@ -14,17 +14,21 @@ const EVENT_TYPES: { value: WebhookEventType; label: string; description: string
   { value: "collection_updated", label: "Collection Updated", description: "Triggered when a collection is modified" },
 ]
 
+const emptyForm = () => ({
+  name: "",
+  url: "",
+  secret: "",
+  event_types: ["new_article"] as WebhookEventType[],
+  feed_id: "",
+  collection_id: "",
+})
+
 export default function WebhooksPage() {
   const { user } = useAuth()
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [formData, setFormData] = useState({
-    name: "",
-    url: "",
-    secret: "",
-    event_types: ["new_article"] as WebhookEventType[],
-    feed_id: "",
-    collection_id: "",
-  })
+  const [editingWebhookId, setEditingWebhookId] = useState<string | null>(null)
+  const [editingHadSecret, setEditingHadSecret] = useState(false)
+  const [formData, setFormData] = useState(emptyForm)
   const queryClient = useQueryClient()
   const { hasFeature, isLoading: subscriptionLoading } = useSubscription()
 
@@ -91,8 +95,37 @@ export default function WebhooksPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["webhooks"] })
       setShowCreateForm(false)
-      setFormData({ name: "", url: "", secret: "", event_types: ["new_article"], feed_id: "", collection_id: "" })
+      setEditingWebhookId(null)
+      setEditingHadSecret(false)
+      setFormData(emptyForm())
       toast.success("Webhook created successfully!")
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
+      if (isDemoMode) throw new Error("Demo mode: Cannot update webhooks")
+      if (!user?.id) throw new Error("User not authenticated")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const row: Record<string, unknown> = {
+        name: data.name.trim(),
+        url: data.url.trim(),
+        event_types: data.event_types,
+        feed_id: data.feed_id || null,
+        collection_id: data.collection_id || null,
+      }
+      if (data.secret.trim()) row.secret = data.secret.trim()
+      const { error } = await (supabase as any).from("webhooks").update(row).eq("id", id).eq("user_id", user.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["webhooks"] })
+      setShowCreateForm(false)
+      setEditingWebhookId(null)
+      setEditingHadSecret(false)
+      setFormData(emptyForm())
+      toast.success("Webhook updated")
     },
     onError: (error: Error) => toast.error(error.message),
   })
@@ -134,17 +167,26 @@ export default function WebhooksPage() {
         body: { webhookId },
       })
       if (error) throw error
-      if (!data.success) throw new Error(data.error || "Webhook test failed")
+      if (!data?.success) {
+        const errField = data?.error
+        const detail =
+          typeof errField === "string"
+            ? errField
+            : errField && typeof errField === "object" && "message" in errField
+              ? String((errField as { message: string }).message)
+              : "Webhook test failed"
+        throw new Error(detail)
+      }
       return data
     },
     onSuccess: data => {
       setTestingWebhookId(null)
       queryClient.invalidateQueries({ queryKey: ["webhooks"] })
-      toast.success(`Test sent! Status: ${data.statusCode}`)
+      toast.success(`Test sent — your endpoint returned HTTP ${data.statusCode}`)
     },
-    onError: (error: Error) => {
+    onError: (error: unknown) => {
       setTestingWebhookId(null)
-      toast.error(`Test failed: ${error.message}`)
+      toast.error(`Test failed: ${error instanceof Error ? error.message : String(error)}`)
     },
   })
 
@@ -164,7 +206,39 @@ export default function WebhooksPage() {
       toast.error("Please enter a valid URL")
       return
     }
-    createMutation.mutate(formData)
+    if (editingWebhookId) {
+      updateMutation.mutate({ id: editingWebhookId, data: formData })
+    } else {
+      createMutation.mutate(formData)
+    }
+  }
+
+  const openCreateForm = () => {
+    setEditingWebhookId(null)
+    setEditingHadSecret(false)
+    setFormData(emptyForm())
+    setShowCreateForm(true)
+  }
+
+  const openEditForm = (webhook: Webhook) => {
+    setEditingWebhookId(webhook.id)
+    setEditingHadSecret(!!webhook.secret)
+    setFormData({
+      name: webhook.name,
+      url: webhook.url,
+      secret: "",
+      event_types: webhook.event_types.length > 0 ? webhook.event_types : ["new_article"],
+      feed_id: webhook.feed_id ?? "",
+      collection_id: webhook.collection_id ?? "",
+    })
+    setShowCreateForm(true)
+  }
+
+  const closeForm = () => {
+    setShowCreateForm(false)
+    setEditingWebhookId(null)
+    setEditingHadSecret(false)
+    setFormData(emptyForm())
   }
 
   const toggleEventType = (eventType: WebhookEventType) => {
@@ -215,14 +289,16 @@ export default function WebhooksPage() {
       <div className="mb-6">
         {!showCreateForm ? (
           <button
-            onClick={() => setShowCreateForm(true)}
+            onClick={openCreateForm}
             className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             + Create New Webhook
           </button>
         ) : (
           <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Create New Webhook</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              {editingWebhookId ? "Edit Webhook" : "Create New Webhook"}
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Name *</label>
@@ -262,9 +338,12 @@ export default function WebhooksPage() {
                 type="text"
                 value={formData.secret}
                 onChange={e => setFormData(prev => ({ ...prev, secret: e.target.value }))}
-                placeholder="Your webhook secret"
+                placeholder={editingWebhookId ? "Leave blank to keep current secret" : "Your webhook secret"}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
               />
+              {editingWebhookId && editingHadSecret && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">A secret is already set. Enter a new value to replace it.</p>
+              )}
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Event Types *</label>
@@ -320,17 +399,20 @@ export default function WebhooksPage() {
             <div className="flex gap-3">
               <button
                 type="submit"
-                disabled={createMutation.isPending}
+                disabled={createMutation.isPending || updateMutation.isPending}
                 className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
               >
-                {createMutation.isPending ? "Creating..." : "Create Webhook"}
+                {createMutation.isPending || updateMutation.isPending
+                  ? editingWebhookId
+                    ? "Saving..."
+                    : "Creating..."
+                  : editingWebhookId
+                    ? "Save changes"
+                    : "Create Webhook"}
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowCreateForm(false)
-                  setFormData({ name: "", url: "", secret: "", event_types: ["new_article"], feed_id: "", collection_id: "" })
-                }}
+                onClick={closeForm}
                 className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
                 Cancel
@@ -395,8 +477,16 @@ export default function WebhooksPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-2 ml-4 flex-wrap justify-end">
                     <button
+                      type="button"
+                      onClick={() => openEditForm(webhook)}
+                      className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => testMutation.mutate(webhook.id)}
                       disabled={testingWebhookId === webhook.id}
                       className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 px-3 py-1 rounded text-sm font-medium transition-colors disabled:opacity-50"
@@ -435,11 +525,20 @@ export default function WebhooksPage() {
 
       {/* Documentation */}
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">Webhook Payload Format</h3>
+        <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">Webhook payload format</h3>
+        <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
+          Every delivery is a JSON POST with <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">event</code>,{" "}
+          <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">timestamp</code> (ISO 8601), and{" "}
+          <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">data</code>. Headers include{" "}
+          <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">X-FeedVine-Event</code> matching <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">event</code>
+          .
+        </p>
+
+        <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mt-4 mb-1">new_article</h4>
         <pre className="bg-white dark:bg-gray-800 rounded p-4 text-sm overflow-x-auto text-gray-800 dark:text-gray-200">
           {`{
   "event": "new_article",
-  "timestamp": "2024-01-15T10:30:00Z",
+  "timestamp": "2024-01-15T10:30:00.000Z",
   "data": {
     "feed": { "id": "...", "title": "...", "url": "..." },
     "articles": [
@@ -449,6 +548,48 @@ export default function WebhooksPage() {
   }
 }`}
         </pre>
+
+        <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mt-4 mb-1">feed_error</h4>
+        <pre className="bg-white dark:bg-gray-800 rounded p-4 text-sm overflow-x-auto text-gray-800 dark:text-gray-200">
+          {`{
+  "event": "feed_error",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "data": {
+    "feed": { "id": "...", "title": "...", "url": "..." },
+    "error": { "message": "HTTP error! status: 404" }
+  }
+}`}
+        </pre>
+
+        <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mt-4 mb-1">collection_updated</h4>
+        <pre className="bg-white dark:bg-gray-800 rounded p-4 text-sm overflow-x-auto text-gray-800 dark:text-gray-200">
+          {`{
+  "event": "collection_updated",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "data": {
+    "collection": {
+      "id": "...",
+      "name": "...",
+      "slug": "...",
+      "description": "...",
+      "is_public": true,
+      "marketplace_listed": false,
+      "tags": ["..."],
+      "output_format": "rss",
+      "team_id": null
+    }
+  }
+}`}
+        </pre>
+
+        <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mt-4 mb-1">test</h4>
+        <p className="text-sm text-blue-700 dark:text-blue-300 mb-1">
+          <strong>Send Test</strong> only: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">event</code> is{" "}
+          <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">test</code>; <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">data</code> includes{" "}
+          <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">message</code>, <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">webhook: {"{ id, name }"}</code>, and{" "}
+          <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">test: true</code>.
+        </p>
+
         <p className="text-sm text-blue-700 dark:text-blue-300 mt-3">
           If you provide a secret, we'll include an <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">X-FeedVine-Signature</code> header
           with an{" "}

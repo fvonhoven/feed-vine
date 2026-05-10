@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { passesEnglishPrimaryArticle } from "../_shared/detectLanguage.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,7 @@ interface Article {
   description: string | null
   content: string | null
   category: string | null
+  language?: string | null
   published_at: string
   feed: {
     title: string
@@ -51,12 +53,23 @@ function generateRSS(articles: Article[], collectionName: string, collectionDesc
 </rss>`
 }
 
-function generateJSON(articles: Article[], collectionName: string, collectionDescription: string): object {
+function generateJSON(
+  articles: Article[],
+  collectionName: string,
+  collectionDescription: string,
+  meta: { slug: string; tags: string[] | null; output_format: string },
+): object {
   return {
     version: "https://jsonfeed.org/version/1.1",
     title: collectionName,
     description: collectionDescription || "Aggregated feed",
     home_page_url: "https://your-app.com",
+    /** App-only extension for the public collection wall (ignored by standard JSON Feed clients). */
+    _feedvine: {
+      slug: meta.slug,
+      tags: meta.tags ?? [],
+      output_format: meta.output_format,
+    },
     items: articles.map(article => ({
       id: article.url,
       url: article.url,
@@ -107,10 +120,12 @@ serve(async req => {
     console.log("Querying for collection with slug:", slug)
     const { data: collection, error: collectionError } = await supabaseClient
       .from("feed_collections")
-      .select("id, name, description, user_id, is_public")
+      .select("id, name, description, user_id, is_public, slug, tags, output_format")
       .eq("slug", slug)
       .eq("is_public", true) // Only allow public collections
-      .single()
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
 
     console.log("Collection query result:", { collection, error: collectionError })
 
@@ -168,13 +183,15 @@ serve(async req => {
         description,
         content,
         category,
+        language,
         published_at,
         feed:feeds(title, url)
       `,
       )
       .in("feed_id", feedIds)
+      .or("language.is.null,language.eq.eng,language.eq.und")
       .order("published_at", { ascending: false })
-      .limit(50)
+      .limit(100)
 
     console.log("Articles query result:", { count: articles?.length, error: articlesError })
 
@@ -183,20 +200,28 @@ serve(async req => {
       throw articlesError
     }
 
-    if (!articles || articles.length === 0) {
+    const filteredArticles = ((articles || []) as Article[])
+      .filter(a => passesEnglishPrimaryArticle(a.language ?? null, a.title, a.description, a.content))
+      .slice(0, 50)
+
+    if (!filteredArticles || filteredArticles.length === 0) {
       console.log("WARNING: No articles found for this collection")
     }
 
     const baseUrl = `${url.protocol}//${url.host}${url.pathname}`
 
     if (format === "json") {
-      const jsonFeed = generateJSON(articles as Article[], collection.name, collection.description || "")
+      const jsonFeed = generateJSON(filteredArticles, collection.name, collection.description || "", {
+        slug: collection.slug,
+        tags: collection.tags ?? null,
+        output_format: collection.output_format,
+      })
       return new Response(JSON.stringify(jsonFeed, null, 2), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       })
     } else {
-      const rssFeed = generateRSS(articles as Article[], collection.name, collection.description || "", baseUrl)
+      const rssFeed = generateRSS(filteredArticles, collection.name, collection.description || "", baseUrl)
       return new Response(rssFeed, {
         headers: { ...corsHeaders, "Content-Type": "application/rss+xml" },
         status: 200,

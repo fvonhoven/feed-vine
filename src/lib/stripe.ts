@@ -322,7 +322,7 @@ export const PLAN_DISPLAY = {
       "200 AI summaries / mo",
       "Newsletter export (Beehiiv, MailerLite)",
       "Scheduled auto-digests",
-      "Digest history & quiet hours",
+      "Digest history",
       "5 webhooks (Zapier / Make)",
       "Advanced keyword filters",
     ],
@@ -378,6 +378,13 @@ export const INDIVIDUAL_PLAN_KEYS: PlanId[] = ["FREE", "PRO", "PLUS", "PREMIUM"]
 
 /** Team plan keys in display order */
 export const TEAM_PLAN_KEYS: PlanId[] = ["TEAM", "TEAM_PRO", "TEAM_BUSINESS"]
+
+const TEAM_PLAN_SLUGS = new Set(["team", "team_pro", "team_business"])
+
+/** Whether a subscription plan_id (DB) is a team tier */
+export function isTeamPlanId(planId: string): boolean {
+  return TEAM_PLAN_SLUGS.has(planId.toLowerCase())
+}
 
 /** Format a dollar amount with comma separators */
 export function formatPrice(amount: number): string {
@@ -458,10 +465,16 @@ export function getPlanDisplayName(planId: string): string {
   return PRICING_PLANS[upper]?.name ?? planId.charAt(0).toUpperCase() + planId.slice(1)
 }
 
+export interface GetPlanFeaturesArrayOptions {
+  /** When true, omit team workspace / Slack / Discord lines (e.g. launch mode for non-team subscribers) */
+  omitTeamFeatures?: boolean
+}
+
 // Helper to get features as a readable array
-export function getPlanFeaturesArray(planId: PlanId): string[] {
+export function getPlanFeaturesArray(planId: PlanId, options?: GetPlanFeaturesArrayOptions): string[] {
   const features = PRICING_PLANS[planId].features
   const featureList: string[] = []
+  const omitTeam = options?.omitTeamFeatures === true
 
   if (features.maxFeeds === -1) {
     featureList.push("Unlimited feeds")
@@ -516,14 +529,16 @@ export function getPlanFeaturesArray(planId: PlanId): string[] {
   if (features.prioritySupport) {
     featureList.push("Priority support")
   }
-  if (features.teamWorkspaces) {
-    featureList.push(`Team workspace — up to ${features.maxTeamMembers} seats`)
-  }
-  if (features.slackBot) {
-    featureList.push("Slack bot integration")
-  }
-  if (features.discordBot) {
-    featureList.push("Discord bot integration")
+  if (!omitTeam) {
+    if (features.teamWorkspaces) {
+      featureList.push(`Team workspace — up to ${features.maxTeamMembers} seats`)
+    }
+    if (features.slackBot) {
+      featureList.push("Slack bot integration")
+    }
+    if (features.discordBot) {
+      featureList.push("Discord bot integration")
+    }
   }
 
   return featureList

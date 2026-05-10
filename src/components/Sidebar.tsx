@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { supabase, isDemoMode } from "../lib/supabase"
 import type { Category, Feed, FeedCollection } from "../types/database"
 import { useAuth } from "../hooks/useAuth"
+import { featureFlags } from "../lib/featureFlags"
 import { useSubscription } from "../hooks/useSubscription"
 import { useTeam } from "../hooks/useTeam"
 import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
@@ -67,7 +68,7 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
       if (error) throw error
       return data as Pick<FeedCollection, "id" | "name" | "slug">[]
     },
-    enabled: !!team && !isDemoMode,
+    enabled: featureFlags.teams && !!team && !isDemoMode,
   })
 
   const { data: subscribedCollections } = useQuery({
@@ -346,7 +347,7 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
               </span>
             </Link>
 
-            {hasFeature("teamWorkspaces") && (
+            {featureFlags.teams && hasFeature("teamWorkspaces") && (
               <Link
                 to="/team"
                 className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 text-sm rounded-md ${
@@ -371,7 +372,7 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
             )}
           </nav>
 
-          {!isCollapsed && teamCollections && teamCollections.length > 0 && (
+          {!isCollapsed && featureFlags.teams && teamCollections && teamCollections.length > 0 && (
             <>
               <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-3">Team Collections</h2>
               <nav className="space-y-1">
@@ -592,7 +593,7 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
                 </span>
               </Link>
 
-              {hasFeature("teamWorkspaces") && (
+              {featureFlags.teams && hasFeature("teamWorkspaces") && (
                 <Link
                   to="/team"
                   onClick={onClose}
@@ -617,7 +618,7 @@ export default function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse
               )}
             </nav>
 
-            {teamCollections && teamCollections.length > 0 && (
+            {featureFlags.teams && teamCollections && teamCollections.length > 0 && (
               <>
                 <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-3">Team Collections</h2>
                 <nav className="space-y-1">

@@ -1,5 +1,11 @@
 /**
- * Shared webhook utilities for firing webhooks
+ * Shared webhook delivery (`fireWebhook`, etc.).
+ *
+ * Bundled by: `fetch-rss`, `dispatch-collection-webhooks`. After any change here, redeploy:
+ *   supabase functions deploy fetch-rss
+ *   supabase functions deploy dispatch-collection-webhooks
+ *
+ * “Send Test” in the app uses the separate `test-webhook` function, not this module.
  */
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2"
@@ -96,13 +102,14 @@ export async function fireWebhook(
 
     const statusCode = response.status
     const responseBody = await response.text().catch(() => "")
+    const ok2xx = statusCode >= 200 && statusCode < 300
 
     // Update delivery record
     if (delivery) {
       await supabase
         .from("webhook_deliveries")
         .update({
-          status: response.ok ? "success" : "failed",
+          status: ok2xx ? "success" : "failed",
           status_code: statusCode,
           response_body: responseBody.substring(0, 1000), // Limit response body size
           delivered_at: new Date().toISOString(),
@@ -116,15 +123,15 @@ export async function fireWebhook(
       .update({
         last_triggered_at: new Date().toISOString(),
         last_status_code: statusCode,
-        last_error: response.ok ? null : responseBody.substring(0, 500),
-        failure_count: response.ok ? 0 : webhook.failure_count + 1,
+        last_error: ok2xx ? null : responseBody.substring(0, 500),
+        failure_count: ok2xx ? 0 : webhook.failure_count + 1,
       })
       .eq("id", webhook.id)
 
     return {
-      success: response.ok,
+      success: ok2xx,
       statusCode,
-      error: response.ok ? undefined : responseBody,
+      error: ok2xx ? undefined : responseBody,
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
@@ -158,38 +165,88 @@ export async function fireWebhook(
   }
 }
 
+export type WebhookEventFilters = {
+  /** Only webhooks owned by this user (feed/collection owner) are eligible */
+  webhookOwnerUserId: string
+  feedId?: string
+  collectionId?: string
+}
+
 /**
- * Get all active webhooks for a specific event type
+ * Get active webhooks for an event, scoped to the feed/collection owner's account.
  */
 export async function getWebhooksForEvent(
   supabase: SupabaseClient,
   eventType: string,
-  filters?: { feedId?: string; collectionId?: string },
+  filters: WebhookEventFilters,
 ): Promise<Webhook[]> {
-  let query = supabase.from("webhooks").select("*").eq("is_active", true).contains("event_types", [eventType]).lt("failure_count", 10) // Don't fire webhooks that have failed too many times
+  if (!filters.webhookOwnerUserId) {
+    return []
+  }
 
-  const { data, error } = await query
+  const { data, error } = await supabase
+    .from("webhooks")
+    .select("*")
+    .eq("is_active", true)
+    .eq("user_id", filters.webhookOwnerUserId)
+    .contains("event_types", [eventType])
+    .lt("failure_count", 10)
 
   if (error) {
     console.error("Failed to fetch webhooks:", error)
     return []
   }
 
-  // Filter by feed_id or collection_id if specified
   return (data || []).filter((webhook: Webhook) => {
-    // If webhook has no filters, it matches all
     if (!webhook.feed_id && !webhook.collection_id) return true
 
-    // If webhook has feed filter, check it matches
-    if (webhook.feed_id && filters?.feedId) {
+    if (webhook.feed_id && filters.feedId) {
       return webhook.feed_id === filters.feedId
     }
 
-    // If webhook has collection filter, check it matches
-    if (webhook.collection_id && filters?.collectionId) {
+    if (webhook.collection_id && filters.collectionId) {
       return webhook.collection_id === filters.collectionId
     }
 
     return false
   })
+}
+
+/**
+ * collection_updated: owner’s webhooks (scoped by feed/collection filters) plus any subscriber
+ * webhooks that target this collection_id (e.g. team members with collection-specific hooks).
+ */
+export async function getWebhooksForCollectionUpdated(
+  supabase: SupabaseClient,
+  collectionId: string,
+  collectionOwnerUserId: string,
+): Promise<Webhook[]> {
+  const ownerHooks = await getWebhooksForEvent(supabase, "collection_updated", {
+    webhookOwnerUserId: collectionOwnerUserId,
+    collectionId,
+  })
+
+  const { data: subscriberHooks, error } = await supabase
+    .from("webhooks")
+    .select("*")
+    .eq("is_active", true)
+    .contains("event_types", ["collection_updated"])
+    .eq("collection_id", collectionId)
+    .lt("failure_count", 10)
+
+  if (error) {
+    console.error("Failed to fetch collection-scoped webhooks:", error)
+    return ownerHooks
+  }
+
+  const seen = new Set(ownerHooks.map(w => w.id))
+  const merged = [...ownerHooks]
+  for (const row of subscriberHooks || []) {
+    const w = row as Webhook
+    if (!seen.has(w.id)) {
+      seen.add(w.id)
+      merged.push(w)
+    }
+  }
+  return merged
 }

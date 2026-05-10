@@ -1,9 +1,47 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import {
+  mailerLiteCampaignsDraftsUrl,
+  mailerLiteHeaders,
+  mailerLiteTopLevelMessage,
+  readMailerLiteJson,
+} from "../_shared/mailerliteClient.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+}
+
+/** Avoid gateway timeouts / API limits; truncation keeps campaigns creatable. */
+const MAX_CONTENT_HTML_CHARS = 450_000
+
+/** Retry without HTML body when API rejects content (plan, invalid HTML, size, etc.). */
+function shouldRetryCampaignWithoutContent(data: Record<string, unknown>): boolean {
+  const msgEarly = mailerLiteTopLevelMessage(data).toLowerCase()
+  if (/rate|throttle|too many requests|429|quota/.test(msgEarly)) return false
+
+  const errors = data.errors as Record<string, unknown> | undefined
+  if (errors && typeof errors === "object") {
+    const keys = Object.keys(errors)
+    if (keys.length === 0) return false
+    const onlyContentKeys = keys.every(k => k === "content" || k.includes(".content") || /^emails\.\d+\.content$/.test(k))
+    if (onlyContentKeys) return true
+  }
+  const msg = mailerLiteTopLevelMessage(data).toLowerCase()
+  if (
+    /content|html|advanced|plan|body|invalid|malformed|too large|maximum|size|not allowed|unprocessable/.test(msg) &&
+    !/unauthor|invalid.*token|invalid.*key|forbidden|401|403/.test(msg)
+  ) {
+    return true
+  }
+  return false
+}
+
+function jsonOk(body: Record<string, unknown>) {
+  return new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status: 200,
+  })
 }
 
 serve(async req => {
@@ -16,7 +54,6 @@ serve(async req => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? ""
 
-    // Verify user via Supabase Auth API (verify_jwt=false, manual check)
     const authHeader = req.headers.get("Authorization")
     if (!authHeader) {
       return new Response(JSON.stringify({ success: false, error: "Missing authorization header" }), {
@@ -44,17 +81,28 @@ serve(async req => {
       })
     }
 
-    const body = await req.json()
-    const { title, content_html } = body
-
-    if (!title || !content_html) {
-      return new Response(JSON.stringify({ success: false, error: "Missing required fields: title, content_html" }), {
+    let body: { title?: string; content_html?: string }
+    try {
+      body = await req.json()
+    } catch {
+      return new Response(JSON.stringify({ success: false, error: "Invalid JSON body" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       })
     }
+    const { title, content_html } = body
 
-    // Look up MailerLite credentials for this user
+    if (!title || !content_html) {
+      return jsonOk({ success: false, error: "Missing required fields: title, content_html" })
+    }
+
+    let contentHtml = String(content_html)
+    if (contentHtml.length > MAX_CONTENT_HTML_CHARS) {
+      contentHtml =
+        contentHtml.slice(0, MAX_CONTENT_HTML_CHARS) +
+        `<p style="color:#666;font-size:13px;margin-top:1em;"><em>Digest truncated (${MAX_CONTENT_HTML_CHARS.toLocaleString()} character limit). Try fewer articles or a smaller date range.</em></p>`
+    }
+
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
     const { data: integration, error: integrationError } = await supabaseAdmin
       .from("user_integrations")
@@ -64,42 +112,34 @@ serve(async req => {
       .single()
 
     if (integrationError || !integration) {
-      return new Response(JSON.stringify({ success: false, error: "No MailerLite integration found. Connect your account in Settings." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      })
+      return jsonOk({ success: false, error: "No MailerLite integration found. Connect your account in Settings." })
     }
 
-    // Parse sender info stored as JSON in publication_id
+    const apiKey = integration.api_key as string
+    if (!String(apiKey).trim()) {
+      return jsonOk({ success: false, error: "MailerLite API key is empty. Add it in Settings." })
+    }
+
     let fromEmail = ""
     let fromName = "Newsletter"
     try {
-      const senderMeta = integration.publication_id ? JSON.parse(integration.publication_id) : {}
+      const senderMeta = integration.publication_id ? JSON.parse(integration.publication_id as string) : {}
       fromEmail = senderMeta.from_email || ""
       fromName = senderMeta.from_name || "Newsletter"
     } catch {
-      // fallback: publication_id might be a plain email string from older saves
-      fromEmail = integration.publication_id || ""
+      fromEmail = (integration.publication_id as string) || ""
     }
 
     if (!fromEmail) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Sender email not configured. Please update your MailerLite connection in Settings and add a Sender Email.",
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
-      )
+      return jsonOk({
+        success: false,
+        error:
+          "Sender email not configured. Please update your MailerLite connection in Settings and add a Sender Email.",
+      })
     }
 
-    const mlHeaders = {
-      Authorization: `Bearer ${integration.api_key}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    }
+    const mlHeaders = mailerLiteHeaders(apiKey)
 
-    // Attempt 1: create draft campaign WITH content
-    // (content field requires MailerLite Advanced plan; we fall back gracefully if rejected)
     const buildPayload = (includeContent: boolean) =>
       JSON.stringify({
         name: title,
@@ -109,7 +149,7 @@ serve(async req => {
             subject: title,
             from_name: fromName,
             from: fromEmail,
-            ...(includeContent ? { content: content_html } : {}),
+            ...(includeContent ? { content: contentHtml } : {}),
           },
         ],
       })
@@ -120,41 +160,30 @@ serve(async req => {
       body: buildPayload(true),
     })
 
-    let campaignData = await campaignResponse.json()
+    let campaignData = await readMailerLiteJson(campaignResponse)
     let contentNotAdded = false
 
-    // If failed and the only validation error is about content (plan restriction), retry without it
-    if (!campaignResponse.ok) {
-      const errors: Record<string, unknown> = campaignData?.errors ?? {}
-      const errorKeys = Object.keys(errors)
-      const onlyContentError = errorKeys.length > 0 && errorKeys.every(k => k.startsWith("emails.") && k.endsWith(".content"))
-
-      if (onlyContentError) {
-        campaignResponse = await fetch("https://connect.mailerlite.com/api/campaigns", {
-          method: "POST",
-          headers: mlHeaders,
-          body: buildPayload(false),
-        })
-        campaignData = await campaignResponse.json()
-        contentNotAdded = true
-      }
-    }
-
-    if (!campaignResponse.ok) {
-      const msg = campaignData?.message || "MailerLite API error"
-      return new Response(JSON.stringify({ success: false, error: msg }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
+    if (!campaignResponse.ok && shouldRetryCampaignWithoutContent(campaignData)) {
+      campaignResponse = await fetch("https://connect.mailerlite.com/api/campaigns", {
+        method: "POST",
+        headers: mlHeaders,
+        body: buildPayload(false),
       })
+      campaignData = await readMailerLiteJson(campaignResponse)
+      contentNotAdded = true
     }
 
-    const campaignId = campaignData?.data?.id
-    const editUrl = campaignId ? `https://dashboard.mailerlite.com/campaigns/${campaignId}/edit/content` : null
+    if (!campaignResponse.ok) {
+      const msg = mailerLiteTopLevelMessage(campaignData)
+      return jsonOk({ success: false, error: msg })
+    }
 
-    return new Response(JSON.stringify({ success: true, campaignId, editUrl, contentNotAdded }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    })
+    const data = campaignData?.data as { id?: string } | undefined
+    const campaignId = data?.id
+    // Stable URL — MailerLite often 404s on /campaigns/:id/... deep links; Drafts tab always loads.
+    const editUrl = mailerLiteCampaignsDraftsUrl()
+
+    return jsonOk({ success: true, campaignId, editUrl, contentNotAdded })
   } catch (error) {
     console.error("send-to-mailerlite error:", error)
     return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }), {

@@ -61,7 +61,7 @@ npm install
 
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Go to SQL Editor and run the schema from `supabase/schema.sql`
-3. Deploy the Edge Function:
+3. Deploy Edge Functions (RSS fetching and webhooks):
 
 ```bash
 # Install Supabase CLI
@@ -73,9 +73,16 @@ supabase login
 # Link your project
 supabase link --project-ref your-project-ref
 
-# Deploy the function
+# fetch-rss — scheduled feed fetch; also delivers user webhooks (uses _shared/webhooks.ts)
 supabase functions deploy fetch-rss
+
+# test-webhook — optional; powers “Send Test” on the Webhooks settings page only
+supabase functions deploy test-webhook
 ```
+
+After you change `supabase/functions/_shared/webhooks.ts`, redeploy **`fetch-rss`** so live webhook deliveries pick up the change. After you change `test-webhook/`, redeploy **`test-webhook`**.
+
+If “Send Test” returns **401**, the deployed function may still have JWT verification enabled. Project `supabase/config.toml` includes `[functions.test-webhook] verify_jwt = false` — redeploy **`test-webhook`** so that applies, or the gateway can reject the request before your code runs.
 
 4. Set up a cron job (optional):
    - Go to Database → Extensions → Enable `pg_cron`

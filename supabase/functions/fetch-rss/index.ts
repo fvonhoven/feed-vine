@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { parseFeed } from "https://deno.land/x/rss@0.5.6/mod.ts"
 import { isCronOrServiceAuth, isValidHttpUrl, RSS_FEED_FETCH_HEADERS } from "../_shared/security.ts"
+import { detectArticleLanguage } from "../_shared/detectLanguage.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,7 @@ interface Feed {
   url: string
   title: string
   full_text_enabled: boolean
+  user_id?: string | null
 }
 
 /**
@@ -250,7 +252,10 @@ serve(async req => {
       feeds = [{ id: "temp", url: feedUrl, title: "Temporary Feed", full_text_enabled: false }]
     } else {
       // Get all active feeds (cron job mode)
-      const { data, error: feedsError } = await supabaseClient.from("feeds").select("id, url, title, full_text_enabled").eq("status", "active")
+      const { data, error: feedsError } = await supabaseClient
+        .from("feeds")
+        .select("id, url, title, full_text_enabled, user_id")
+        .eq("status", "active")
       if (feedsError) throw feedsError
       feeds = data as Feed[]
     }
@@ -337,10 +342,13 @@ serve(async req => {
             const article = articles[i]
             const category = categories[i] || "Uncategorized"
 
-            // Insert article with category
+            const language = detectArticleLanguage(article.title, article.description)
+
+            // Insert article with category + detected language
             const { error: insertError } = await supabaseClient.from("articles").insert({
               ...article,
               category,
+              language,
             })
 
             if (insertError) {
@@ -380,7 +388,15 @@ serve(async req => {
                       .eq("guid", article.guid)
                       .single()
                     if (inserted?.id) {
-                      await supabaseClient.from("articles").update({ content: ftData.content }).eq("id", inserted.id)
+                      const languageAfterFullText = detectArticleLanguage(
+                        article.title,
+                        article.description,
+                        ftData.content as string,
+                      )
+                      await supabaseClient
+                        .from("articles")
+                        .update({ content: ftData.content as string, language: languageAfterFullText })
+                        .eq("id", inserted.id)
                       console.log(`Full-text fetched for "${article.title}" (${ftData.content.length} chars)`)
                     }
                   } else {
@@ -444,7 +460,10 @@ serve(async req => {
           if (insertedArticles.length > 0) {
             try {
               const { getWebhooksForEvent, fireWebhook } = await import("../_shared/webhooks.ts")
-              const webhooks = await getWebhooksForEvent(supabaseClient, "new_article", { feedId: feed.id })
+              const webhooks = await getWebhooksForEvent(supabaseClient, "new_article", {
+                feedId: feed.id,
+                webhookOwnerUserId: feed.user_id ?? "",
+              })
               console.log(`Found ${webhooks.length} webhooks to fire for feed ${feed.id}`)
 
               for (const webhook of webhooks) {
@@ -518,6 +537,38 @@ serve(async req => {
               error_message: error.message,
             })
             .eq("id", feed.id)
+
+          if (feed.user_id) {
+            try {
+              const { getWebhooksForEvent, fireWebhook } = await import("../_shared/webhooks.ts")
+              const webhooks = await getWebhooksForEvent(supabaseClient, "feed_error", {
+                feedId: feed.id,
+                webhookOwnerUserId: feed.user_id,
+              })
+              const errMsg = error instanceof Error ? error.message : String(error)
+              const payload = {
+                event: "feed_error",
+                timestamp: new Date().toISOString(),
+                data: {
+                  feed: {
+                    id: feed.id,
+                    title: feed.title,
+                    url: feed.url,
+                  },
+                  error: { message: errMsg },
+                },
+              }
+              for (const webhook of webhooks) {
+                fireWebhook(supabaseClient, webhook, payload)
+                  .then(result => {
+                    if (!result.success) console.error(`feed_error webhook ${webhook.id} failed:`, result.error)
+                  })
+                  .catch(err => console.error(`feed_error webhook ${webhook.id}:`, err))
+              }
+            } catch (whErr) {
+              console.error("Error firing feed_error webhooks:", whErr)
+            }
+          }
         }
 
         results.push({

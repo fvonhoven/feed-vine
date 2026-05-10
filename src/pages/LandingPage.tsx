@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 
+import { featureFlags } from "../lib/featureFlags"
 import { PRICING_PLANS, PLAN_DISPLAY, INDIVIDUAL_PLAN_KEYS, TEAM_PLAN_KEYS, getAnnualSavings, formatPrice } from "../lib/stripe"
 
 export default function LandingPage() {
@@ -72,8 +73,9 @@ export default function LandingPage() {
             The RSS Reader That Does More
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
-            AI summaries, newsletter auto-drafts to Beehiiv & MailerLite, Slack & Discord bots, team workspaces, public API, and a feed marketplace —
-            all in one modern RSS reader.
+            {featureFlags.teams
+              ? "AI summaries, newsletter auto-drafts to Beehiiv & MailerLite, Slack & Discord bots, team workspaces, public API, and a feed marketplace — all in one modern RSS reader."
+              : "AI summaries, newsletter auto-drafts to Beehiiv & MailerLite, public API, and a feed marketplace — all in one modern RSS reader."}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -137,7 +139,9 @@ export default function LandingPage() {
           From casual reading to powering your team's newsletter workflow — FeedVine scales with you.
         </p>
 
-        {featureSections.map((section, sIndex) => (
+        {featureSections
+          .filter(section => section.title !== "Team & Enterprise" || featureFlags.teams)
+          .map((section, sIndex) => (
           <div key={sIndex} className="mb-16 last:mb-0">
             <div className="flex items-center gap-3 mb-2">
               <span className="text-2xl">{section.icon}</span>
@@ -233,6 +237,7 @@ export default function LandingPage() {
           </div>
 
           {/* Team Plans */}
+          {featureFlags.teams && (
           <div className="mt-16">
             <h3 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-2">🏢 For Teams</h3>
             <p className="text-center text-gray-600 dark:text-gray-400 mb-10">Collaborative workspaces for content teams</p>
@@ -290,13 +295,18 @@ export default function LandingPage() {
               })}
             </div>
           </div>
+          )}
         </div>
       </div>
 
       {/* CTA Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
         <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">Ready to Take Control of Your Content?</h2>
-        <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">Start for free — upgrade when you need AI, digests, or team features</p>
+        <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
+          {featureFlags.teams
+            ? "Start for free — upgrade when you need AI, digests, or team features"
+            : "Start for free — upgrade when you need AI, digests, and automation"}
+        </p>
         <Link
           to="/auth"
           className="inline-block px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl"

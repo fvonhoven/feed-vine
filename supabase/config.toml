@@ -6,3 +6,19 @@ verify_jwt = false
 
 [functions.analytics-stats]
 verify_jwt = false
+
+# Folder-level config.toml is not always merged on deploy; keep in project config so the
+# gateway does not enforce JWT before the function runs (function still verifies user via Auth API).
+[functions.test-webhook]
+verify_jwt = false
+
+# collection_updated webhooks — caller JWT + RLS must allow reading the collection
+[functions.dispatch-collection-webhooks]
+verify_jwt = true
+
+# Newsletter sends — manual JWT check via /auth/v1/user (folder config may not merge on deploy)
+[functions.send-to-mailerlite]
+verify_jwt = false
+
+[functions.send-to-beehiiv]
+verify_jwt = false

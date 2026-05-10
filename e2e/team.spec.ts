@@ -6,6 +6,8 @@ import * as fs from "fs"
  * Team tests require the user to have plan_id = "team" in the subscriptions table.
  * We use the Supabase service role client to set this up before each test.
  * The userId is read from the file written by global-setup.
+ *
+ * The app must be built with VITE_TEAMS_ENABLED=true or /team redirects to home and these tests fail.
  */
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL!

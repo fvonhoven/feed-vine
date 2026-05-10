@@ -7,7 +7,28 @@ import { useSubscription } from "../hooks/useSubscription"
 import { Link } from "react-router-dom"
 import { useAuth } from "../hooks/useAuth"
 import { useTeam } from "../hooks/useTeam"
+import { featureFlags } from "../lib/featureFlags"
 import { LIST_GC_MS, LIST_STALE_MS } from "../lib/queryConfig"
+
+/** URL segment for RSS / public wall; lowercase letters, digits, hyphens only. */
+function normalizeCollectionSlug(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+}
+
+async function invokeCollectionWebhookDispatch(collectionId: string) {
+  try {
+    const { error } = await supabase.functions.invoke("dispatch-collection-webhooks", {
+      body: { collectionId },
+    })
+    if (error) console.warn("dispatch-collection-webhooks:", error.message)
+  } catch (e) {
+    console.warn("dispatch-collection-webhooks:", e)
+  }
+}
 
 export default function CollectionsPage() {
   const { user } = useAuth()
@@ -43,6 +64,7 @@ export default function CollectionsPage() {
   const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({
     name: "",
+    slug: "",
     description: "",
     is_public: true,
     marketplace_listed: false,
@@ -77,7 +99,10 @@ export default function CollectionsPage() {
   })
 
   const personalCollections = useMemo(() => collections?.filter(c => !c.team_id) || [], [collections])
-  const teamCollections = useMemo(() => collections?.filter(c => c.team_id) || [], [collections])
+  const teamCollections = useMemo(() => {
+    if (!featureFlags.teams) return []
+    return collections?.filter(c => c.team_id) || []
+  }, [collections])
   const canManageTeamCollections = myRole === "owner" || myRole === "admin"
 
   const { data: feeds } = useQuery({
@@ -114,6 +139,11 @@ export default function CollectionsPage() {
         throw new Error(`You've reached your plan limit of ${maxCollections} collection${maxCollections === 1 ? "" : "s"}. Upgrade to create more!`)
       }
 
+      const slug = normalizeCollectionSlug(data.collection.slug)
+      if (!slug) {
+        throw new Error("Slug cannot be empty. Use lowercase letters, numbers, and hyphens.")
+      }
+
       // Create the collection
       const { data: newCollectionData, error: collectionError } = await supabase
         .from("feed_collections")
@@ -121,7 +151,7 @@ export default function CollectionsPage() {
           user_id: user.id,
           team_id: data.collection.is_team && team ? team.id : null,
           name: data.collection.name,
-          slug: data.collection.slug,
+          slug,
           description: data.collection.description,
           is_public: data.collection.is_public,
           output_format: data.collection.output_format,
@@ -136,7 +166,12 @@ export default function CollectionsPage() {
         .select()
         .single()
 
-      if (collectionError) throw collectionError
+      if (collectionError) {
+        if (collectionError.code === "23505") {
+          throw new Error("That slug is already used. Choose a different one.")
+        }
+        throw collectionError
+      }
 
       // Add feeds to the collection
       if (data.feedIds.length > 0) {
@@ -187,6 +222,7 @@ export default function CollectionsPage() {
       })
 
       if (error) throw error
+      await invokeCollectionWebhookDispatch(collectionId)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feed-collections"] })
@@ -206,6 +242,7 @@ export default function CollectionsPage() {
       const { error } = await supabase.from("feed_collection_sources").delete().eq("collection_id", collectionId).eq("feed_id", feedId)
 
       if (error) throw error
+      await invokeCollectionWebhookDispatch(collectionId)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feed-collections"] })
@@ -241,10 +278,16 @@ export default function CollectionsPage() {
     mutationFn: async (data: { id: string; updates: any }) => {
       if (isDemoMode) throw new Error("Demo mode: Connect Supabase to update collections")
 
+      const slug = normalizeCollectionSlug(data.updates.slug ?? "")
+      if (!slug) {
+        throw new Error("Slug cannot be empty. Use lowercase letters, numbers, and hyphens.")
+      }
+
       const { error } = await supabase
         .from("feed_collections")
         .update({
           name: data.updates.name,
+          slug,
           description: data.updates.description,
           is_public: data.updates.is_public,
           marketplace_listed: data.updates.marketplace_listed,
@@ -257,7 +300,13 @@ export default function CollectionsPage() {
         })
         .eq("id", data.id)
 
-      if (error) throw error
+      if (error) {
+        if (error.code === "23505") {
+          throw new Error("That slug is already used. Choose a different one.")
+        }
+        throw error
+      }
+      await invokeCollectionWebhookDispatch(data.id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feed-collections"] })
@@ -284,11 +333,7 @@ export default function CollectionsPage() {
   }
 
   const handleSlugChange = (name: string) => {
-    const slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-    setNewCollection({ ...newCollection, name, slug })
+    setNewCollection({ ...newCollection, name, slug: normalizeCollectionSlug(name) })
   }
 
   const copyFeedURL = (collection: FeedCollection, format: "rss" | "json") => {
@@ -296,6 +341,12 @@ export default function CollectionsPage() {
     const url = `${supabaseUrl}/functions/v1/serve-collection/${collection.slug}.${format}`
     navigator.clipboard.writeText(url)
     toast.success(`${format.toUpperCase()} URL copied to clipboard!`)
+  }
+
+  const copyPublicWallURL = (collection: FeedCollection) => {
+    const url = `${window.location.origin}/c/${collection.slug}`
+    navigator.clipboard.writeText(url)
+    toast.success("Public page link copied!")
   }
 
   if (isDemoMode) {
@@ -368,7 +419,7 @@ export default function CollectionsPage() {
               <input
                 type="text"
                 value={newCollection.slug}
-                onChange={e => setNewCollection({ ...newCollection, slug: e.target.value })}
+                onChange={e => setNewCollection({ ...newCollection, slug: normalizeCollectionSlug(e.target.value) })}
                 placeholder="ai-news"
                 required
                 pattern="[a-z0-9-]+"
@@ -621,6 +672,7 @@ export default function CollectionsPage() {
                           setEditingCollectionId(editingCollectionId === collection.id ? null : collection.id)
                           setEditForm({
                             name: collection.name,
+                            slug: collection.slug,
                             description: collection.description || "",
                             is_public: collection.is_public,
                             marketplace_listed: collection.marketplace_listed || false,
@@ -671,6 +723,21 @@ export default function CollectionsPage() {
                           placeholder="tech, news, ai"
                         />
                       </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Slug (URL)</label>
+                      <input
+                        type="text"
+                        value={editForm.slug}
+                        onChange={e => setEditForm({ ...editForm, slug: normalizeCollectionSlug(e.target.value) })}
+                        pattern="[a-z0-9-]+"
+                        className="w-full px-3 py-1.5 text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white font-mono"
+                        placeholder="my-collection"
+                        spellCheck={false}
+                      />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Public page, RSS, and JSON links use this segment. Old URLs stop working after you change it.
+                      </p>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
@@ -727,6 +794,28 @@ export default function CollectionsPage() {
                     </svg>
                     Feed URLs:
                   </button>
+                  {expandedUrls.has(collection.id) && collection.is_public && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <code className="flex-1 min-w-[12rem] text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded text-gray-900 dark:text-white overflow-x-auto">
+                        {typeof window !== "undefined" ? window.location.origin : ""}/c/{collection.slug}
+                      </code>
+                      <Link
+                        to={`/c/${collection.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-2 text-xs bg-primary-600 text-white rounded hover:bg-primary-700 shrink-0"
+                      >
+                        Open
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => copyPublicWallURL(collection)}
+                        className="px-3 py-2 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 shrink-0"
+                      >
+                        Copy link
+                      </button>
+                    </div>
+                  )}
                   {expandedUrls.has(collection.id) && (collection.output_format === "rss" || collection.output_format === "both") && (
                     <div className="flex items-center gap-2">
                       <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded text-gray-900 dark:text-white overflow-x-auto">
