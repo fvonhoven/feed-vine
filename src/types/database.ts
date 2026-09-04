@@ -783,6 +783,243 @@ export interface Database {
           },
         ]
       }
+      brand_profiles: {
+        Row: {
+          id: string
+          user_id: string
+          brand_name: string
+          newsletter_name: string
+          instagram_handle: string | null
+          tagline: string | null
+          audience: string
+          voice: string
+          content_focus: string
+          home_url: string | null
+          primary_color: string
+          accent_color: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          brand_name: string
+          newsletter_name: string
+          instagram_handle?: string | null
+          tagline?: string | null
+          audience?: string
+          voice?: string
+          content_focus?: string
+          home_url?: string | null
+          primary_color?: string
+          accent_color?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          brand_name?: string
+          newsletter_name?: string
+          instagram_handle?: string | null
+          tagline?: string | null
+          audience?: string
+          voice?: string
+          content_focus?: string
+          home_url?: string | null
+          primary_color?: string
+          accent_color?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      source_policies: {
+        Row: {
+          id: string
+          user_id: string
+          feed_id: string
+          use_mode: "licensed" | "open" | "link_only" | "blocked"
+          license_name: string | null
+          license_url: string | null
+          attribution_text: string | null
+          commercial_use_allowed: boolean
+          adaptation_allowed: boolean
+          images_allowed: boolean
+          notes: string | null
+          reviewed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          feed_id: string
+          use_mode?: "licensed" | "open" | "link_only" | "blocked"
+          license_name?: string | null
+          license_url?: string | null
+          attribution_text?: string | null
+          commercial_use_allowed?: boolean
+          adaptation_allowed?: boolean
+          images_allowed?: boolean
+          notes?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          feed_id?: string
+          use_mode?: "licensed" | "open" | "link_only" | "blocked"
+          license_name?: string | null
+          license_url?: string | null
+          attribution_text?: string | null
+          commercial_use_allowed?: boolean
+          adaptation_allowed?: boolean
+          images_allowed?: boolean
+          notes?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "source_policies_feed_id_fkey"
+            columns: ["feed_id"]
+            referencedRelation: "feeds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studio_campaigns: {
+        Row: {
+          id: string
+          user_id: string
+          brand_profile_id: string
+          name: string
+          status: "draft" | "approved" | "exported"
+          newsletter_intro: string
+          instagram_caption: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          brand_profile_id: string
+          name: string
+          status?: "draft" | "approved" | "exported"
+          newsletter_intro?: string
+          instagram_caption?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          brand_profile_id?: string
+          name?: string
+          status?: "draft" | "approved" | "exported"
+          newsletter_intro?: string
+          instagram_caption?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_campaigns_brand_profile_id_fkey"
+            columns: ["brand_profile_id"]
+            referencedRelation: "brand_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studio_campaign_items: {
+        Row: {
+          id: string
+          campaign_id: string
+          article_id: string | null
+          position: number
+          source_mode: "licensed" | "open" | "link_only"
+          source_title: string
+          source_url: string
+          attribution: string
+          headline: string
+          commentary: string
+          guardrail_status: "passed" | "replaced"
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          article_id?: string | null
+          position?: number
+          source_mode: "licensed" | "open" | "link_only"
+          source_title: string
+          source_url: string
+          attribution: string
+          headline: string
+          commentary: string
+          guardrail_status?: "passed" | "replaced"
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          article_id?: string | null
+          position?: number
+          source_mode?: "licensed" | "open" | "link_only"
+          source_title?: string
+          source_url?: string
+          attribution?: string
+          headline?: string
+          commentary?: string
+          guardrail_status?: "passed" | "replaced"
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_campaign_items_campaign_id_fkey"
+            columns: ["campaign_id"]
+            referencedRelation: "studio_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "studio_campaign_items_article_id_fkey"
+            columns: ["article_id"]
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studio_generation_usage: {
+        Row: {
+          id: string
+          user_id: string
+          month: string
+          count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          month: string
+          count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          month?: string
+          count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_summary_usage: {
         Row: {
           id: string
@@ -815,7 +1052,14 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_studio_generation: {
+        Args: {
+          p_user_id: string
+          p_month: string
+          p_limit: number
+        }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
@@ -841,6 +1085,10 @@ export type FeedCollectionSource = Database["public"]["Tables"]["feed_collection
 export type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"]
 export type MarketplaceSubscription = Database["public"]["Tables"]["marketplace_subscriptions"]["Row"]
 export type UserPreferences = Database["public"]["Tables"]["user_preferences"]["Row"]
+export type BrandProfile = Database["public"]["Tables"]["brand_profiles"]["Row"]
+export type SourcePolicy = Database["public"]["Tables"]["source_policies"]["Row"]
+export type StudioCampaign = Database["public"]["Tables"]["studio_campaigns"]["Row"]
+export type StudioCampaignItem = Database["public"]["Tables"]["studio_campaign_items"]["Row"]
 
 export type ArticleWithFeed = Article & {
   feed: Pick<Feed, "title" | "url">

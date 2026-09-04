@@ -1,0 +1,3 @@
+[functions.generate-studio-draft]
+verify_jwt = false
+

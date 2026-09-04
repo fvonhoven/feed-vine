@@ -78,11 +78,16 @@ supabase functions deploy fetch-rss
 
 # test-webhook — optional; powers “Send Test” on the Webhooks settings page only
 supabase functions deploy test-webhook
+
+# generate-studio-draft — brand-aware newsletter and Instagram draft generation
+supabase functions deploy generate-studio-draft
 ```
 
 After you change `supabase/functions/_shared/webhooks.ts`, redeploy **`fetch-rss`** so live webhook deliveries pick up the change. After you change `test-webhook/`, redeploy **`test-webhook`**.
 
 If “Send Test” returns **401**, the deployed function may still have JWT verification enabled. Project `supabase/config.toml` includes `[functions.test-webhook] verify_jwt = false` — redeploy **`test-webhook`** so that applies, or the gateway can reject the request before your code runs.
+
+FeedVine Studio also requires the `ANTHROPIC_API_KEY` Edge Function secret and migration `035_studio.sql`. See [`docs/STUDIO_SETUP.md`](docs/STUDIO_SETUP.md) for deployment and editorial-guardrail details.
 
 4. Set up a cron job (optional):
    - Go to Database → Extensions → Enable `pg_cron`

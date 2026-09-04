@@ -25,6 +25,7 @@ import SettingsPage from "./pages/SettingsPage"
 import ApiKeysPage from "./pages/ApiKeysPage"
 import WebhooksPage from "./pages/WebhooksPage"
 import DigestPage from "./pages/DigestPage"
+import StudioPage from "./pages/StudioPage"
 import TeamPage from "./pages/TeamPage"
 import SearchPage from "./pages/SearchPage"
 import PricingPage from "./pages/PricingPage"
@@ -86,6 +87,7 @@ function AppRoutes({ user }: { user: User | null }) {
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/digest" element={<DigestPage />} />
+          <Route path="/studio" element={<StudioPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
