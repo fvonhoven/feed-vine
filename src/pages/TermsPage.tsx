@@ -3,7 +3,7 @@ export default function TermsPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">Terms of Service</h1>
       <div className="prose prose-lg dark:prose-invert max-w-none">
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-8">Last Updated: January 16, 2026</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-8">Last Updated: May 24, 2026</p>
 
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">1. Acceptance of Terms</h2>
@@ -21,11 +21,12 @@ export default function TermsPage() {
           </p>
           <ul className="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-4 space-y-2">
             <li>RSS feed management and aggregation</li>
-            <li>Article reading and tracking</li>
-            <li>Content filtering and search</li>
-            <li>Article bookmarking and saving</li>
-            <li>RSS feed export functionality</li>
-            <li>API access for programmatic integration (Builder plan only)</li>
+            <li>Article reading and read/unread tracking</li>
+            <li>Categories, filters, and search (availability varies by plan)</li>
+            <li>Article bookmarking and saving (paid plans)</li>
+            <li>Feed collections and RSS export (paid plans)</li>
+            <li>OPML import and export (Starter plan and above)</li>
+            <li>Additional features such as AI summaries, webhooks, and API access on higher tiers</li>
           </ul>
         </section>
 
@@ -50,24 +51,29 @@ export default function TermsPage() {
           </p>
           <ul className="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-4 space-y-2">
             <li>
-              <strong>Free Plan:</strong> Limited to 1 RSS feed and 1 category with basic read/unread tracking
+              <strong>Free Plan ($0):</strong> Up to 5 RSS feeds and 2 categories; read/unread tracking and basic filters.
             </li>
             <li>
-              <strong>Starter Plan:</strong> Everything in Free, plus up to 5 feeds, 3 categories, 1 feed collection, save articles, and export to RSS
-              ($6/month or $5/month billed annually)
+              <strong>Starter Plan:</strong> Up to 25 feeds and 10 categories; 1 feed collection; save articles; RSS export; OPML import/export;
+              keyboard shortcuts; and article search ($6/month, or $5/month billed annually at $60/year).
             </li>
             <li>
-              <strong>Creator Plan:</strong> Everything in Starter, plus up to 15 feeds, 10 categories, 5 feed collections, advanced filters, and keyboard
-              shortcuts ($14/month or $9/month billed annually)
+              <strong>Creator Plan:</strong> Up to 100 feeds and 25 categories; 5 feed collections; 5 webhooks; advanced keyword filters; full-text
+              fetch; up to 200 AI summaries per month; newsletter export; and scheduled digests ($14/month, or $11/month billed annually at $132/year).
             </li>
             <li>
-              <strong>Builder Plan:</strong> Everything in Creator, plus up to 25 feeds, 25 categories, 25 collections, and API access with 2,000
-              requests/hour ($24/month or $19/month billed annually)
+              <strong>Builder Plan:</strong> Unlimited feeds, categories, collections, webhooks, and AI summaries; public REST API access; and priority
+              email support ($24/month, or $19/month billed annually at $228/year).
             </li>
           </ul>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            Subscription fees are billed in advance on a monthly basis and are non-refundable except as required by law or as explicitly stated in our
-            refund policy.
+            Plan limits are enforced in the Service. If you downgrade or cancel, you may need to remove feeds, categories, or other resources that
+            exceed your new plan limits before the change takes effect.
+          </p>
+          <p className="text-gray-700 dark:text-gray-300 mb-4">
+            Paid subscriptions are billed in advance on a monthly or annual basis through Stripe. Annual subscriptions include a 30-day free trial;
+            a valid payment method is required and you will be charged when the trial ends unless you cancel before then. Fees are non-refundable
+            except as required by law.
           </p>
         </section>
 

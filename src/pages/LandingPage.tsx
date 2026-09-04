@@ -70,12 +70,10 @@ export default function LandingPage() {
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
             <span className="text-primary-600 dark:text-primary-400">FeedVine</span>
             <br />
-            The RSS Reader That Does More
+            A Modern RSS Reader Built for Power Users
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
-            {featureFlags.teams
-              ? "AI summaries, newsletter auto-drafts to Beehiiv & MailerLite, Slack & Discord bots, team workspaces, public API, and a feed marketplace — all in one modern RSS reader."
-              : "AI summaries, newsletter auto-drafts to Beehiiv & MailerLite, public API, and a feed marketplace — all in one modern RSS reader."}
+            Aggregate every feed in one timeline, organize with categories and collections, and migrate from Feedly or Inoreader in minutes with OPML import — keyboard shortcuts included.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -136,11 +134,11 @@ export default function LandingPage() {
       <div id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">Everything You Need to Own Your Content</h2>
         <p className="text-center text-gray-600 dark:text-gray-400 mb-16 max-w-2xl mx-auto">
-          From casual reading to powering your team's newsletter workflow — FeedVine scales with you.
+          Everything you need to read smarter — from a free starter plan to unlimited feeds on paid tiers.
         </p>
 
         {featureSections
-          .filter(section => section.title !== "Team & Enterprise" || featureFlags.teams)
+          .filter(section => !("hiddenUnlessTeams" in section && section.hiddenUnlessTeams) || featureFlags.teams)
           .map((section, sIndex) => (
           <div key={sIndex} className="mb-16 last:mb-0">
             <div className="flex items-center gap-3 mb-2">
@@ -303,9 +301,7 @@ export default function LandingPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
         <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">Ready to Take Control of Your Content?</h2>
         <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-          {featureFlags.teams
-            ? "Start for free — upgrade when you need AI, digests, or team features"
-            : "Start for free — upgrade when you need AI, digests, and automation"}
+          Start for free — upgrade when you need more feeds, saved articles, and collections.
         </p>
         <Link
           to="/auth"
@@ -394,11 +390,11 @@ const featureSections = [
     tier: "Included in every plan, even Free",
     features: [
       { icon: "✓", title: "Read / Unread Tracking", description: "Articles auto-mark as read. Easily filter to see only what's new." },
-      { icon: "🔍", title: "Search & Filters", description: "Full-text search, date range, source, and unread-only filters." },
+      { icon: "🔍", title: "Search & Filters", description: "Search by keyword, filter by source, date range, or unread-only." },
       { icon: "📱", title: "Installable PWA", description: "Add FeedVine to your home screen on any device — works offline too." },
-      { icon: "📊", title: "Usage Analytics", description: "Personal reading stats, streak tracking, and feed health dashboard." },
       { icon: "🕐", title: "Reading Time Estimates", description: "See how long each article will take before you dive in." },
-      { icon: "🎓", title: "Guided Onboarding", description: "A step-by-step wizard to add your first feeds and create a collection." },
+      { icon: "🎓", title: "Guided Onboarding", description: "A step-by-step wizard to add your first feeds in under a minute." },
+      { icon: "🌙", title: "Dark Mode", description: "Beautiful light and dark themes that are easy on the eyes." },
     ],
   },
   {
@@ -407,38 +403,29 @@ const featureSections = [
     tier: "Starter plan and above",
     features: [
       { icon: "💾", title: "Save for Later", description: "Bookmark articles and find them instantly from your Saved page." },
-      { icon: "📂", title: "Collections & Marketplace", description: "Curate public collections and discover feeds shared by others." },
+      { icon: "📂", title: "Feed Collections", description: "Bundle feeds into shareable collections with a public RSS URL." },
       { icon: "⌨️", title: "Keyboard Shortcuts", description: "Navigate with j/k, mark read with m, save with s — power-user speed." },
-      { icon: "📤", title: "OPML Import & Export", description: "Bring your feeds from any reader, or export them to back up." },
+      { icon: "📤", title: "OPML Import & Export", description: "Bring your feeds from Feedly, Inoreader, or any reader — or export to back up." },
+      { icon: "🔗", title: "RSS Export", description: "Download your aggregated feed as RSS for Zapier, IFTTT, or other tools." },
+      { icon: "🏷️", title: "Categories", description: "Group feeds by topic with color-coded categories in the sidebar." },
     ],
   },
   {
-    icon: "🤖",
-    title: "AI & Automation",
+    icon: "🚀",
+    title: "Power User",
     tier: "Creator plan and above",
     features: [
-      { icon: "🧠", title: "AI Article Summaries", description: "One-click summaries powered by AI so you can scan faster." },
-      { icon: "📰", title: "Newsletter Digest Export", description: "Auto-draft digests to Beehiiv or MailerLite in one click." },
-      { icon: "⏰", title: "Scheduled Auto-Digests", description: "Set hourly, daily, or weekly schedules and digests draft themselves." },
-      { icon: "📜", title: "Digest History", description: "Every digest you send or copy is saved — re-copy or review any time." },
-      { icon: "🔕", title: "Quiet Hours", description: "Pause digest delivery overnight or on weekends, per your timezone." },
-      { icon: "🔗", title: "Webhooks & Zapier", description: "Push new articles to Zapier, Make, or any HTTP endpoint." },
-    ],
-  },
-  {
-    icon: "🛠️",
-    title: "Developer & Power User",
-    tier: "Builder plan and above",
-    features: [
-      { icon: "🔌", title: "Public REST API", description: "Programmatic access to feeds, articles, and collections." },
-      { icon: "♾️", title: "Unlimited Everything", description: "No caps on feeds, categories, collections, webhooks, or AI summaries." },
-      { icon: "🎯", title: "Priority Email Support", description: "Faster response times — your tickets go to the front of the queue." },
+      { icon: "📰", title: "More Feeds & Collections", description: "Follow up to 100 feeds and organize them into multiple collections." },
+      { icon: "🎯", title: "Advanced Filters", description: "Keyword include/exclude rules to surface exactly what matters." },
+      { icon: "📄", title: "Full-Text Fetch", description: "Read complete articles when feeds only publish summaries." },
+      { icon: "🔍", title: "Article Search", description: "Search across your entire library — titles, descriptions, and sources." },
     ],
   },
   {
     icon: "👥",
     title: "Team & Enterprise",
     tier: "Team plans only",
+    hiddenUnlessTeams: true,
     features: [
       { icon: "🏢", title: "Team Workspaces", description: "Invite members, assign admin or member roles, manage from one dashboard." },
       { icon: "📁", title: "Shared Team Collections", description: "Collaborate on curated feed collections across your organization." },
@@ -446,5 +433,5 @@ const featureSections = [
       { icon: "🎮", title: "Discord Bot", description: "Same real-time delivery to Discord servers with /feedvine commands." },
     ],
   },
-]
+] as const
 

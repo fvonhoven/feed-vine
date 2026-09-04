@@ -25,24 +25,16 @@ function readingTime(content: string | null | undefined, description: string | n
 }
 
 export default function PublicArticleCard({ article }: { article: PublicArticleCardItem }) {
-  const excerptSource =
-    article.content && article.content.length > 200 ? article.content : article.description
+  const excerptSource = article.content && article.content.length > 200 ? article.content : article.description
 
   return (
     <article className="bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow p-5 border border-gray-200 dark:border-gray-700">
       <div className="flex flex-col gap-2">
-        <a
-          href={isSafeUrl(article.url) ? article.url : "#"}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group block"
-        >
+        <a href={isSafeUrl(article.url) ? article.url : "#"} target="_blank" rel="noopener noreferrer" className="group block">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
             {article.title}
           </h2>
-          {excerptSource && (
-            <p className="text-gray-600 dark:text-gray-400 text-sm mt-2 line-clamp-3">{stripHtml(excerptSource)}</p>
-          )}
+          {excerptSource && <p className="text-gray-600 dark:text-gray-400 text-sm mt-2 line-clamp-3">{stripHtml(excerptSource)}</p>}
         </a>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-500">

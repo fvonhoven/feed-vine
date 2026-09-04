@@ -3,7 +3,7 @@ export default function PrivacyPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">Privacy Policy</h1>
       <div className="prose prose-lg dark:prose-invert max-w-none">
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-8">Last Updated: January 16, 2026</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-8">Last Updated: May 24, 2026</p>
 
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">1. Introduction</h2>
@@ -24,6 +24,7 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-4 space-y-2">
             <li>Email address</li>
             <li>Password (encrypted)</li>
+            <li>Subscription plan, billing status, and trial period (if applicable)</li>
             <li>Account preferences and settings</li>
           </ul>
 
@@ -106,6 +107,18 @@ export default function PrivacyPage() {
                 Microsoft's Privacy Statement
               </a>
             </li>
+            <li>
+              <strong>Anthropic</strong> - AI article summaries on Creator and Builder plans. When you use this feature, article titles and
+              descriptions are sent to Anthropic for processing. See{" "}
+              <a
+                href="https://www.anthropic.com/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 hover:text-primary-500 underline"
+              >
+                Anthropic's Privacy Policy
+              </a>
+            </li>
           </ul>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
             These providers are bound by strict data protection agreements and only process data as necessary to provide their services.
@@ -143,7 +156,8 @@ export default function PrivacyPage() {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">6. Data Retention and Deletion</h2>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            We retain your personal information only for as long as your account is active or as needed to provide services.
+            We retain your personal information only for as long as your account is active or as needed to provide services. Your subscription
+            tier determines which features and usage limits apply; see our Terms of Service for current plan limits.
           </p>
 
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3 mt-6">6.1 Account Deletion</h3>
