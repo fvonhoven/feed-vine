@@ -45,7 +45,7 @@ These controls support an attribution-first editorial workflow; they do not dete
 3. Save a brand profile (the KlassikCocktails preset is included).
 4. Review and save a policy for each feed.
 5. Select one to ten recent articles and generate a draft.
-6. Edit the draft, open each original source, and approve it.
+6. Edit the draft, confirm the autosave status returns to **Saved automatically**, open each original source, and approve it.
 7. Confirm the newsletter and Instagram copy buttons unlock only after approval.
 8. Refresh Studio and confirm the campaign appears under **Recent drafts** and can be reopened.
 

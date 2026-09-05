@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import toast from "react-hot-toast"
@@ -153,6 +153,9 @@ export default function StudioPage() {
   const [policyDrafts, setPolicyDrafts] = useState<Record<string, PolicyDraft>>({})
   const [selectedArticleIds, setSelectedArticleIds] = useState<string[]>([])
   const [generatedDraft, setGeneratedDraft] = useState<DraftResult | null>(null)
+  const [draftDirty, setDraftDirty] = useState(false)
+  const [draftSaveError, setDraftSaveError] = useState<string | null>(null)
+  const draftRevision = useRef(0)
 
   const brandQuery = useQuery({
     queryKey: ["studio-brand", user?.id],
@@ -329,6 +332,9 @@ export default function StudioPage() {
     },
     onSuccess: draft => {
       setGeneratedDraft(draft)
+      draftRevision.current = 0
+      setDraftDirty(false)
+      setDraftSaveError(null)
       queryClient.invalidateQueries({ queryKey: ["studio-drafts", user?.id] })
       queryClient.setQueryData(["studio-usage", user?.id, new Date().toISOString().slice(0, 7)], draft.usage.count)
       toast.success("Draft generated — review before approval")
@@ -337,34 +343,45 @@ export default function StudioPage() {
   })
 
   const persistDraft = useMutation({
-    mutationFn: async (status: "draft" | "approved") => {
-      if (!generatedDraft) throw new Error("No draft to save")
+    mutationFn: async ({ draft, status }: { draft: DraftResult; status: "draft" | "approved"; silent: boolean; revision: number }) => {
       const { error: campaignError } = await supabase
         .from("studio_campaigns")
         .update({
-          newsletter_intro: generatedDraft.campaign.newsletter_intro,
-          instagram_caption: generatedDraft.campaign.instagram_caption,
+          newsletter_intro: draft.campaign.newsletter_intro,
+          instagram_caption: draft.campaign.instagram_caption,
           status,
         })
-        .eq("id", generatedDraft.campaign.id)
+        .eq("id", draft.campaign.id)
       if (campaignError) throw campaignError
 
       const results = await Promise.all(
-        generatedDraft.items.map(item =>
+        draft.items.map(item =>
           supabase.from("studio_campaign_items").update({ headline: item.headline, commentary: item.commentary }).eq("id", item.id),
         ),
       )
       const failed = results.find(result => result.error)
       if (failed?.error) throw failed.error
-      return status
+      return draft.campaign.id
     },
-    onSuccess: status => {
-      setGeneratedDraft(current => (current ? { ...current, campaign: { ...current.campaign, status } } : current))
+    onSuccess: (_campaignId, variables) => {
+      setGeneratedDraft(current =>
+        current && current.campaign.id === variables.draft.campaign.id
+          ? { ...current, campaign: { ...current.campaign, status: variables.status } }
+          : current,
+      )
+      if (variables.revision === draftRevision.current) setDraftDirty(false)
+      setDraftSaveError(null)
       queryClient.invalidateQueries({ queryKey: ["studio-drafts", user?.id] })
-      toast.success(status === "approved" ? "Draft approved and ready to copy" : "Draft changes saved")
+      if (!variables.silent) toast.success("Draft approved and ready to copy")
     },
-    onError: error => toast.error(error instanceof Error ? error.message : "Could not save draft"),
+    onError: error => {
+      const message = error instanceof Error ? error.message : "Could not save draft"
+      setDraftSaveError(message)
+      toast.error(message)
+    },
   })
+  const persistDraftMutate = persistDraft.mutate
+  const persistDraftPending = persistDraft.isPending
 
   const duplicateDraft = useMutation({
     mutationFn: async (source: SavedDraft) => {
@@ -408,6 +425,9 @@ export default function StudioPage() {
         usage: { count: usageQuery.data ?? 0, limit: getLimit("maxStudioGenerations") },
       }
       setGeneratedDraft(draft)
+      draftRevision.current = 0
+      setDraftDirty(false)
+      setDraftSaveError(null)
       setSelectedArticleIds(result.items.flatMap(item => (item.article_id ? [item.article_id] : [])))
       queryClient.invalidateQueries({ queryKey: ["studio-drafts", user?.id] })
       toast.success("Draft duplicated")
@@ -423,12 +443,25 @@ export default function StudioPage() {
       return campaignId
     },
     onSuccess: campaignId => {
-      if (generatedDraft?.campaign.id === campaignId) setGeneratedDraft(null)
+      if (generatedDraft?.campaign.id === campaignId) {
+        setGeneratedDraft(null)
+        setDraftDirty(false)
+        setDraftSaveError(null)
+      }
       queryClient.invalidateQueries({ queryKey: ["studio-drafts", user?.id] })
       toast.success("Draft deleted")
     },
     onError: error => toast.error(error instanceof Error ? error.message : "Could not delete draft"),
   })
+
+  useEffect(() => {
+    if (!draftDirty || !generatedDraft || draftSaveError || persistDraftPending) return
+    const revision = draftRevision.current
+    const timer = window.setTimeout(() => {
+      persistDraftMutate({ draft: generatedDraft, status: "draft", silent: true, revision })
+    }, 900)
+    return () => window.clearTimeout(timer)
+  }, [draftDirty, draftSaveError, generatedDraft, persistDraftMutate, persistDraftPending])
 
   const policyByFeed = useMemo(
     () => new Map((sourcesQuery.data?.policies ?? []).map(policy => [policy.feed_id, policy])),
@@ -471,6 +504,9 @@ export default function StudioPage() {
       items: draft.items,
       usage: { count: usageQuery.data ?? 0, limit: getLimit("maxStudioGenerations") },
     })
+    draftRevision.current = 0
+    setDraftDirty(false)
+    setDraftSaveError(null)
     setSelectedArticleIds(draft.items.flatMap(item => (item.article_id ? [item.article_id] : [])))
     requestAnimationFrame(() => document.getElementById("studio-draft-editor")?.scrollIntoView({ behavior: "smooth", block: "start" }))
   }
@@ -634,6 +670,9 @@ export default function StudioPage() {
             onNew={() => {
               setGeneratedDraft(null)
               setSelectedArticleIds([])
+              draftRevision.current = 0
+              setDraftDirty(false)
+              setDraftSaveError(null)
             }}
             onOpen={openDraft}
             onDuplicate={draft => duplicateDraft.mutate(draft)}
@@ -718,9 +757,22 @@ export default function StudioPage() {
                 setDraft={setGeneratedDraft}
                 newsletterText={newsletterText}
                 instagramText={instagramText}
-                saving={persistDraft.isPending}
-                onSave={() => persistDraft.mutate("draft")}
-                onApprove={() => persistDraft.mutate("approved")}
+                saving={persistDraftPending}
+                dirty={draftDirty}
+                saveError={draftSaveError}
+                onDirty={() => {
+                  draftRevision.current += 1
+                  setDraftDirty(true)
+                  setDraftSaveError(null)
+                }}
+                onApprove={() =>
+                  persistDraftMutate({
+                    draft: generatedDraft,
+                    status: "approved",
+                    silent: false,
+                    revision: draftRevision.current,
+                  })
+                }
                 onCopyNewsletter={() => copyApproved(newsletterText, "Newsletter")}
                 onCopyInstagram={() => copyApproved(instagramText, "Instagram caption")}
               />
@@ -891,7 +943,9 @@ function DraftEditor({
   newsletterText,
   instagramText,
   saving,
-  onSave,
+  dirty,
+  saveError,
+  onDirty,
   onApprove,
   onCopyNewsletter,
   onCopyInstagram,
@@ -901,20 +955,27 @@ function DraftEditor({
   newsletterText: string
   instagramText: string
   saving: boolean
-  onSave: () => void
+  dirty: boolean
+  saveError: string | null
+  onDirty: () => void
   onApprove: () => void
   onCopyNewsletter: () => void
   onCopyInstagram: () => void
 }) {
   const approved = draft.campaign.status === "approved"
   const replacedCount = draft.items.filter(item => item.guardrail_status === "replaced").length
-  const updateCampaign = (patch: Partial<StudioCampaign>) => setDraft(current => (current ? { ...current, campaign: { ...current.campaign, ...patch, status: "draft" } } : current))
-  const updateItem = (itemId: string, patch: Partial<StudioCampaignItem>) =>
+  const updateCampaign = (patch: Partial<StudioCampaign>) => {
+    onDirty()
+    setDraft(current => (current ? { ...current, campaign: { ...current.campaign, ...patch, status: "draft" } } : current))
+  }
+  const updateItem = (itemId: string, patch: Partial<StudioCampaignItem>) => {
+    onDirty()
     setDraft(current =>
       current
         ? { ...current, campaign: { ...current.campaign, status: "draft" }, items: current.items.map(item => (item.id === itemId ? { ...item, ...patch } : item)) }
         : current,
     )
+  }
 
   return (
     <div>
@@ -923,6 +984,9 @@ function DraftEditor({
           <h2 className="font-semibold text-gray-900 dark:text-white">Review draft</h2>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Generation {draft.usage.limit === -1 ? `${draft.usage.count} this month` : `${draft.usage.count}/${draft.usage.limit} this month`}
+          </p>
+          <p className={`mt-1 text-xs ${saveError ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400"}`} aria-live="polite">
+            {saving ? "Saving changes…" : saveError ? "Autosave failed — edit again or approve to retry" : dirty ? "Changes waiting to save…" : "Saved automatically"}
           </p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${approved ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"}`}>
@@ -956,8 +1020,7 @@ function DraftEditor({
         <textarea rows={7} value={draft.campaign.instagram_caption} onChange={event => updateCampaign({ instagram_caption: event.target.value })} className="mt-1.5 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
       </label>
 
-      <div className="mt-5 grid grid-cols-2 gap-2">
-        <button type="button" onClick={onSave} disabled={saving} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Save draft</button>
+      <div className="mt-5 grid gap-2 sm:grid-cols-3">
         <button type="button" onClick={onApprove} disabled={saving} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">Approve</button>
         <button type="button" onClick={onCopyNewsletter} disabled={!approved} title={!approved ? "Approve first" : newsletterText} className="rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40">Copy newsletter</button>
         <button type="button" onClick={onCopyInstagram} disabled={!approved} title={!approved ? "Approve first" : instagramText} className="rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40">Copy Instagram</button>
