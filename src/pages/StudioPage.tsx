@@ -44,6 +44,10 @@ type DraftResult = {
   usage: { count: number; limit: number }
 }
 
+type SavedDraft = StudioCampaign & {
+  items: StudioCampaignItem[]
+}
+
 const EMPTY_BRAND: BrandDraft = {
   brand_name: "",
   newsletter_name: "",
@@ -141,7 +145,7 @@ function UpgradePrompt() {
 
 export default function StudioPage() {
   const { user } = useAuth()
-  const { hasFeature, isLoading: subscriptionLoading } = useSubscription()
+  const { hasFeature, getLimit, isLoading: subscriptionLoading } = useSubscription()
   const queryClient = useQueryClient()
   const canUseStudio = hasFeature("studio")
   const [step, setStep] = useState<StudioStep>("brand")
@@ -186,6 +190,50 @@ export default function StudioPage() {
         .limit(60)
       if (error) throw error
       return data as unknown as StudioArticle[]
+    },
+  })
+
+  const draftsQuery = useQuery({
+    queryKey: ["studio-drafts", user?.id],
+    enabled: !!user && canUseStudio && !isDemoMode,
+    queryFn: async () => {
+      const { data: campaigns, error: campaignsError } = await supabase
+        .from("studio_campaigns")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("updated_at", { ascending: false })
+        .limit(20)
+      if (campaignsError) throw campaignsError
+      if (!campaigns.length) return [] as SavedDraft[]
+
+      const campaignIds = campaigns.map(campaign => campaign.id)
+      const { data: items, error: itemsError } = await supabase
+        .from("studio_campaign_items")
+        .select("*")
+        .in("campaign_id", campaignIds)
+        .order("position")
+      if (itemsError) throw itemsError
+
+      return (campaigns as StudioCampaign[]).map(campaign => ({
+        ...campaign,
+        items: (items as StudioCampaignItem[]).filter(item => item.campaign_id === campaign.id),
+      }))
+    },
+  })
+
+  const usageQuery = useQuery({
+    queryKey: ["studio-usage", user?.id, new Date().toISOString().slice(0, 7)],
+    enabled: !!user && canUseStudio && !isDemoMode,
+    queryFn: async () => {
+      const month = `${new Date().toISOString().slice(0, 7)}-01`
+      const { data, error } = await supabase
+        .from("studio_generation_usage")
+        .select("count")
+        .eq("user_id", user!.id)
+        .eq("month", month)
+        .maybeSingle()
+      if (error) throw error
+      return data?.count ?? 0
     },
   })
 
@@ -281,6 +329,8 @@ export default function StudioPage() {
     },
     onSuccess: draft => {
       setGeneratedDraft(draft)
+      queryClient.invalidateQueries({ queryKey: ["studio-drafts", user?.id] })
+      queryClient.setQueryData(["studio-usage", user?.id, new Date().toISOString().slice(0, 7)], draft.usage.count)
       toast.success("Draft generated — review before approval")
     },
     onError: error => toast.error(error instanceof Error ? error.message : "Could not generate draft"),
@@ -310,9 +360,74 @@ export default function StudioPage() {
     },
     onSuccess: status => {
       setGeneratedDraft(current => (current ? { ...current, campaign: { ...current.campaign, status } } : current))
+      queryClient.invalidateQueries({ queryKey: ["studio-drafts", user?.id] })
       toast.success(status === "approved" ? "Draft approved and ready to copy" : "Draft changes saved")
     },
     onError: error => toast.error(error instanceof Error ? error.message : "Could not save draft"),
+  })
+
+  const duplicateDraft = useMutation({
+    mutationFn: async (source: SavedDraft) => {
+      if (!user) throw new Error("Sign in to duplicate a draft")
+      const { data: campaign, error: campaignError } = await supabase
+        .from("studio_campaigns")
+        .insert({
+          user_id: user.id,
+          brand_profile_id: source.brand_profile_id,
+          name: `${source.name} (copy)`,
+          status: "draft",
+          newsletter_intro: source.newsletter_intro,
+          instagram_caption: source.instagram_caption,
+        })
+        .select("*")
+        .single()
+      if (campaignError) throw campaignError
+
+      const copies = source.items.map(item => ({
+        campaign_id: campaign.id,
+        article_id: item.article_id,
+        position: item.position,
+        source_mode: item.source_mode,
+        source_title: item.source_title,
+        source_url: item.source_url,
+        attribution: item.attribution,
+        headline: item.headline,
+        commentary: item.commentary,
+        guardrail_status: item.guardrail_status,
+      }))
+      const { data: items, error: itemsError } = await supabase.from("studio_campaign_items").insert(copies).select("*").order("position")
+      if (itemsError) {
+        await supabase.from("studio_campaigns").delete().eq("id", campaign.id)
+        throw itemsError
+      }
+      return { campaign: campaign as StudioCampaign, items: items as StudioCampaignItem[] }
+    },
+    onSuccess: result => {
+      const draft = {
+        ...result,
+        usage: { count: usageQuery.data ?? 0, limit: getLimit("maxStudioGenerations") },
+      }
+      setGeneratedDraft(draft)
+      setSelectedArticleIds(result.items.flatMap(item => (item.article_id ? [item.article_id] : [])))
+      queryClient.invalidateQueries({ queryKey: ["studio-drafts", user?.id] })
+      toast.success("Draft duplicated")
+      requestAnimationFrame(() => document.getElementById("studio-draft-editor")?.scrollIntoView({ behavior: "smooth", block: "start" }))
+    },
+    onError: error => toast.error(error instanceof Error ? error.message : "Could not duplicate draft"),
+  })
+
+  const deleteDraft = useMutation({
+    mutationFn: async (campaignId: string) => {
+      const { error } = await supabase.from("studio_campaigns").delete().eq("id", campaignId)
+      if (error) throw error
+      return campaignId
+    },
+    onSuccess: campaignId => {
+      if (generatedDraft?.campaign.id === campaignId) setGeneratedDraft(null)
+      queryClient.invalidateQueries({ queryKey: ["studio-drafts", user?.id] })
+      toast.success("Draft deleted")
+    },
+    onError: error => toast.error(error instanceof Error ? error.message : "Could not delete draft"),
   })
 
   const policyByFeed = useMemo(
@@ -348,6 +463,16 @@ export default function StudioPage() {
     }
     await navigator.clipboard.writeText(value)
     toast.success(`${label} copied`)
+  }
+
+  const openDraft = (draft: SavedDraft) => {
+    setGeneratedDraft({
+      campaign: draft,
+      items: draft.items,
+      usage: { count: usageQuery.data ?? 0, limit: getLimit("maxStudioGenerations") },
+    })
+    setSelectedArticleIds(draft.items.flatMap(item => (item.article_id ? [item.article_id] : [])))
+    requestAnimationFrame(() => document.getElementById("studio-draft-editor")?.scrollIntoView({ behavior: "smooth", block: "start" }))
   }
 
   if (subscriptionLoading) return <LoadingState />
@@ -499,8 +624,26 @@ export default function StudioPage() {
           </div>
         </section>
       ) : (
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)]">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <section className="space-y-6">
+          <DraftLibrary
+            drafts={draftsQuery.data ?? []}
+            activeDraftId={generatedDraft?.campaign.id ?? null}
+            loading={draftsQuery.isLoading}
+            duplicatingId={duplicateDraft.isPending ? duplicateDraft.variables?.id ?? null : null}
+            deletingId={deleteDraft.isPending ? deleteDraft.variables ?? null : null}
+            onNew={() => {
+              setGeneratedDraft(null)
+              setSelectedArticleIds([])
+            }}
+            onOpen={openDraft}
+            onDuplicate={draft => duplicateDraft.mutate(draft)}
+            onDelete={draft => {
+              if (window.confirm(`Delete “${draft.name}”? This cannot be undone.`)) deleteDraft.mutate(draft.id)
+            }}
+          />
+
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)]">
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Choose the editorial mix</h2>
@@ -560,9 +703,9 @@ export default function StudioPage() {
               <StudioIcon />
               {generateDraft.isPending ? "Writing with guardrails…" : "Generate newsletter + Instagram draft"}
             </button>
-          </div>
+            </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div id="studio-draft-editor" className="scroll-mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             {!generatedDraft ? (
               <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300"><StudioIcon className="h-6 w-6" /></div>
@@ -582,8 +725,105 @@ export default function StudioPage() {
                 onCopyInstagram={() => copyApproved(instagramText, "Instagram caption")}
               />
             )}
+            </div>
           </div>
         </section>
+      )}
+    </div>
+  )
+}
+
+function DraftLibrary({
+  drafts,
+  activeDraftId,
+  loading,
+  duplicatingId,
+  deletingId,
+  onNew,
+  onOpen,
+  onDuplicate,
+  onDelete,
+}: {
+  drafts: SavedDraft[]
+  activeDraftId: string | null
+  loading: boolean
+  duplicatingId: string | null
+  deletingId: string | null
+  onNew: () => void
+  onOpen: (draft: SavedDraft) => void
+  onDuplicate: (draft: SavedDraft) => void
+  onDelete: (draft: SavedDraft) => void
+}) {
+  const statusStyle: Record<StudioCampaign["status"], string> = {
+    draft: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+    approved: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+    exported: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent drafts</h2>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Reopen saved work or start a fresh campaign. Showing the 20 most recently updated.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onNew}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary-300 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 dark:border-primary-700 dark:text-primary-300 dark:hover:bg-primary-950/30"
+        >
+          <span className="text-lg leading-none">+</span>
+          New draft
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map(index => <div key={index} className="h-24 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-700" />)}
+        </div>
+      ) : drafts.length === 0 ? (
+        <div className="mt-5 rounded-xl border border-dashed border-gray-300 px-5 py-7 text-center text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400">
+          No saved campaigns yet. Your first generated draft will appear here automatically.
+        </div>
+      ) : (
+        <div className="mt-5 grid max-h-80 gap-3 overflow-y-auto pr-1 md:grid-cols-2 xl:grid-cols-3">
+          {drafts.map(draft => {
+            const active = draft.id === activeDraftId
+            return (
+              <article
+                key={draft.id}
+                className={`rounded-xl border p-4 transition-colors ${
+                  active
+                    ? "border-primary-400 bg-primary-50 dark:border-primary-600 dark:bg-primary-950/20"
+                    : "border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                }`}
+              >
+                <button type="button" onClick={() => onOpen(draft)} className="block w-full text-left">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="line-clamp-2 font-medium leading-snug text-gray-900 dark:text-white">{draft.name}</h3>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${statusStyle[draft.status]}`}>{draft.status}</span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <span>{draft.items.length} article{draft.items.length === 1 ? "" : "s"}</span>
+                    <span>•</span>
+                    <span>{new Date(draft.updated_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                  </div>
+                </button>
+                <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-700">
+                  <button type="button" onClick={() => onOpen(draft)} className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
+                    {active ? "Open" : "Edit"}
+                  </button>
+                  <button type="button" onClick={() => onDuplicate(draft)} disabled={duplicatingId === draft.id} className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 dark:text-gray-300 dark:hover:text-white">
+                    {duplicatingId === draft.id ? "Duplicating…" : "Duplicate"}
+                  </button>
+                  <button type="button" onClick={() => onDelete(draft)} disabled={deletingId === draft.id} className="ml-auto text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50 dark:text-red-400">
+                    {deletingId === draft.id ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
+              </article>
+            )
+          })}
+        </div>
       )}
     </div>
   )

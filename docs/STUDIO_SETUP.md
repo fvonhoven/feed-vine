@@ -47,4 +47,6 @@ These controls support an attribution-first editorial workflow; they do not dete
 5. Select one to ten recent articles and generate a draft.
 6. Edit the draft, open each original source, and approve it.
 7. Confirm the newsletter and Instagram copy buttons unlock only after approval.
+8. Refresh Studio and confirm the campaign appears under **Recent drafts** and can be reopened.
 
+Recent drafts are loaded from `studio_campaigns` with their `studio_campaign_items`. Users can edit, approve, duplicate, or permanently delete their own campaigns; row-level security continues to scope every operation to the signed-in user.
