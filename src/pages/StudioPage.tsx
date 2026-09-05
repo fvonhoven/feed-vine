@@ -666,7 +666,7 @@ export default function StudioPage() {
                       ? policy.use_mode
                       : "link_only"
                   return (
-                    <label key={article.id} className={`block cursor-pointer rounded-xl border p-4 transition-colors ${selected ? "border-primary-400 bg-primary-50 dark:border-primary-600 dark:bg-primary-950/20" : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"}`}>
+                    <label key={article.id} className={`block cursor-pointer rounded-xl border p-4 transition-colors ${selected ? "border-primary-400 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/40" : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"}`}>
                       <div className="flex gap-3">
                         <input
                           type="checkbox"
@@ -679,8 +679,8 @@ export default function StudioPage() {
                           className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                         />
                         <div className="min-w-0 flex-1">
-                          <h3 className="font-medium leading-snug text-gray-900 dark:text-white">{article.title}</h3>
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                          <h3 className={`font-medium leading-snug ${selected ? "text-primary-900 dark:text-gray-50" : "text-gray-900 dark:text-gray-100"}`}>{article.title}</h3>
+                          <div className={`mt-2 flex flex-wrap items-center gap-2 text-xs ${selected ? "text-primary-800 dark:text-primary-100" : "text-gray-500 dark:text-gray-400"}`}>
                             <span>{article.feed.title}</span>
                             <span>•</span>
                             <span>{new Date(article.published_at).toLocaleDateString()}</span>
@@ -755,9 +755,9 @@ function DraftLibrary({
   onDelete: (draft: SavedDraft) => void
 }) {
   const statusStyle: Record<StudioCampaign["status"], string> = {
-    draft: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-    approved: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-    exported: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+    draft: "bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
+    approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200",
+    exported: "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200",
   }
 
   return (
@@ -770,7 +770,7 @@ function DraftLibrary({
         <button
           type="button"
           onClick={onNew}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary-300 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 dark:border-primary-700 dark:text-primary-300 dark:hover:bg-primary-950/30"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary-300 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 dark:border-primary-700 dark:text-primary-200 dark:hover:bg-primary-900/30"
         >
           <span className="text-lg leading-none">+</span>
           New draft
@@ -794,29 +794,29 @@ function DraftLibrary({
                 key={draft.id}
                 className={`rounded-xl border p-4 transition-colors ${
                   active
-                    ? "border-primary-400 bg-primary-50 dark:border-primary-600 dark:bg-primary-950/20"
+                    ? "border-primary-400 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/40"
                     : "border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
                 }`}
               >
                 <button type="button" onClick={() => onOpen(draft)} className="block w-full text-left">
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className="line-clamp-2 font-medium leading-snug text-gray-900 dark:text-white">{draft.name}</h3>
+                    <h3 className={`line-clamp-2 font-medium leading-snug ${active ? "text-primary-900 dark:text-gray-50" : "text-gray-900 dark:text-gray-100"}`}>{draft.name}</h3>
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${statusStyle[draft.status]}`}>{draft.status}</span>
                   </div>
-                  <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div className={`mt-3 flex items-center gap-2 text-xs ${active ? "text-primary-800 dark:text-primary-100" : "text-gray-600 dark:text-gray-300"}`}>
                     <span>{draft.items.length} article{draft.items.length === 1 ? "" : "s"}</span>
                     <span>•</span>
                     <span>{new Date(draft.updated_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                   </div>
                 </button>
-                <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-700">
-                  <button type="button" onClick={() => onOpen(draft)} className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
+                <div className={`mt-4 flex items-center gap-3 border-t pt-3 ${active ? "border-primary-200 dark:border-primary-800" : "border-gray-200 dark:border-gray-700"}`}>
+                  <button type="button" onClick={() => onOpen(draft)} className="text-xs font-semibold text-primary-700 hover:text-primary-800 dark:text-primary-200 dark:hover:text-white">
                     {active ? "Open" : "Edit"}
                   </button>
-                  <button type="button" onClick={() => onDuplicate(draft)} disabled={duplicatingId === draft.id} className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 dark:text-gray-300 dark:hover:text-white">
+                  <button type="button" onClick={() => onDuplicate(draft)} disabled={duplicatingId === draft.id} className="text-xs font-medium text-gray-700 hover:text-gray-950 disabled:opacity-50 dark:text-gray-200 dark:hover:text-white">
                     {duplicatingId === draft.id ? "Duplicating…" : "Duplicate"}
                   </button>
-                  <button type="button" onClick={() => onDelete(draft)} disabled={deletingId === draft.id} className="ml-auto text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50 dark:text-red-400">
+                  <button type="button" onClick={() => onDelete(draft)} disabled={deletingId === draft.id} className="ml-auto text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50 dark:text-red-300 dark:hover:text-red-200">
                     {deletingId === draft.id ? "Deleting…" : "Delete"}
                   </button>
                 </div>
