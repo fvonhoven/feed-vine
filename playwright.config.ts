@@ -40,6 +40,12 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: "http://localhost:3000",
+    // Team plans remain hidden in the public launch UI, but the E2E suite must
+    // exercise the implementation behind the feature flag.
+    env: {
+      ...process.env,
+      VITE_TEAMS_ENABLED: "true",
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },

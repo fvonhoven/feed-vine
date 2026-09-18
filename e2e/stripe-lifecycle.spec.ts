@@ -70,8 +70,9 @@ test.describe("Stripe Subscription Lifecycle", () => {
     await page.goto("/settings")
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible({ timeout: 10_000 })
 
-    // The settings page shows a status badge when status !== "active"
-    await expect(page.getByText("Status: trialing")).toBeVisible({ timeout: 10_000 })
+    // Verify the customer-facing status label rather than leaking Stripe's
+    // internal `trialing` value into the UI.
+    await expect(page.getByText("Free Trial", { exact: true })).toBeVisible({ timeout: 10_000 })
   })
 
   test("past_due status shows warning badge in settings", async ({ page }) => {
@@ -98,7 +99,7 @@ test.describe("Stripe Subscription Lifecycle", () => {
     await page.goto("/settings")
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible({ timeout: 10_000 })
 
-    await expect(page.getByText("Status: past_due")).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText("Past Due", { exact: true })).toBeVisible({ timeout: 10_000 })
   })
 
   test("cancellation downgrades plan to free in UI", async ({ page }) => {
@@ -130,8 +131,8 @@ test.describe("Stripe Subscription Lifecycle", () => {
       page.locator("p.text-2xl", { hasText: "Free" })
     ).toBeVisible({ timeout: 10_000 })
 
-    // Status badge should show canceled
-    await expect(page.getByText("Status: canceled")).toBeVisible({ timeout: 10_000 })
+    // Status badge should use the customer-facing cancellation label.
+    await expect(page.getByText("Canceled", { exact: true })).toBeVisible({ timeout: 10_000 })
   })
 
   test("plan upgrade reflects new plan name in settings", async ({ page }) => {
