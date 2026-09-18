@@ -120,15 +120,20 @@ ALTER TABLE public.studio_campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.studio_campaign_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.studio_generation_usage ENABLE ROW LEVEL SECURITY;
 
+-- Policies may already exist when Studio was installed manually before this
+-- migration entered version control. Drop/recreate makes history repair safe.
+DROP POLICY IF EXISTS "Users manage their own brand profiles" ON public.brand_profiles;
 CREATE POLICY "Users manage their own brand profiles"
   ON public.brand_profiles FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users view their own source policies" ON public.source_policies;
 CREATE POLICY "Users view their own source policies"
   ON public.source_policies FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users create policies for their feeds" ON public.source_policies;
 CREATE POLICY "Users create policies for their feeds"
   ON public.source_policies FOR INSERT
   WITH CHECK (
@@ -140,6 +145,7 @@ CREATE POLICY "Users create policies for their feeds"
     )
   );
 
+DROP POLICY IF EXISTS "Users update policies for their feeds" ON public.source_policies;
 CREATE POLICY "Users update policies for their feeds"
   ON public.source_policies FOR UPDATE
   USING (auth.uid() = user_id)
@@ -152,10 +158,12 @@ CREATE POLICY "Users update policies for their feeds"
     )
   );
 
+DROP POLICY IF EXISTS "Users delete their own source policies" ON public.source_policies;
 CREATE POLICY "Users delete their own source policies"
   ON public.source_policies FOR DELETE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users manage their own studio campaigns" ON public.studio_campaigns;
 CREATE POLICY "Users manage their own studio campaigns"
   ON public.studio_campaigns FOR ALL
   USING (auth.uid() = user_id)
@@ -168,6 +176,7 @@ CREATE POLICY "Users manage their own studio campaigns"
     )
   );
 
+DROP POLICY IF EXISTS "Users view items in their studio campaigns" ON public.studio_campaign_items;
 CREATE POLICY "Users view items in their studio campaigns"
   ON public.studio_campaign_items FOR SELECT
   USING (
@@ -178,6 +187,7 @@ CREATE POLICY "Users view items in their studio campaigns"
     )
   );
 
+DROP POLICY IF EXISTS "Users create items in their studio campaigns" ON public.studio_campaign_items;
 CREATE POLICY "Users create items in their studio campaigns"
   ON public.studio_campaign_items FOR INSERT
   WITH CHECK (
@@ -188,6 +198,7 @@ CREATE POLICY "Users create items in their studio campaigns"
     )
   );
 
+DROP POLICY IF EXISTS "Users update items in their studio campaigns" ON public.studio_campaign_items;
 CREATE POLICY "Users update items in their studio campaigns"
   ON public.studio_campaign_items FOR UPDATE
   USING (
@@ -198,6 +209,7 @@ CREATE POLICY "Users update items in their studio campaigns"
     )
   );
 
+DROP POLICY IF EXISTS "Users delete items in their studio campaigns" ON public.studio_campaign_items;
 CREATE POLICY "Users delete items in their studio campaigns"
   ON public.studio_campaign_items FOR DELETE
   USING (
@@ -208,6 +220,7 @@ CREATE POLICY "Users delete items in their studio campaigns"
     )
   );
 
+DROP POLICY IF EXISTS "Users view their own studio usage" ON public.studio_generation_usage;
 CREATE POLICY "Users view their own studio usage"
   ON public.studio_generation_usage FOR SELECT
   USING (auth.uid() = user_id);
