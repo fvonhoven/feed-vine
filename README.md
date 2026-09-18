@@ -1,6 +1,6 @@
-# FeedVine - A RSS Feed Aggregator - Micro-SaaS MVP
+# FeedVine - Source-to-Draft Workflow for Newsletter Creators
 
-A modern, Feedly-like RSS feed aggregator built for power users. Aggregate multiple RSS feeds, track what you've read, save articles for later, and export your feed for automation with Zapier or IFTTT.
+FeedVine helps independent newsletter creators, niche media operators, and small content teams monitor trusted sources, curate stories, generate original attributed commentary, and export approved drafts to Beehiiv or MailerLite. A modern RSS reader, collections, digests, webhooks, and API access support the publishing workflow.
 
 ## 🚀 Live Demo
 

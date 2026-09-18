@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { lazy, Suspense, useMemo } from "react"
 import { Routes, Route, Navigate } from "react-router-dom"
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client"
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister"
@@ -12,32 +12,41 @@ import {
   shouldPersistArticleRelatedQuery,
 } from "./lib/queryPersistence"
 import Layout from "./components/Layout"
-import HomePage from "./pages/HomePage"
-import SavedPage from "./pages/SavedPage"
-import DiscoverPage from "./pages/DiscoverPage"
-import FeedsPage from "./pages/FeedsPage"
-import FeedArticlesPage from "./pages/FeedArticlesPage"
-import CollectionsPage from "./pages/CollectionsPage"
-import CollectionArticlesPage from "./pages/CollectionArticlesPage"
-import MarketplacePage from "./pages/MarketplacePage"
-import ExplorePage from "./pages/ExplorePage"
-import SettingsPage from "./pages/SettingsPage"
-import ApiKeysPage from "./pages/ApiKeysPage"
-import WebhooksPage from "./pages/WebhooksPage"
-import DigestPage from "./pages/DigestPage"
-import StudioPage from "./pages/StudioPage"
-import TeamPage from "./pages/TeamPage"
-import SearchPage from "./pages/SearchPage"
-import PricingPage from "./pages/PricingPage"
-import TermsPage from "./pages/TermsPage"
-import PrivacyPage from "./pages/PrivacyPage"
-import AuthPage from "./pages/AuthPage"
-import LandingPage from "./pages/LandingPage"
-import PublicCollectionPage from "./pages/PublicCollectionPage"
-import OnboardingPage from "./pages/OnboardingPage"
-import AnalyticsPage from "./pages/AnalyticsPage"
 import InstallPrompt from "./components/InstallPrompt"
 import type { User } from "@supabase/supabase-js"
+
+const HomePage = lazy(() => import("./pages/HomePage"))
+const SavedPage = lazy(() => import("./pages/SavedPage"))
+const DiscoverPage = lazy(() => import("./pages/DiscoverPage"))
+const FeedsPage = lazy(() => import("./pages/FeedsPage"))
+const FeedArticlesPage = lazy(() => import("./pages/FeedArticlesPage"))
+const CollectionsPage = lazy(() => import("./pages/CollectionsPage"))
+const CollectionArticlesPage = lazy(() => import("./pages/CollectionArticlesPage"))
+const MarketplacePage = lazy(() => import("./pages/MarketplacePage"))
+const ExplorePage = lazy(() => import("./pages/ExplorePage"))
+const SettingsPage = lazy(() => import("./pages/SettingsPage"))
+const ApiKeysPage = lazy(() => import("./pages/ApiKeysPage"))
+const WebhooksPage = lazy(() => import("./pages/WebhooksPage"))
+const DigestPage = lazy(() => import("./pages/DigestPage"))
+const StudioPage = lazy(() => import("./pages/StudioPage"))
+const TeamPage = lazy(() => import("./pages/TeamPage"))
+const SearchPage = lazy(() => import("./pages/SearchPage"))
+const PricingPage = lazy(() => import("./pages/PricingPage"))
+const TermsPage = lazy(() => import("./pages/TermsPage"))
+const PrivacyPage = lazy(() => import("./pages/PrivacyPage"))
+const AuthPage = lazy(() => import("./pages/AuthPage"))
+const LandingPage = lazy(() => import("./pages/LandingPage"))
+const PublicCollectionPage = lazy(() => import("./pages/PublicCollectionPage"))
+const OnboardingPage = lazy(() => import("./pages/OnboardingPage"))
+const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"))
+
+function RouteFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center" role="status" aria-label="Loading page">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600" />
+    </div>
+  )
+}
 
 function AppRoutes({ user }: { user: User | null }) {
   if (!user) {
@@ -108,20 +117,25 @@ function AppRoutes({ user }: { user: User | null }) {
 
 function App() {
   const { user, loading } = useAuth()
+  const userId = user?.id ?? "anon"
 
   const queryClient = useMemo(
-    () => createAppQueryClient(),
+    () => {
+      // Touch the identity so a fresh cache is created for every signed-in user.
+      void userId
+      return createAppQueryClient()
+    },
     // New client when the signed-in user changes so in-memory cache never leaks across accounts.
-    [user?.id ?? "anon"],
+    [userId],
   )
 
   const persister = useMemo(
     () =>
       createSyncStoragePersister({
         storage: window.localStorage,
-        key: `feedvine-rq-v1-${user?.id ?? "anon"}`,
+        key: `feedvine-rq-v1-${userId}`,
       }),
-    [user?.id],
+    [userId],
   )
 
   if (loading) {
@@ -134,7 +148,7 @@ function App() {
 
   return (
     <PersistQueryClientProvider
-      key={user?.id ?? "anon"}
+      key={userId}
       client={queryClient}
       persistOptions={{
         persister,
@@ -146,7 +160,9 @@ function App() {
         },
       }}
     >
-      <AppRoutes user={user} />
+      <Suspense fallback={<RouteFallback />}>
+        <AppRoutes user={user} />
+      </Suspense>
     </PersistQueryClientProvider>
   )
 }

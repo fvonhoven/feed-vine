@@ -10,7 +10,6 @@ export function useFeedFilters() {
     queryFn: async () => {
       const { data: userData } = await supabase.auth.getUser()
       if (!userData.user) return []
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from("feed_filters")
         .select("*")
@@ -47,14 +46,12 @@ export function useFeedFilters() {
 
       if (existing) {
         if (existing.keywords.includes(trimmed)) return
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase as any)
           .from("feed_filters")
           .update({ keywords: [...existing.keywords, trimmed] })
           .eq("id", existing.id)
         if (error) throw error
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase as any).from("feed_filters").insert({
           user_id: userData.user.id,
           feed_id: feedId,
@@ -75,11 +72,9 @@ export function useFeedFilters() {
       const newKeywords = filter.keywords.filter(kw => kw !== keyword)
 
       if (newKeywords.length === 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase as any).from("feed_filters").delete().eq("id", filterId)
         if (error) throw error
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase as any)
           .from("feed_filters")
           .update({ keywords: newKeywords })
@@ -132,4 +127,3 @@ export function applyFeedFilters(articles: ArticleWithStatus[], filters: FeedFil
     return true
   })
 }
-

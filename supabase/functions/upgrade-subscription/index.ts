@@ -39,8 +39,8 @@ serve(async req => {
 
     const { newPlanId, interval } = await req.json()
 
-    if (!newPlanId) {
-      throw new Error("Missing required parameter: newPlanId")
+    if (!["pro", "plus", "premium"].includes(newPlanId) || (interval !== undefined && interval !== "monthly" && interval !== "annual")) {
+      throw new Error("Invalid plan or billing interval")
     }
 
     // Get user's subscription
@@ -53,6 +53,10 @@ serve(async req => {
 
     if (subError || !subscription) {
       throw new Error("No active subscription found")
+    }
+
+    if (!["active", "trialing"].includes(subscription.status)) {
+      throw new Error("Subscription is not eligible for a plan change")
     }
 
     if (!subscription.stripe_subscription_id) {
@@ -148,4 +152,3 @@ serve(async req => {
     })
   }
 })
-

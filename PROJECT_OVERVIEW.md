@@ -1,8 +1,8 @@
-# FeedVine - RSS Feed Aggregator & API Platform
+# FeedVine - Newsletter Research and Source-to-Draft Platform
 
 **Production URL**: https://feedvine.app
 
-A modern, full-featured RSS feed aggregator with a powerful REST API, built with React, TypeScript, Supabase, and Stripe.
+A source-monitoring and editorial workflow for independent newsletter creators, niche media operators, and small content teams, built with React, TypeScript, Supabase, Stripe, and Claude.
 
 ---
 
@@ -31,7 +31,7 @@ FeedVine is a comprehensive RSS feed management platform that allows users to:
 - Embed collections on external websites
 - Track API usage and analytics
 
-**Target Audience**: Developers, content creators, and businesses who need programmatic access to aggregated RSS content.
+**Target Audience**: Independent newsletter creators, niche media operators, and one-to-five-person content teams using Beehiiv or MailerLite. Developers and larger teams are secondary audiences for API and collaboration features.
 
 ---
 

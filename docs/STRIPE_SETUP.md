@@ -35,7 +35,7 @@ This guide will walk you through setting up Stripe payments for your RSS Aggrega
    **Builder Plan** (internal ID: `premium`):
 
    - Name: "FeedVine Builder"
-   - Description: "Unlimited feeds, categories, collections, API access (2000 req/hr), unlimited AI summaries"
+   - Description: "Unlimited feeds, categories, and collections subject to fair use; API access; 2,000 AI summaries and 200 Studio campaigns per month"
    - Create TWO prices:
      - Monthly: $24/month (recurring monthly) → Copy **Price ID**
      - Annual: $19/month ($228/year billed annually) → Copy **Price ID**
@@ -103,6 +103,8 @@ VITE_STRIPE_PRO_ANNUAL_PRICE_ID=price_your_pro_annual_price_id
 VITE_STRIPE_PLUS_ANNUAL_PRICE_ID=price_your_plus_annual_price_id
 VITE_STRIPE_PREMIUM_ANNUAL_PRICE_ID=price_your_premium_annual_price_id
 ```
+
+Keep `TEAM_PLANS_ENABLED` unset or `false` in Supabase Edge Function secrets during the focused creator launch. Set it to `true` only after the Slack, Discord, team-seat, and live team checkout flows have been manually verified.
 
 ### Backend (Supabase Edge Functions)
 

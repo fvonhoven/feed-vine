@@ -32,9 +32,19 @@ export function isValidHttpUrl(url: string): boolean {
     const u = new URL(url)
     if (!["http:", "https:"].includes(u.protocol)) return false
     const host = u.hostname.toLowerCase()
-    if (host === "localhost" || host === "127.0.0.1") return false
-    if (host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.")) return false
-    if (host === "169.254.169.254" || host.endsWith(".internal")) return false
+    if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return false
+    if (host === "::1" || host === "[::1]" || host === "0.0.0.0" || host.startsWith("127.")) return false
+    if (host.startsWith("10.") || host.startsWith("192.168.") || host.startsWith("169.254.")) return false
+    const ipv4 = host.split(".").map(Number)
+    if (ipv4.length === 4 && ipv4.every(part => Number.isInteger(part) && part >= 0 && part <= 255)) {
+      if (ipv4[0] === 172 && ipv4[1] >= 16 && ipv4[1] <= 31) return false
+      if (ipv4[0] === 100 && ipv4[1] >= 64 && ipv4[1] <= 127) return false
+      if (ipv4[0] === 0 || ipv4[0] >= 224) return false
+    }
+    if (host.includes(":")) {
+      const normalized = host.replace(/^\[|\]$/g, "")
+      if (normalized.startsWith("fc") || normalized.startsWith("fd") || normalized.startsWith("fe8") || normalized.startsWith("fe9") || normalized.startsWith("fea") || normalized.startsWith("feb")) return false
+    }
     return true
   } catch {
     return false

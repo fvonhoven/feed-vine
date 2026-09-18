@@ -26,23 +26,53 @@ async function createStripeCustomer(email: string, userId: string) {
   return await response.json()
 }
 
-async function createStripeCheckoutSession(customerId: string, priceId: string, userId: string, successUrl: string, cancelUrl: string) {
+type BillingInterval = "monthly" | "annual"
+
+const PLAN_PRICE_ENV: Record<string, Record<BillingInterval, string>> = {
+  pro: { monthly: "STRIPE_PRO_MONTHLY_PRICE_ID", annual: "STRIPE_PRO_ANNUAL_PRICE_ID" },
+  plus: { monthly: "STRIPE_PLUS_MONTHLY_PRICE_ID", annual: "STRIPE_PLUS_ANNUAL_PRICE_ID" },
+  premium: { monthly: "STRIPE_PREMIUM_MONTHLY_PRICE_ID", annual: "STRIPE_PREMIUM_ANNUAL_PRICE_ID" },
+  team: { monthly: "STRIPE_TEAM_MONTHLY_PRICE_ID", annual: "STRIPE_TEAM_ANNUAL_PRICE_ID" },
+  team_pro: { monthly: "STRIPE_TEAM_PRO_MONTHLY_PRICE_ID", annual: "STRIPE_TEAM_PRO_ANNUAL_PRICE_ID" },
+  team_business: { monthly: "STRIPE_TEAM_BUSINESS_MONTHLY_PRICE_ID", annual: "STRIPE_TEAM_BUSINESS_ANNUAL_PRICE_ID" },
+}
+
+function resolvePriceId(planId: string, interval: BillingInterval): string {
+  if (planId.startsWith("team") && Deno.env.get("TEAM_PLANS_ENABLED") !== "true") {
+    throw new Error("Team plans are not available yet")
+  }
+  const envName = PLAN_PRICE_ENV[planId]?.[interval]
+  const priceId = envName ? Deno.env.get(envName) : null
+  if (!priceId) throw new Error("Invalid plan or billing interval")
+  return priceId
+}
+
+async function createStripeCheckoutSession(
+  customerId: string,
+  priceId: string,
+  userId: string,
+  interval: BillingInterval,
+  successUrl: string,
+  cancelUrl: string,
+) {
+  const checkoutParams: Record<string, string> = {
+    customer: customerId,
+    "line_items[0][price]": priceId,
+    "line_items[0][quantity]": "1",
+    mode: "subscription",
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    "metadata[user_id]": userId,
+  }
+  if (interval === "annual") checkoutParams["subscription_data[trial_period_days]"] = "30"
+
   const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({
-      customer: customerId,
-      "line_items[0][price]": priceId,
-      "line_items[0][quantity]": "1",
-      mode: "subscription",
-      "subscription_data[trial_period_days]": "30",
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      "metadata[user_id]": userId,
-    }),
+    body: new URLSearchParams(checkoutParams),
   })
 
   if (!response.ok) {
@@ -101,17 +131,25 @@ serve(async req => {
     const userId = user.id
     const userEmail = user.email
 
-    const { priceId } = await req.json()
-
-    if (!priceId) {
-      throw new Error("Missing required parameter: priceId")
+    const { planId, interval } = await req.json()
+    if (typeof planId !== "string" || (interval !== "monthly" && interval !== "annual")) {
+      throw new Error("A valid plan and billing interval are required")
     }
+    const priceId = resolvePriceId(planId, interval)
 
     // Get or create Stripe customer using custom lightweight client
     const supabaseClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")
 
     // Check if user already has a Stripe customer ID
-    const { data: subscription } = await supabaseClient.from("subscriptions").select("stripe_customer_id").eq("user_id", userId).single()
+    const { data: subscription } = await supabaseClient
+      .from("subscriptions")
+      .select("stripe_customer_id,stripe_subscription_id,status")
+      .eq("user_id", userId)
+      .single()
+
+    if (subscription?.stripe_subscription_id && ["active", "trialing", "past_due"].includes(subscription.status)) {
+      throw new Error("An existing subscription must be managed through the billing portal")
+    }
 
     let customerId = subscription?.stripe_customer_id
 
@@ -136,6 +174,7 @@ serve(async req => {
       customerId,
       priceId,
       userId,
+      interval,
       `${baseUrl.replace(/\/$/, "")}/settings?success=true`,
       `${baseUrl.replace(/\/$/, "")}/pricing?canceled=true`,
     )

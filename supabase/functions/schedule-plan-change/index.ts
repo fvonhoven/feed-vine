@@ -95,10 +95,6 @@ serve(async req => {
 
     // Handle downgrade to lower paid tier
     // Get the new price ID based on current billing interval
-    const proPrices = [Deno.env.get("STRIPE_PRO_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_PRO_ANNUAL_PRICE_ID")].filter(Boolean)
-    const plusPrices = [Deno.env.get("STRIPE_PLUS_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_PLUS_ANNUAL_PRICE_ID")].filter(Boolean)
-    const premiumPrices = [Deno.env.get("STRIPE_PREMIUM_MONTHLY_PRICE_ID"), Deno.env.get("STRIPE_PREMIUM_ANNUAL_PRICE_ID")].filter(Boolean)
-
     // Get current subscription from Stripe to determine billing interval
     const currentSubResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscription.stripe_subscription_id}`, {
       headers: {
@@ -111,7 +107,6 @@ serve(async req => {
     }
 
     const currentSub = await currentSubResponse.json()
-    const currentPriceId = currentSub.items.data[0]?.price.id
     const currentInterval = currentSub.items.data[0]?.price.recurring?.interval // "month" or "year"
 
     // Determine new price ID

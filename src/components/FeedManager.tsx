@@ -783,7 +783,9 @@ export default function FeedManager() {
           try {
             const count = await fetchAndSaveArticles(feed.id, feed.url)
             totalArticles += count
-          } catch {}
+          } catch (error) {
+            console.warn("Could not fetch articles for an imported feed", error)
+          }
         }
         queryClient.invalidateQueries({ queryKey: ["articles"] })
         toast.dismiss()

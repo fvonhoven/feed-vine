@@ -241,7 +241,7 @@ serve(async req => {
         const markdownContent = articleList
           .map(a => {
             const safeUrl = isValidHttpUrl(a.url) ? a.url : "#"
-            const safeTitle = a.title.replace(/[\[\]()]/g, " ")
+            const safeTitle = a.title.replace(/[[\]()]/g, " ")
             const desc = a.description
               ? truncatePlainText(htmlToPlainText(a.description), DIGEST_HISTORY_MD_EXCERPT)
               : ""

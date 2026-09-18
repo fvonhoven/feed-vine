@@ -62,8 +62,8 @@ export default function TermsPage() {
               fetch; up to 200 AI summaries per month; newsletter export; and scheduled digests ($14/month, or $11/month billed annually at $132/year).
             </li>
             <li>
-              <strong>Builder Plan:</strong> Unlimited feeds, categories, collections, webhooks, and AI summaries; public REST API access; and priority
-              email support ($24/month, or $19/month billed annually at $228/year).
+              <strong>Builder Plan:</strong> Unlimited feeds, categories, collections, and webhooks subject to fair use; up to 2,000 AI summaries and
+              200 Studio campaigns per month; public REST API access; and priority email support ($24/month, or $19/month billed annually at $228/year).
             </li>
           </ul>
           <p className="text-gray-700 dark:text-gray-300 mb-4">

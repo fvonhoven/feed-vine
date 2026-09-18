@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { isValidHttpUrl } from "../_shared/security.ts"
+import { isCronOrServiceAuth, isValidHttpUrl } from "../_shared/security.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,6 +64,13 @@ serve(async req => {
   }
 
   try {
+    if (!isCronOrServiceAuth(req)) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      })
+    }
+
     const { url } = await req.json()
 
     if (!url || typeof url !== "string") {
@@ -80,14 +87,24 @@ serve(async req => {
       })
     }
 
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; FeedVine/1.0; +https://feedvine.app)",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      },
-      redirect: "follow",
-      signal: AbortSignal.timeout(10_000),
-    })
+    let targetUrl = url
+    let response: Response | null = null
+    for (let redirects = 0; redirects <= 3; redirects += 1) {
+      if (!isValidHttpUrl(targetUrl)) throw new Error("Unsafe redirect target")
+      response = await fetch(targetUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; FeedVine/1.0; +https://feedvine.app)",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+        redirect: "manual",
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (![301, 302, 303, 307, 308].includes(response.status)) break
+      const location = response.headers.get("location")
+      if (!location || redirects === 3) throw new Error("Too many redirects")
+      targetUrl = new URL(location, targetUrl).toString()
+    }
+    if (!response) throw new Error("Fetch failed")
 
     if (!response.ok) {
       return new Response(JSON.stringify({ success: false, error: `HTTP ${response.status}` }), {
@@ -125,4 +142,3 @@ serve(async req => {
     })
   }
 })
-

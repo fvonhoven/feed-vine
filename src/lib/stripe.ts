@@ -135,8 +135,8 @@ export const PRICING_PLANS = {
       maxCategories: -1,
       maxCollections: -1,
       maxWebhooks: -1,
-      maxAiSummaries: -1,
-      maxStudioGenerations: -1,
+      maxAiSummaries: 2000,
+      maxStudioGenerations: 200,
       readTracking: true,
       basicFilters: true,
       savedArticles: true,
@@ -170,8 +170,8 @@ export const PRICING_PLANS = {
       maxCategories: -1,
       maxCollections: -1,
       maxWebhooks: -1,
-      maxAiSummaries: -1,
-      maxStudioGenerations: -1,
+      maxAiSummaries: 5000,
+      maxStudioGenerations: 500,
       readTracking: true,
       basicFilters: true,
       savedArticles: true,
@@ -205,8 +205,8 @@ export const PRICING_PLANS = {
       maxCategories: -1,
       maxCollections: -1,
       maxWebhooks: -1,
-      maxAiSummaries: -1,
-      maxStudioGenerations: -1,
+      maxAiSummaries: 15000,
+      maxStudioGenerations: 1500,
       readTracking: true,
       basicFilters: true,
       savedArticles: true,
@@ -240,8 +240,8 @@ export const PRICING_PLANS = {
       maxCategories: -1,
       maxCollections: -1,
       maxWebhooks: -1,
-      maxAiSummaries: -1,
-      maxStudioGenerations: -1,
+      maxAiSummaries: 30000,
+      maxStudioGenerations: 3000,
       readTracking: true,
       basicFilters: true,
       savedArticles: true,
@@ -334,6 +334,7 @@ export const PLAN_DISPLAY = {
       "Everything in Starter, plus:",
       "100 feeds & 25 categories",
       "200 AI summaries / mo",
+      "30 brand-aware Studio campaigns / mo",
       "Newsletter export (Beehiiv, MailerLite)",
       "Scheduled auto-digests",
       "Digest history",
@@ -346,9 +347,10 @@ export const PLAN_DISPLAY = {
     cta: "Start Free Trial",
     highlights: [
       "Everything in Creator, plus:",
-      "Unlimited feeds, categories & collections",
-      "Unlimited AI summaries",
-      "Unlimited webhooks",
+      "Unlimited feeds, categories & collections (fair use)",
+      "2,000 AI summaries / mo",
+      "200 Studio campaigns / mo",
+      "Unlimited webhooks (fair use)",
       "Public REST API access",
       "Priority email support",
     ],
@@ -528,8 +530,7 @@ export function getPlanFeaturesArray(planId: PlanId, options?: GetPlanFeaturesAr
     featureList.push(webhookLabel)
   }
   if (features.aiSummaries) {
-    const aiLabel = features.maxAiSummaries === -1 ? "Unlimited AI summaries" : `AI summaries – ${features.maxAiSummaries}/month`
-    featureList.push(aiLabel)
+    featureList.push(`AI summaries – ${features.maxAiSummaries}/month`)
   }
   if (features.newsletterExport) {
     featureList.push("Newsletter export (Beehiiv & MailerLite)")

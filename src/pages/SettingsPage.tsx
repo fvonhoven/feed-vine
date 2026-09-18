@@ -26,6 +26,8 @@ export default function SettingsPage() {
   const [mailerLiteApiKey, setMailerLiteApiKey] = useState("")
   const [mailerLiteFromEmail, setMailerLiteFromEmail] = useState("")
   const [mailerLiteFromName, setMailerLiteFromName] = useState("")
+  const [deleteConfirmation, setDeleteConfirmation] = useState("")
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   // Debug: Log subscription data
 
@@ -227,6 +229,26 @@ export default function SettingsPage() {
     }
   }
 
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== "DELETE MY ACCOUNT") return
+    if (!confirm("Permanently delete your FeedVine account, content, integrations, and subscription? This cannot be undone.")) return
+
+    setDeletingAccount(true)
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-account", {
+        body: { confirmation: deleteConfirmation },
+      })
+      if (error) throw error
+      if (!data?.success) throw new Error(data?.error || "Account deletion failed")
+      queryClient.clear()
+      await supabase.auth.signOut({ scope: "local" })
+      window.location.assign("/")
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Could not delete account")
+      setDeletingAccount(false)
+    }
+  }
+
   const planIdUpper = currentPlanId.toUpperCase() as PlanId
   const currentPlanName = getPlanDisplayName(currentPlanId)
   const omitTeamFeaturesForSettings = !featureFlags.teams && !isTeamPlanId(currentPlanId)
@@ -248,6 +270,31 @@ export default function SettingsPage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
               <p className="mt-1 text-sm text-gray-900 dark:text-white">{user?.email}</p>
             </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 border border-red-200 dark:border-red-900">
+          <h2 className="text-lg font-medium text-red-700 dark:text-red-300 mb-2">Delete account</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            This permanently removes your feeds, campaigns, integrations, API keys, and account. Any active subscription is canceled first.
+          </p>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" htmlFor="delete-confirmation">
+            Type DELETE MY ACCOUNT to confirm
+          </label>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              id="delete-confirmation"
+              value={deleteConfirmation}
+              onChange={event => setDeleteConfirmation(event.target.value)}
+              className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+            />
+            <button
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirmation !== "DELETE MY ACCOUNT" || deletingAccount}
+              className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50"
+            >
+              {deletingAccount ? "Deleting…" : "Delete account"}
+            </button>
           </div>
         </div>
 

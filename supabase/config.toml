@@ -26,3 +26,7 @@ verify_jwt = false
 # Studio generation — manual JWT check plus explicit ownership checks.
 [functions.generate-studio-draft]
 verify_jwt = false
+
+# Destructive account action — manual JWT validation plus an exact confirmation phrase.
+[functions.delete-account]
+verify_jwt = false

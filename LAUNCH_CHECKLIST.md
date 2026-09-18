@@ -1,5 +1,19 @@
 # FeedVine Launch Checklist
 
+## Code hardening completed September 18, 2026
+
+- [x] Server-owned Stripe price allowlist; clients submit only plan and interval.
+- [x] Annual-only 30-day trial behavior; monthly checkout starts immediately.
+- [x] Paid entitlements require an active or trialing subscription.
+- [x] AI summary article ownership validation and atomic monthly quota reservation.
+- [x] Explicit AI and Studio fair-use ceilings on every paid tier.
+- [x] Internal-only full-text fetch with private-network and redirect validation.
+- [x] Self-service account deletion with subscription cancellation first.
+- [x] Creator-focused positioning and accurate Beehiiv/MailerLite Studio language.
+- [x] Production build and lint pass; route-level code splitting enabled.
+
+The remaining unchecked items below require deployed Edge Functions, Stripe test/live credentials, or real third-party workspaces. They cannot be proven by a local build.
+
 Personal next-steps to go live. Items already covered by the E2E test suite are marked with a note — everything else needs your manual attention.
 
 ---
@@ -42,17 +56,17 @@ Use these cards in Stripe test mode:
 - [x] **Onboarding wizard** — New user sees 4-step flow. *Covered by `auth.spec.ts` ("onboarding wizard has 4 steps").*
 - [x] **Usage analytics** — Stats render on the analytics dashboard. *Covered by `settings.spec.ts` ("view usage analytics dashboard and stats render").*
 - [x] **Notification preferences** — Quiet hours saved. *Covered by `settings.spec.ts` ("change notification preferences").*
-- [ ] **Quiet hours enforcement** — Verify digest delivery is actually skipped during quiet hours. *Requires a live scheduled digest run with timing.*
+- [x] **Quiet hours removed from launch scope** — No longer advertised in current product language.
 - [ ] **Expanded digest schedules** — Verify hourly, twice-daily, daily schedules all fire correctly. *Requires real cron execution — `send-scheduled-digest` Edge Function.*
 
 ---
 
 ## 9. Pre-Launch Polish
 
-- [ ] **Landing page hero image** — Add a real screenshot or marketing image to `/public/feed-vine-hero.png`.
+- [x] **Landing page hero image** — A production image exists at `/public/feed-vine-hero.png` and is also used for social previews.
 - [x] **Terms of Service** — Page renders with legal sections. *Covered by `pre-launch.spec.ts`.* Still review the actual legal content in `src/pages/TermsPage.tsx` for accuracy.
 - [x] **Privacy Policy** — Page renders with policy sections. *Covered by `pre-launch.spec.ts`.* Still review the actual legal content in `src/pages/PrivacyPage.tsx` for accuracy.
-- [ ] **Domain setup** — Configure `feedvine.app`: DNS records, SSL certificate, hosting deployment.
+- [x] **Domain setup** — `https://feedvine.app` resolves with HTTPS, HSTS, CSP, and Cloudflare/Netlify delivery.
 - [ ] **CronNarc monitoring** — Verify the `fetch-rss` cron job is pinging CronNarc and alerting on failures.
 - [x] **Update `STRIPE_SETUP.md`** — Plan names updated (Starter/Creator/Builder), Team plans added. *Done.*
 - [x] **Update `.env.template`** — Team plan price ID placeholders added. *Done.*

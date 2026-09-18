@@ -326,40 +326,52 @@ serve(async req => {
 
         // Only insert articles if this is a real feed (not a temporary URL fetch)
         if (feed.id !== "temp") {
-          // Batch categorize all articles at once (much faster!)
-          console.log(`Batch categorizing ${articles.length} articles...`)
+          // Avoid spending categorization tokens or generating database errors for
+          // entries already stored from an earlier fetch.
+          const guids = [...new Set(articles.map(article => article.guid).filter(Boolean))]
+          const { data: existingRows, error: existingError } = guids.length
+            ? await supabaseClient.from("articles").select("guid").eq("feed_id", feed.id).in("guid", guids)
+            : { data: [], error: null }
+          if (existingError) throw existingError
+          const existingGuids = new Set((existingRows ?? []).map(row => row.guid))
+          const candidateArticles = articles.filter(article => !existingGuids.has(article.guid))
+          skippedCount = articles.length - candidateArticles.length
+
+          // Batch categorize only new articles.
+          console.log(`Batch categorizing ${candidateArticles.length} new articles...`)
           let categories: string[] = []
           try {
-            categories = await batchCategorizeArticles(articles)
+            categories = await batchCategorizeArticles(candidateArticles)
             console.log(`Batch categorization complete:`, categories)
           } catch (catError) {
             console.warn(`Failed to batch categorize articles, using defaults:`, catError)
-            categories = articles.map(() => "Uncategorized")
+            categories = candidateArticles.map(() => "Uncategorized")
           }
 
-          // Insert articles one by one to handle duplicates gracefully
-          for (let i = 0; i < articles.length; i++) {
-            const article = articles[i]
+          // Conflict-ignore remains necessary when cron runs overlap after the
+          // existing-GUID query but before an insert.
+          for (let i = 0; i < candidateArticles.length; i++) {
+            const article = candidateArticles[i]
             const category = categories[i] || "Uncategorized"
 
             const language = detectArticleLanguage(article.title, article.description)
 
             // Insert article with category + detected language
-            const { error: insertError } = await supabaseClient.from("articles").insert({
-              ...article,
-              category,
-              language,
-            })
+            const { data: insertedArticle, error: insertError } = await supabaseClient
+              .from("articles")
+              .upsert(
+                { ...article, category, language },
+                { onConflict: "feed_id,guid", ignoreDuplicates: true },
+              )
+              .select("id")
+              .maybeSingle()
 
             if (insertError) {
-              if (insertError.code === "23505") {
-                // Duplicate key - this is expected for existing articles
-                skippedCount++
-              } else {
-                console.error(`Error inserting article:`, insertError.message)
-                lastError = insertError
-                errorCount++
-              }
+              console.error(`Error inserting article:`, insertError.message)
+              lastError = insertError
+              errorCount++
+            } else if (!insertedArticle) {
+              skippedCount++
             } else {
               insertedCount++
               insertedArticles.push({ ...article, category })
@@ -380,14 +392,7 @@ serve(async req => {
                   })
                   const ftData = await ftRes.json()
                   if (ftData.success && ftData.content) {
-                    // Find the newly inserted article by guid to get its id
-                    const { data: inserted } = await supabaseClient
-                      .from("articles")
-                      .select("id")
-                      .eq("feed_id", feed.id)
-                      .eq("guid", article.guid)
-                      .single()
-                    if (inserted?.id) {
+                    if (insertedArticle.id) {
                       const languageAfterFullText = detectArticleLanguage(
                         article.title,
                         article.description,
@@ -396,7 +401,7 @@ serve(async req => {
                       await supabaseClient
                         .from("articles")
                         .update({ content: ftData.content as string, language: languageAfterFullText })
-                        .eq("id", inserted.id)
+                        .eq("id", insertedArticle.id)
                       console.log(`Full-text fetched for "${article.title}" (${ftData.content.length} chars)`)
                     }
                   } else {

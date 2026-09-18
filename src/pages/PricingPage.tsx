@@ -76,14 +76,13 @@ export default function PricingPage() {
           }
         }
       } else {
-        const priceId = getPlanPriceId(planIdUpper, interval)
-        if (!priceId) {
+        if (!getPlanPriceId(planIdUpper, interval)) {
           toast.error("Price ID not configured. Please contact support.")
           return
         }
 
         const { data, error } = await supabase.functions.invoke("create-checkout-session", {
-          body: { priceId },
+          body: { planId, interval },
         })
         if (error) throw error
         if (data?.url) {
@@ -279,9 +278,9 @@ export default function PricingPage() {
                         { label: "Everything in Creator, plus:", bold: true },
                         { label: "Unlimited feeds & categories" },
                         { label: "Unlimited collections" },
-                        { label: "Unlimited AI summaries" },
-                        { label: "Unlimited Studio campaigns" },
-                        { label: "Unlimited webhooks" },
+                        { label: "AI summaries — 2,000/month" },
+                        { label: "Studio campaigns — 200/month" },
+                        { label: "Unlimited webhooks (fair use)" },
                         { label: "Public REST API access" },
                         { label: "Priority email support" },
                       ].map(({ label, bold }) => (

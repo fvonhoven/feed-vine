@@ -5,7 +5,9 @@
 
 DROP VIEW IF EXISTS marketplace_collections_view;
 
-CREATE VIEW marketplace_collections_view AS
+CREATE VIEW marketplace_collections_view
+WITH (security_invoker = true)
+AS
 SELECT
   fc.*,
   COALESCE(source_counts.feed_count, 0) AS feed_count

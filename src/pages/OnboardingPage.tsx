@@ -36,7 +36,7 @@ export default function OnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      let feedIds: string[] = []
+      const feedIds: string[] = []
 
       if (opmlFile) {
         const text = await opmlFile.text()

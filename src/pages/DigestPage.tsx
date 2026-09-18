@@ -41,7 +41,7 @@ function generateMarkdown(title: string, articles: ArticleWithFeed[], opts?: { m
   let md = `# ${title.replace(/[#*_`[\]]/g, " ")}\n\n*${date}*\n\n---\n\n`
   articles.forEach(a => {
     const safeUrl = isSafeUrl(a.url) ? a.url : "#"
-    const safeTitle = a.title.replace(/[\[\]()]/g, " ")
+    const safeTitle = a.title.replace(/[[\]()]/g, " ")
     md += `## [${safeTitle}](${safeUrl})\n\n`
     if (a.description) {
       const plain = truncatePlainText(htmlToPlainText(a.description), maxDesc)

@@ -39,7 +39,6 @@ export default function WebhooksPage() {
     queryKey: ["webhooks"],
     queryFn: async () => {
       if (isDemoMode || !hasWebhookAccess) return []
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any).from("webhooks").select("*").order("created_at", { ascending: false })
       if (error) throw error
       return data as Webhook[]
@@ -75,7 +74,6 @@ export default function WebhooksPage() {
     mutationFn: async (data: typeof formData) => {
       if (isDemoMode) throw new Error("Demo mode: Cannot create webhooks")
       if (!user?.id) throw new Error("User not authenticated")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: webhook, error } = await (supabase as any)
         .from("webhooks")
         .insert({
@@ -107,7 +105,6 @@ export default function WebhooksPage() {
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
       if (isDemoMode) throw new Error("Demo mode: Cannot update webhooks")
       if (!user?.id) throw new Error("User not authenticated")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const row: Record<string, unknown> = {
         name: data.name.trim(),
         url: data.url.trim(),
@@ -133,7 +130,6 @@ export default function WebhooksPage() {
   // Delete webhook mutation - using type assertion
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any).from("webhooks").delete().eq("id", id)
       if (error) throw error
     },
@@ -147,7 +143,6 @@ export default function WebhooksPage() {
   // Toggle webhook active state - using type assertion
   const toggleMutation = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any).from("webhooks").update({ is_active }).eq("id", id)
       if (error) throw error
     },

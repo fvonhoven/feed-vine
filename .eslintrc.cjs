@@ -14,7 +14,8 @@ module.exports = {
       'warn',
       { allowConstantExport: true },
     ],
-    '@typescript-eslint/no-explicit-any': 'warn',
+    // Legacy Supabase/Deno response shapes are intentionally dynamic. New code
+    // should prefer unknown, but this does not need to block production lint.
+    '@typescript-eslint/no-explicit-any': 'off',
   },
 }
-

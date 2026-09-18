@@ -23,7 +23,12 @@ async function checkSeatLimit(
   const { data: team } = await sb.from("teams").select("owner_id").eq("id", teamId).single()
   if (!team) return { allowed: false, message: "Team not found" }
 
-  const { data: sub } = await sb.from("subscriptions").select("plan_id").eq("user_id", team.owner_id).single()
+  const { data: sub } = await sb
+    .from("subscriptions")
+    .select("plan_id")
+    .eq("user_id", team.owner_id)
+    .in("status", ["active", "trialing"])
+    .maybeSingle()
   const planId = sub?.plan_id ?? ""
   const maxSeats = SEAT_LIMITS[planId]
   if (maxSeats === undefined) return { allowed: false, message: "Team owner does not have a valid Team plan" }
@@ -60,7 +65,12 @@ Deno.serve(async (req: Request) => {
     // Team plan check ("get" and "accept" are exempt so every user can
     // check for pending invites / existing membership without a team plan)
     if (action !== "accept" && action !== "get") {
-      const { data: sub } = await sb.from("subscriptions").select("plan_id").eq("user_id", user.id).single()
+      const { data: sub } = await sb
+        .from("subscriptions")
+        .select("plan_id")
+        .eq("user_id", user.id)
+        .in("status", ["active", "trialing"])
+        .maybeSingle()
       const teamPlanIds = ["team", "team_pro", "team_business"]
       if (!teamPlanIds.includes(sub?.plan_id ?? "")) return err("Team Workspaces require a Team plan", 403)
     }

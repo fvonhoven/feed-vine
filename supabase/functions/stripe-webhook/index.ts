@@ -58,13 +58,12 @@ function mapStripeStatusToDb(stripeStatus: string): string {
   // Our DB statuses: active, canceled, past_due, trialing
   if (stripeStatus === "canceled" || stripeStatus === "incomplete_expired") {
     return "canceled"
-  } else if (stripeStatus === "past_due" || stripeStatus === "unpaid") {
+  } else if (["past_due", "unpaid", "incomplete", "paused"].includes(stripeStatus)) {
     return "past_due"
   } else if (stripeStatus === "trialing") {
     return "trialing"
-  } else {
-    return "active" // For: active, incomplete, paused
   }
+  return "active"
 }
 
 serve(async req => {
@@ -217,7 +216,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   if (!response.ok) {
     const errorText = await response.text()
     console.error("Failed to update subscription in database:", errorText)
-  } else {
   }
 }
 
@@ -295,8 +293,6 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
   if (!response.ok) {
     const errorText = await response.text()
     console.error("Failed to create subscription in database:", errorText)
-  } else {
-    const responseData = await response.text()
   }
 }
 
@@ -362,7 +358,6 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
   if (!response.ok) {
     const errorText = await response.text()
     console.error("subscription.updated PATCH failed:", errorText)
-  } else {
   }
 }
 

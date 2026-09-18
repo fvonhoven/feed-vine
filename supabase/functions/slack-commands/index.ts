@@ -38,7 +38,6 @@ serve(async (req) => {
     }
 
     const params = new URLSearchParams(rawBody)
-    const command = params.get("command") as string
     const text = (params.get("text") || "").trim()
     const channelId = params.get("channel_id") as string
     const channelName = params.get("channel_name") as string

@@ -5,6 +5,8 @@ test.describe("Settings & Preferences", () => {
     await page.goto("/settings")
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible({ timeout: 10_000 })
     await expect(page.getByRole("heading", { name: "About" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Delete account" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Delete account" })).toBeDisabled()
   })
 
   test("view usage analytics dashboard and stats render", async ({ page }) => {
@@ -18,8 +20,6 @@ test.describe("Settings & Preferences", () => {
     // Either outcome (success or error) is a valid rendering of the page.
     const heading = page.getByRole("heading", { name: "Analytics" })
     const errorMsg = page.getByText("Failed to load analytics")
-    const spinner = page.locator(".animate-spin")
-
     // Poll until page finishes loading (heading, error, or spinner disappears)
     for (let i = 0; i < 25; i++) {
       if (await heading.isVisible().catch(() => false)) break

@@ -68,19 +68,19 @@ export default function LandingPage() {
             </svg>
           </div>
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-            <span className="text-primary-600 dark:text-primary-400">FeedVine</span>
+            Turn trusted sources into an
             <br />
-            A Modern RSS Reader Built for Power Users
+            <span className="text-primary-600 dark:text-primary-400">original newsletter draft</span>
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
-            Aggregate every feed in one timeline, organize with categories and collections, and migrate from Feedly or Inoreader in minutes with OPML import — keyboard shortcuts included.
+            Monitor your niche, curate the strongest stories, generate on-brand commentary with source links, and export drafts to Beehiiv or MailerLite.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/auth"
               className="px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl"
             >
-              Get Started Free
+              Build Your Source Library
             </Link>
             <button
               onClick={() => {
@@ -88,10 +88,10 @@ export default function LandingPage() {
               }}
               className="px-8 py-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white border-2 border-gray-200 dark:border-gray-700 rounded-lg text-lg font-semibold transition-colors"
             >
-              See All Features
+              See the Workflow
             </button>
           </div>
-          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Free forever plan available — no credit card required</p>
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Free source monitoring. Studio is included with Creator and above.</p>
         </div>
 
         {/* Screenshot/Demo */}
@@ -102,7 +102,7 @@ export default function LandingPage() {
               {/* Replace 'feed-vine-hero.png' with your actual screenshot filename */}
               <img
                 src="/feed-vine-hero.png"
-                alt="FeedVine RSS Aggregator Dashboard"
+                alt="FeedVine source monitoring and newsletter workflow"
                 className="w-full h-full object-cover object-top"
                 onError={e => {
                   // Fallback to placeholder if image doesn't exist
@@ -132,9 +132,9 @@ export default function LandingPage() {
 
       {/* Features Section */}
       <div id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">Everything You Need to Own Your Content</h2>
+        <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">From source monitoring to an approved draft</h2>
         <p className="text-center text-gray-600 dark:text-gray-400 mb-16 max-w-2xl mx-auto">
-          Everything you need to read smarter — from a free starter plan to unlimited feeds on paid tiers.
+          Built for independent newsletter creators, niche media operators, and small editorial teams.
         </p>
 
         {featureSections
@@ -169,8 +169,8 @@ export default function LandingPage() {
       {/* Pricing Section */}
       <div id="pricing" className="bg-gray-50 dark:bg-gray-800/50 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">Simple, Transparent Pricing</h2>
-          <p className="text-center text-gray-600 dark:text-gray-400 mb-4">Start free, upgrade when you need more</p>
+          <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">Pricing for a repeatable publishing workflow</h2>
+          <p className="text-center text-gray-600 dark:text-gray-400 mb-4">Start with source monitoring, then add AI-assisted drafting and publishing</p>
           <p className="text-center text-sm text-green-600 dark:text-green-400 mb-12">💰 Save up to 25% with annual billing</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
@@ -299,15 +299,15 @@ export default function LandingPage() {
 
       {/* CTA Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">Ready to Take Control of Your Content?</h2>
+        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">Ready to turn research into your next issue?</h2>
         <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-          Start for free — upgrade when you need more feeds, saved articles, and collections.
+          Build your source library for free, then use Studio when you are ready to draft and publish.
         </p>
         <Link
           to="/auth"
           className="inline-block px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl"
         >
-          Get Started Free
+              Build Your Source Library
         </Link>
       </div>
 
@@ -331,7 +331,7 @@ export default function LandingPage() {
                 </svg>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">FeedVine</h3>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Your RSS feeds, beautifully organized.</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Trusted sources in. Original, attributed drafts out.</p>
             </div>
             <div>
               <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Product</h4>
@@ -385,13 +385,26 @@ export default function LandingPage() {
 
 const featureSections = [
   {
+    icon: "✍️",
+    title: "FeedVine Studio",
+    tier: "Creator plan and above",
+    features: [
+      { icon: "🎯", title: "Brand-Aware Drafts", description: "Save your audience, voice, focus, and publication identity once, then reuse them across campaigns." },
+      { icon: "🛡️", title: "Source Guardrails", description: "Set licensed, open, link-only, or blocked policies for every source before generating copy." },
+      { icon: "🔎", title: "Review Before Export", description: "Every item retains its source link and attribution, and export stays locked until you approve the draft." },
+      { icon: "🐝", title: "Beehiiv & MailerLite", description: "Move approved newsletter drafts into the publishing tools creators already use." },
+      { icon: "📣", title: "Newsletter + Social", description: "Create an intro, original story commentary, headlines, and an Instagram caption from one selection." },
+      { icon: "🗂️", title: "Campaign Library", description: "Autosave, reopen, duplicate, revise, or delete recent campaigns without rebuilding your research." },
+    ],
+  },
+  {
     icon: "📖",
     title: "Core Reading Experience",
     tier: "Included in every plan, even Free",
     features: [
       { icon: "✓", title: "Read / Unread Tracking", description: "Articles auto-mark as read. Easily filter to see only what's new." },
       { icon: "🔍", title: "Search & Filters", description: "Search by keyword, filter by source, date range, or unread-only." },
-      { icon: "📱", title: "Installable PWA", description: "Add FeedVine to your home screen on any device — works offline too." },
+      { icon: "📱", title: "Installable PWA", description: "Add FeedVine to your home screen for quick access on desktop or mobile." },
       { icon: "🕐", title: "Reading Time Estimates", description: "See how long each article will take before you dive in." },
       { icon: "🎓", title: "Guided Onboarding", description: "A step-by-step wizard to add your first feeds in under a minute." },
       { icon: "🌙", title: "Dark Mode", description: "Beautiful light and dark themes that are easy on the eyes." },
@@ -412,7 +425,7 @@ const featureSections = [
   },
   {
     icon: "🚀",
-    title: "Power User",
+    title: "Monitor & Automate",
     tier: "Creator plan and above",
     features: [
       { icon: "📰", title: "More Feeds & Collections", description: "Follow up to 100 feeds and organize them into multiple collections." },
@@ -434,4 +447,3 @@ const featureSections = [
     ],
   },
 ] as const
-

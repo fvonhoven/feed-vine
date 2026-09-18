@@ -12,10 +12,10 @@ const PLAN_LIMITS: Record<string, number> = {
   free: 0,
   pro: 0, // Starter
   plus: 200, // Creator
-  premium: -1, // Builder — unlimited
-  team: -1,
-  team_pro: -1,
-  team_business: -1,
+  premium: 2000, // Builder — generous fair-use ceiling
+  team: 5000,
+  team_pro: 15000,
+  team_business: 30000,
 }
 
 async function summarizeWithClaude(title: string, content: string): Promise<string> {
@@ -90,7 +90,12 @@ serve(async req => {
     const supabase = createClient(supabaseUrl, serviceRoleKey)
 
     // Get user's plan
-    const { data: sub } = await supabase.from("subscriptions").select("plan_id").eq("user_id", userId).single()
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("plan_id, status")
+      .eq("user_id", userId)
+      .in("status", ["active", "trialing"])
+      .maybeSingle()
     const planId = sub?.plan_id || "free"
     const limit = PLAN_LIMITS[planId] ?? 0
 
@@ -101,18 +106,7 @@ serve(async req => {
       })
     }
 
-    // Check monthly usage (only for plans with a cap)
     const currentMonth = new Date().toISOString().slice(0, 7) // 'YYYY-MM'
-    if (limit > 0) {
-      const { data: usage } = await supabase.from("ai_summary_usage").select("count").eq("user_id", userId).eq("month", currentMonth).single()
-      const usageCount = usage?.count || 0
-      if (usageCount >= limit) {
-        return new Response(
-          JSON.stringify({ error: `Monthly AI summary limit reached (${limit}/month). Upgrade to Builder for unlimited summaries.` }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 },
-        )
-      }
-    }
 
     const { articleId } = await req.json()
     if (!articleId) {
@@ -125,8 +119,9 @@ serve(async req => {
     // Fetch the article
     const { data: article, error: articleError } = await supabase
       .from("articles")
-      .select("id, title, content, description, ai_summary")
+      .select("id, title, content, description, ai_summary, feed:feeds!inner(user_id)")
       .eq("id", articleId)
+      .eq("feed.user_id", userId)
       .single()
 
     if (articleError || !article) {
@@ -144,6 +139,19 @@ serve(async req => {
       })
     }
 
+    const { data: usageCount, error: claimError } = await supabase.rpc("claim_ai_summary", {
+      p_user_id: userId,
+      p_month: currentMonth,
+      p_limit: limit,
+    })
+    if (claimError || typeof usageCount !== "number") {
+      const limitReached = claimError?.message?.includes("AI_SUMMARY_LIMIT_REACHED")
+      return new Response(
+        JSON.stringify({ error: limitReached ? `Monthly AI summary limit reached (${limit}/month).` : "Could not reserve AI usage" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: limitReached ? 429 : 503 },
+      )
+    }
+
     const textToSummarize = article.content || article.description || article.title
     const summary = await summarizeWithClaude(article.title, textToSummarize)
 
@@ -154,20 +162,7 @@ serve(async req => {
     // Store summary in articles table
     await supabase.from("articles").update({ ai_summary: summary, ai_summary_generated_at: new Date().toISOString() }).eq("id", articleId)
 
-    // Increment usage counter: read current count then write new count
-    const { data: existingUsage } = await supabase.from("ai_summary_usage").select("count").eq("user_id", userId).eq("month", currentMonth).single()
-
-    if (existingUsage) {
-      await supabase
-        .from("ai_summary_usage")
-        .update({ count: existingUsage.count + 1, updated_at: new Date().toISOString() })
-        .eq("user_id", userId)
-        .eq("month", currentMonth)
-    } else {
-      await supabase.from("ai_summary_usage").insert({ user_id: userId, month: currentMonth, count: 1 })
-    }
-
-    return new Response(JSON.stringify({ summary, cached: false }), {
+    return new Response(JSON.stringify({ summary, cached: false, usage: { count: usageCount, limit } }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     })

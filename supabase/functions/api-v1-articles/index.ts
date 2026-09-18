@@ -158,7 +158,7 @@ serve(async req => {
 
     // PATCH /api/v1/articles/:id/read - Mark as read/unread
     else if (req.method === "PATCH" && articleId && action === "read") {
-      const { success: parseSuccess, data: body } = await parseJsonBody(req)
+      const { data: body } = await parseJsonBody(req)
       const isRead = body?.is_read !== false // Default to true
 
       // Upsert user_article record
@@ -181,7 +181,7 @@ serve(async req => {
 
     // PATCH /api/v1/articles/:id/save - Save/unsave article
     else if (req.method === "PATCH" && articleId && action === "save") {
-      const { success: parseSuccess, data: body } = await parseJsonBody(req)
+      const { data: body } = await parseJsonBody(req)
       const isSaved = body?.is_saved !== false // Default to true
 
       // Upsert user_article record

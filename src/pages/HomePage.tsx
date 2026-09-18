@@ -78,7 +78,7 @@ export default function HomePage() {
 
       if (dateRange !== "all") {
         const now = new Date()
-        let startDate = new Date()
+        const startDate = new Date()
 
         switch (dateRange) {
           case "24h":
